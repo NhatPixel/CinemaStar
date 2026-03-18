@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass-panel {
+    background: rgba(25, 16, 34, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(115, 17, 212, 0.2);
+  }
+  
+  .bg-space-gradient {
+    background: radial-gradient(circle at top right, #3b0764, transparent),
+                radial-gradient(circle at bottom left, #1e1b4b, transparent);
+  }
+}

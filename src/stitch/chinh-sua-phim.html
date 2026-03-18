@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#7311d4",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#191022",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Space Grotesk', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #302839; border-radius: 10px; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav {
+            background-color: rgba(115, 17, 212, 0.2);
+            border-left: 4px solid #7311d4;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-64 border-r border-slate-200 dark:border-primary/20 bg-white dark:bg-background-dark/50 flex flex-col fixed h-full z-50">
+<div class="p-6 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">movie</span>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tight text-primary">CinemaStar</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400">Hệ thống quản trị</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-6 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg active-nav text-primary" href="#">
+<span class="material-symbols-outlined">movie_filter</span>
+<span class="font-medium">Quản lý phim</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-medium">Người dùng</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-medium">Lịch chiếu</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-medium">Báo cáo</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-primary/20">
+<div class="flex items-center gap-3 p-2">
+<div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-primary/20 overflow-hidden" data-alt="Avatar of the administrator">
+<span class="material-symbols-outlined w-full h-full flex items-center justify-center text-slate-500 dark:text-primary/70">account_circle</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold truncate">Admin User</p>
+<p class="text-xs text-slate-500 truncate">Quản trị viên</p>
+</div>
+<button class="text-slate-400 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-xl">logout</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 ml-64 flex flex-col overflow-hidden">
+<!-- Header -->
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+<div class="max-w-5xl mx-auto">
+<div class="mb-8 flex justify-between items-end">
+<div>
+<h1 class="text-3xl font-bold mb-2">Chỉnh sửa phim</h1>
+<p class="text-slate-500">Cập nhật thông tin chi tiết cho phim <span class="text-primary font-medium">'Người Vợ Cuối Cùng'</span></p>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 rounded-lg border border-primary/30 font-medium hover:bg-primary/10 transition-colors">Hủy</button>
+<button class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">Cập nhật phim</button>
+</div>
+</div>
+<form class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Left Column: Poster Preview -->
+<div class="lg:col-span-1 space-y-6">
+<div class="bg-primary/5 border border-primary/20 rounded-xl p-6">
+<h3 class="font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">image</span>
+                                Poster hiện tại
+                            </h3>
+<div class="relative group aspect-[2/3] rounded-lg overflow-hidden border-2 border-primary/20 mb-4 bg-background-dark">
+<img class="w-full h-full object-cover" data-alt="Poster phim Người Vợ Cuối Cùng phong cách cổ điển Việt Nam" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4Uh5ciHk1fnW8WMgsrllFltTnpplTbFrb5TinQwWyt8-ml-Zes_hkjFhg4sCzzbS-eWgDWnV44-Z7GaQY5pGVOVN1KuQBLy-z2jAvRiiqlMWlZDvXZ7ui-vw4VsSflPeZGOSP-NuiYUGQDG4hx_s01MnVXAleHecXmqhbKHGflEJ-VAI5GokF15Mm4BDBSSD6X2IEmlftaGlBR-aQRXKzoR0SlTR-zQQ2Y_QInEStvqGQpNwgFBmbPiL9lRWQ0JtgpibQVHTf7I"/>
+<div class="absolute inset-0 bg-background-dark/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<button class="bg-white text-primary px-4 py-2 rounded-full font-bold text-sm" type="button">Thay đổi ảnh</button>
+</div>
+</div>
+<div class="space-y-3">
+<div>
+<label class="block text-xs font-semibold text-slate-500 mb-1">URL Poster</label>
+<input class="w-full bg-primary/10 border-none rounded-lg text-xs py-2 px-3 focus:ring-1 focus:ring-primary" type="text" value="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4Uh5ciHk1fnW8WMgsrllFltTnpplTbFrb5TinQwWyt8-ml-Zes_hkjFhg4sCzzbS-eWgDWnV44-Z7GaQY5pGVOVN1KuQBLy-z2jAvRiiqlMWlZDvXZ7ui-vw4VsSflPeZGOSP-NuiYUGQDG4hx_s01MnVXAleHecXmqhbKHGflEJ-VAI5GokF15Mm4BDBSSD6X2IEmlftaGlBR-aQRXKzoR0SlTR-zQQ2Y_QInEStvqGQpNwgFBmbPiL9lRWQ0JtgpibQVHTf7I"/>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-500 mb-1">URL Trailer</label>
+<input class="w-full bg-primary/10 border-none rounded-lg text-xs py-2 px-3 focus:ring-1 focus:ring-primary" type="text" value="https://youtube.com/watch?v=TrailerNguoiVoCuoiCung"/>
+</div>
+</div>
+</div>
+<div class="bg-primary/5 border border-primary/20 rounded-xl p-6">
+<h3 class="font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">tune</span>
+                                Trạng thái &amp; Phân loại
+                            </h3>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-semibold text-slate-500 mb-2">Trạng thái phim</label>
+<select class="w-full bg-primary/10 border-none rounded-lg text-sm py-2 px-3 focus:ring-1 focus:ring-primary">
+<option selected="">Đang chiếu</option>
+<option>Sắp chiếu</option>
+<option>Đã kết thúc</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-500 mb-2">Phân loại độ tuổi</label>
+<select class="w-full bg-primary/10 border-none rounded-lg text-sm py-2 px-3 focus:ring-1 focus:ring-primary">
+<option>P - Mọi lứa tuổi</option>
+<option>K - Dưới 13 tuổi có giám hộ</option>
+<option>T13 - Trên 13 tuổi</option>
+<option>T16 - Trên 16 tuổi</option>
+<option selected="">T18 - Trên 18 tuổi</option>
+</select>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Form Fields -->
+<div class="lg:col-span-2 space-y-6">
+<div class="bg-primary/5 border border-primary/20 rounded-xl p-8">
+<h3 class="text-xl font-bold mb-6 pb-4 border-b border-primary/10">Thông tin cơ bản</h3>
+<div class="grid grid-cols-2 gap-6">
+<div class="col-span-2">
+<label class="block text-sm font-medium mb-2">Tiêu đề phim</label>
+<input class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary text-base" type="text" value="Người Vợ Cuối Cùng"/>
+</div>
+<div>
+<label class="block text-sm font-medium mb-2">Đạo diễn</label>
+<input class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary" type="text" value="Victor Vũ"/>
+</div>
+<div>
+<label class="block text-sm font-medium mb-2">Ngày phát hành</label>
+<input class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary" type="date" value="2023-11-03"/>
+</div>
+<div class="col-span-2">
+<label class="block text-sm font-medium mb-2">Diễn viên chính</label>
+<input class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary" type="text" value="Kaity Nguyễn, Thuận Nguyễn, NSƯT Quang Thắng, NSƯT Kim Oanh"/>
+</div>
+<div>
+<label class="block text-sm font-medium mb-2">Thể loại</label>
+<input class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary" type="text" value="Tâm lý, Cổ trang"/>
+</div>
+<div>
+<label class="block text-sm font-medium mb-2">Thời lượng (phút)</label>
+<input class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary" type="number" value="132"/>
+</div>
+<div>
+<label class="block text-sm font-medium mb-2">Quốc gia</label>
+<input class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary" type="text" value="Việt Nam"/>
+</div>
+<div>
+<label class="block text-sm font-medium mb-2">Ngôn ngữ</label>
+<input class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary" type="text" value="Tiếng Việt (Phụ đề Tiếng Anh)"/>
+</div>
+<div class="col-span-2">
+<label class="block text-sm font-medium mb-2">Mô tả phim</label>
+<textarea class="w-full bg-primary/10 border-none rounded-lg py-3 px-4 focus:ring-1 focus:ring-primary resize-none" rows="6">Lấy cảm hứng từ tiểu thuyết Hồ Oán Hận của nhà văn Hồng Thái, bộ phim lấy bối cảnh Việt Nam vào thế kỷ 19. Chuyện phim xoay quanh Linh – người vợ thứ ba của một viên Quan tri huyện uy quyền. Giữa những hủ tục phong kiến khắc nghiệt, Linh vô tình gặp lại người yêu cũ của mình là Nhân, dẫn đến một chuỗi bi kịch và những lựa chọn đẫm nước mắt về tình yêu và sự tự do.</textarea>
+</div>
+</div>
+</div>
+<div class="flex justify-end gap-4 pb-12">
+<button class="px-8 py-3 rounded-lg border border-primary/30 font-bold hover:bg-primary/10 transition-colors" type="button">Hủy thay đổi</button>
+<button class="px-8 py-3 rounded-lg bg-primary text-white font-bold hover:bg-primary/90 transition-all shadow-xl shadow-primary/30 flex items-center gap-2" type="submit">
+<span class="material-symbols-outlined text-base">save</span>
+                                Cập nhật thông tin phim
+                            </button>
+</div>
+</div>
+</form>
+</div>
+</div>
+</main>
+</div>
+</body></html>

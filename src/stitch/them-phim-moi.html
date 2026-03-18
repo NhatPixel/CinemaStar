@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#7311d4",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#191022",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav {
+            background-color: rgba(115, 17, 212, 0.2);
+            border-left: 4px solid #7311d4;
+        }
+    </style>
+<title>CinemaStar - Thêm Phim Mới</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="flex min-h-screen">
+<!-- Sidebar -->
+<aside class="w-64 border-r border-slate-200 dark:border-primary/20 bg-white dark:bg-background-dark/50 flex flex-col fixed h-full z-50">
+<div class="p-6 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">movie</span>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tight text-primary">CinemaStar</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400">Hệ thống quản trị</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-6 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg active-nav text-primary" href="#">
+<span class="material-symbols-outlined">movie_filter</span>
+<span class="font-medium">Quản lý phim</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-medium">Người dùng</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-medium">Lịch chiếu</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-medium">Báo cáo</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors text-slate-600 dark:text-slate-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium">Cài đặt</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-primary/20">
+<div class="flex items-center gap-3 p-2">
+<div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-primary/20 overflow-hidden" data-alt="Avatar of the administrator">
+<span class="material-symbols-outlined w-full h-full flex items-center justify-center text-slate-500 dark:text-primary/70">account_circle</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold truncate">Admin User</p>
+<p class="text-xs text-slate-500 truncate">Quản trị viên</p>
+</div>
+<button class="text-slate-400 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-xl">logout</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 ml-64 p-8">
+<header class="flex items-center justify-between mb-8">
+<div>
+<h2 class="text-3xl font-bold tracking-tight">Thêm phim mới</h2>
+<p class="text-slate-500 dark:text-slate-400">Nhập thông tin chi tiết để cập nhật phim vào hệ thống CinemaStar.</p>
+</div>
+<div class="flex gap-4">
+<button class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors">Hủy</button>
+<button class="px-5 py-2.5 rounded-lg bg-primary text-white font-semibold hover:brightness-110 transition-all shadow-lg shadow-primary/20">Lưu phim</button>
+</div>
+</header>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+<!-- Form Section -->
+<div class="xl:col-span-2 space-y-8">
+<section class="bg-white dark:bg-background-dark/30 border border-slate-200 dark:border-primary/10 rounded-xl p-6">
+<h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">info</span> Thông tin cơ bản
+                        </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Tiêu đề phim <span class="text-red-500">*</span></label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="Nhập tiêu đề phim" type="text"/>
+<span class="text-xs text-red-500 font-medium italic">Trường này là bắt buộc</span>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Đạo diễn</label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="Tên đạo diễn" type="text"/>
+</div>
+<div class="flex flex-col gap-2 md:col-span-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Diễn viên</label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="Tên các diễn viên (phân cách bằng dấu phẩy)" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Thể loại</label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="Hành động, Phiêu lưu..." type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Quốc gia</label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="Việt Nam, Mỹ..." type="text"/>
+</div>
+</div>
+</section>
+<section class="bg-white dark:bg-background-dark/30 border border-slate-200 dark:border-primary/10 rounded-xl p-6">
+<h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">description</span> Chi tiết &amp; Mô tả
+                        </h3>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Ngày phát hành</label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" type="date"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Ngôn ngữ</label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="Phụ đề Tiếng Việt" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Thời lượng (phút)</label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="120" type="number"/>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Mô tả phim</label>
+<textarea class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all resize-none" placeholder="Nhập nội dung tóm tắt phim..." rows="4"></textarea>
+</div>
+</section>
+<section class="bg-white dark:bg-background-dark/30 border border-slate-200 dark:border-primary/10 rounded-xl p-6">
+<h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">link</span> Media &amp; Phân loại
+                        </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Phân loại độ tuổi</label>
+<select class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all appearance-none">
+<option value="P">P - Cho mọi lứa tuổi</option>
+<option value="K">K - Dưới 13 tuổi với người giám hộ</option>
+<option value="T13">T13 - Trên 13 tuổi</option>
+<option value="T16">T16 - Trên 16 tuổi</option>
+<option value="T18">T18 - Trên 18 tuổi</option>
+</select>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Trạng thái phim</label>
+<select class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all appearance-none">
+<option value="COMING_SOON">Sắp chiếu (COMING SOON)</option>
+<option selected="" value="NOW_SHOWING">Đang chiếu (NOW SHOWING)</option>
+<option value="STOP_SHOWING">Ngừng chiếu (STOP SHOWING)</option>
+</select>
+</div>
+<div class="flex flex-col gap-2 md:col-span-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">URL Trailer</label>
+<input class="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="https://youtube.com/watch?v=..." type="url"/>
+</div>
+</div>
+</section>
+</div>
+<!-- Media Preview Section -->
+<div class="space-y-8">
+<section class="bg-white dark:bg-background-dark/30 border border-slate-200 dark:border-primary/10 rounded-xl p-6 sticky top-8">
+<h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">image</span> Poster Preview
+                        </h3>
+<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">URL Poster <span class="text-red-500">*</span></label>
+<div class="flex gap-2">
+<input class="flex-1 rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all" placeholder="https://..." type="url"/>
+<button class="bg-primary/20 text-primary p-3 rounded-lg hover:bg-primary/30 transition-colors">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+</div>
+<span class="text-xs text-red-500 font-medium italic">Trường này là bắt buộc</span>
+</div>
+<div class="aspect-[2/3] w-full rounded-xl border-2 border-dashed border-slate-200 dark:border-primary/30 bg-slate-50 dark:bg-background-dark/50 flex flex-col items-center justify-center text-slate-400 overflow-hidden group relative">
+<!-- Placeholder or Image -->
+<div class="flex flex-col items-center justify-center p-8 text-center gap-3">
+<span class="material-symbols-outlined text-5xl">add_photo_alternate</span>
+<p class="text-sm">Vui lòng nhập URL hợp lệ để xem trước poster</p>
+</div>
+<!-- Example image hidden by default, shown if URL valid -->
+<img alt="Poster Preview" class="absolute inset-0 w-full h-full object-cover hidden group-hover:block transition-opacity duration-300" data-alt="Cinematic movie poster visual placeholder" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjBqlglwCE7hHHSSQi_-trgD0IjImKA2K8ARmHAk8dEIzA3a4I1KBS_00VaadE7WHeZ1t9aO6ZmgaZIV5WYiYAIjOqNSV9oD75feQu6WwiYQVM3oeFCDc9Toh5s_S4qA45jjYLBKsbYPCYAv9Y4r_3BPSbh4i5yHCQPVwRht7gX9kV2SPV5ZEcfV9iBArfo69FqzQrkLCkwBvaqXQcy1mWHhYfWs0KDoOrj7AKZ-HzzSiUTSFk-VhOxZDN5ynhRuT8dH6duSyY5v4"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
+<span class="text-white font-bold bg-primary px-4 py-2 rounded-lg">Preview Mode</span>
+</div>
+</div>
+<p class="text-xs text-slate-500 dark:text-slate-400 text-center italic">
+                                Kích thước khuyến nghị: 600x900px (Tỷ lệ 2:3)
+                            </p>
+</div>
+</section>
+</div>
+</div>
+<!-- Mobile Footer buttons (only visible on small screens) -->
+<div class="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-background-dark border-t border-slate-200 dark:border-primary/20 flex gap-4 md:hidden">
+<button class="flex-1 py-3 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-bold">Hủy</button>
+<button class="flex-1 py-3 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/20">Lưu phim</button>
+</div>
+</main>
+</div>
+</body></html>

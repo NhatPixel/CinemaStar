@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Danh sách phim - CinemaStar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#7311d4",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#191022",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .glass {
+            background: rgba(115, 17, 212, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(115, 17, 212, 0.1);
+        }
+        .movie-card:hover .buy-ticket-overlay {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<header class="sticky top-0 z-50 glass border-b border-primary/20">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex items-center justify-between h-20">
+<div class="flex items-center gap-12">
+<a class="flex items-center gap-3 text-primary" href="#">
+<span class="material-symbols-outlined text-4xl font-bold">movie_filter</span>
+<h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">CinemaStar</h1>
+</a>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="#">Phim</a>
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="#">Rạp</a>
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="#">Ưu đãi</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center bg-primary/10 rounded-full px-4 py-2 border border-primary/20">
+<span class="material-symbols-outlined text-primary text-xl">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48 placeholder:text-slate-500" placeholder="Tìm kiếm phim..." type="text"/>
+</div>
+<button class="flex items-center justify-center p-2 rounded-full hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="mb-8">
+<nav class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
+<a class="hover:text-primary" href="#">Trang chủ</a>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-primary font-medium">Danh sách phim</span>
+</nav>
+<h2 class="text-4xl font-bold tracking-tight mb-2">Danh sách phim</h2>
+<p class="text-slate-500 dark:text-slate-400">Khám phá những siêu phẩm điện ảnh mới nhất tại CinemaStar</p>
+</div>
+<section class="glass rounded-xl p-6 mb-10">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-primary">Trạng thái</label>
+<select class="w-full bg-background-light dark:bg-background-dark border-primary/20 rounded-lg text-sm focus:ring-primary focus:border-primary">
+<option>Đang chiếu</option>
+<option>Sắp chiếu</option>
+<option>Ngừng chiếu</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-primary">Quốc gia</label>
+<select class="w-full bg-background-light dark:bg-background-dark border-primary/20 rounded-lg text-sm focus:ring-primary focus:border-primary">
+<option>Tất cả</option>
+<option>Việt Nam</option>
+<option>Mỹ</option>
+<option>Hàn Quốc</option>
+<option>Nhật Bản</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-primary">Ngôn ngữ</label>
+<select class="w-full bg-background-light dark:bg-background-dark border-primary/20 rounded-lg text-sm focus:ring-primary focus:border-primary">
+<option>Tất cả</option>
+<option>Tiếng Việt</option>
+<option>Phụ đề</option>
+<option>Thuyết minh</option>
+</select>
+</div>
+<div class="flex items-end">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-2.5 rounded-lg transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">filter_list</span>
+                        Lọc kết quả
+                    </button>
+</div>
+</div>
+</section>
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+<div class="movie-card group flex flex-col gap-4">
+<div class="relative aspect-[2/3] rounded-xl overflow-hidden shadow-2xl">
+<img alt="Professional cinema clapperboard" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Epic sci-fi movie poster featuring galaxy and stars" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4Uh5ciHk1fnW8WMgsrllFltTnpplTbFrb5TinQwWyt8-ml-Zes_hkjFhg4sCzzbS-eWgDWnV44-Z7GaQY5pGVOVN1KuQBLy-z2jAvRiiqlMWlZDvXZ7ui-vw4VsSflPeZGOSP-NuiYUGQDG4hx_s01MnVXAleHecXmqhbKHGflEJ-VAI5GokF15Mm4BDBSSD6X2IEmlftaGlBR-aQRXKzoR0SlTR-zQQ2Y_QInEStvqGQpNwgFBmbPiL9lRWQ0JtgpibQVHTf7I"/>
+<div class="absolute top-3 left-3 flex flex-col gap-2">
+<span class="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded">T13</span>
+<span class="bg-primary text-white text-[10px] font-bold px-2 py-1 rounded">NOW_SHOWING</span>
+</div>
+<div class="buy-ticket-overlay absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 transition-opacity duration-300">
+<button class="bg-primary hover:scale-105 transition-transform text-white font-bold px-8 py-3 rounded-full flex items-center gap-2">
+<span class="material-symbols-outlined">confirmation_number</span>
+                            Mua vé
+                        </button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="text-xl font-bold leading-tight group-hover:text-primary transition-colors">Chiến Binh Thiên Hà</h3>
+<div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>120 phút</span>
+<span class="mx-1">•</span>
+<span>Hành động, Viễn tưởng</span>
+</div>
+</div>
+</div>
+<div class="movie-card group flex flex-col gap-4">
+<div class="relative aspect-[2/3] rounded-xl overflow-hidden shadow-2xl">
+<img alt="Professional cinema clapperboard" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Modern cinematic poster with vibrant city lights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4Uh5ciHk1fnW8WMgsrllFltTnpplTbFrb5TinQwWyt8-ml-Zes_hkjFhg4sCzzbS-eWgDWnV44-Z7GaQY5pGVOVN1KuQBLy-z2jAvRiiqlMWlZDvXZ7ui-vw4VsSflPeZGOSP-NuiYUGQDG4hx_s01MnVXAleHecXmqhbKHGflEJ-VAI5GokF15Mm4BDBSSD6X2IEmlftaGlBR-aQRXKzoR0SlTR-zQQ2Y_QInEStvqGQpNwgFBmbPiL9lRWQ0JtgpibQVHTf7I"/>
+<div class="absolute top-3 left-3 flex flex-col gap-2">
+<span class="bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded">P</span>
+<span class="bg-primary text-white text-[10px] font-bold px-2 py-1 rounded">NOW_SHOWING</span>
+</div>
+<div class="buy-ticket-overlay absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 transition-opacity duration-300">
+<button class="bg-primary hover:scale-105 transition-transform text-white font-bold px-8 py-3 rounded-full flex items-center gap-2">
+<span class="material-symbols-outlined">confirmation_number</span>
+                            Mua vé
+                        </button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="text-xl font-bold leading-tight group-hover:text-primary transition-colors">Hào Quang Rực Rỡ</h3>
+<div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>105 phút</span>
+<span class="mx-1">•</span>
+<span>Tâm lý, Âm nhạc</span>
+</div>
+</div>
+</div>
+<div class="movie-card group flex flex-col gap-4 opacity-75 grayscale hover:grayscale-0 hover:opacity-100 transition-all">
+<div class="relative aspect-[2/3] rounded-xl overflow-hidden shadow-2xl">
+<img alt="Professional cinema clapperboard" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Dark mysterious movie poster with foggy forest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4Uh5ciHk1fnW8WMgsrllFltTnpplTbFrb5TinQwWyt8-ml-Zes_hkjFhg4sCzzbS-eWgDWnV44-Z7GaQY5pGVOVN1KuQBLy-z2jAvRiiqlMWlZDvXZ7ui-vw4VsSflPeZGOSP-NuiYUGQDG4hx_s01MnVXAleHecXmqhbKHGflEJ-VAI5GokF15Mm4BDBSSD6X2IEmlftaGlBR-aQRXKzoR0SlTR-zQQ2Y_QInEStvqGQpNwgFBmbPiL9lRWQ0JtgpibQVHTf7I"/>
+<div class="absolute top-3 left-3 flex flex-col gap-2">
+<span class="bg-red-700 text-white text-[10px] font-bold px-2 py-1 rounded">T18</span>
+<span class="bg-slate-600 text-white text-[10px] font-bold px-2 py-1 rounded uppercase">Coming_Soon</span>
+</div>
+<div class="buy-ticket-overlay absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 transition-opacity duration-300">
+<button class="bg-slate-700 text-white font-bold px-8 py-3 rounded-full flex items-center gap-2 cursor-not-allowed">
+<span class="material-symbols-outlined">notifications</span>
+                            Nhắc tôi
+                        </button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="text-xl font-bold leading-tight group-hover:text-primary transition-colors">Lời Nguyền Bóng Đêm</h3>
+<div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>135 phút</span>
+<span class="mx-1">•</span>
+<span>Kinh dị, Giật gân</span>
+</div>
+</div>
+</div>
+<div class="movie-card group flex flex-col gap-4">
+<div class="relative aspect-[2/3] rounded-xl overflow-hidden shadow-2xl">
+<img alt="Professional cinema clapperboard" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Colorful animated movie poster for family audience" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4Uh5ciHk1fnW8WMgsrllFltTnpplTbFrb5TinQwWyt8-ml-Zes_hkjFhg4sCzzbS-eWgDWnV44-Z7GaQY5pGVOVN1KuQBLy-z2jAvRiiqlMWlZDvXZ7ui-vw4VsSflPeZGOSP-NuiYUGQDG4hx_s01MnVXAleHecXmqhbKHGflEJ-VAI5GokF15Mm4BDBSSD6X2IEmlftaGlBR-aQRXKzoR0SlTR-zQQ2Y_QInEStvqGQpNwgFBmbPiL9lRWQ0JtgpibQVHTf7I"/>
+<div class="absolute top-3 left-3 flex flex-col gap-2">
+<span class="bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded">P</span>
+<span class="bg-primary text-white text-[10px] font-bold px-2 py-1 rounded">NOW_SHOWING</span>
+</div>
+<div class="buy-ticket-overlay absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 transition-opacity duration-300">
+<button class="bg-primary hover:scale-105 transition-transform text-white font-bold px-8 py-3 rounded-full flex items-center gap-2">
+<span class="material-symbols-outlined">confirmation_number</span>
+                            Mua vé
+                        </button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="text-xl font-bold leading-tight group-hover:text-primary transition-colors">Gia Đình Siêu Quậy</h3>
+<div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>95 phút</span>
+<span class="mx-1">•</span>
+<span>Hoạt hình, Hài hước</span>
+</div>
+</div>
+</div>
+<div class="movie-card group flex flex-col gap-4">
+<div class="relative aspect-[2/3] rounded-xl overflow-hidden shadow-2xl">
+<img alt="Professional cinema clapperboard" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Romantic drama movie poster with soft sunset background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4Uh5ciHk1fnW8WMgsrllFltTnpplTbFrb5TinQwWyt8-ml-Zes_hkjFhg4sCzzbS-eWgDWnV44-Z7GaQY5pGVOVN1KuQBLy-z2jAvRiiqlMWlZDvXZ7ui-vw4VsSflPeZGOSP-NuiYUGQDG4hx_s01MnVXAleHecXmqhbKHGflEJ-VAI5GokF15Mm4BDBSSD6X2IEmlftaGlBR-aQRXKzoR0SlTR-zQQ2Y_QInEStvqGQpNwgFBmbPiL9lRWQ0JtgpibQVHTf7I"/>
+<div class="absolute top-3 left-3 flex flex-col gap-2">
+<span class="bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded">T16</span>
+<span class="bg-primary text-white text-[10px] font-bold px-2 py-1 rounded">NOW_SHOWING</span>
+</div>
+<div class="buy-ticket-overlay absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 transition-opacity duration-300">
+<button class="bg-primary hover:scale-105 transition-transform text-white font-bold px-8 py-3 rounded-full flex items-center gap-2">
+<span class="material-symbols-outlined">confirmation_number</span>
+                            Mua vé
+                        </button>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="text-xl font-bold leading-tight group-hover:text-primary transition-colors">Dòng Sông Kỷ Niệm</h3>
+<div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>112 phút</span>
+<span class="mx-1">•</span>
+<span>Lãng mạn, Chính kịch</span>
+</div>
+</div>
+</div>
+<div class="movie-card group flex flex-col gap-4 opacity-50">
+<div class="relative aspect-[2/3] rounded-xl overflow-hidden shadow-2xl">
+<img alt="Professional cinema clapperboard" class="w-full h-full object-cover grayscale" data-alt="Sports action movie poster showing a boxer in ring" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4Uh5ciHk1fnW8WMgsrllFltTnpplTbFrb5TinQwWyt8-ml-Zes_hkjFhg4sCzzbS-eWgDWnV44-Z7GaQY5pGVOVN1KuQBLy-z2jAvRiiqlMWlZDvXZ7ui-vw4VsSflPeZGOSP-NuiYUGQDG4hx_s01MnVXAleHecXmqhbKHGflEJ-VAI5GokF15Mm4BDBSSD6X2IEmlftaGlBR-aQRXKzoR0SlTR-zQQ2Y_QInEStvqGQpNwgFBmbPiL9lRWQ0JtgpibQVHTf7I"/>
+<div class="absolute top-3 left-3 flex flex-col gap-2">
+<span class="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded uppercase">STOP_SHOWING</span>
+</div>
+</div>
+<div class="space-y-1">
+<h3 class="text-xl font-bold leading-tight text-slate-600">Cú Đấm Thép</h3>
+<div class="flex items-center gap-2 text-sm text-slate-500">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>118 phút</span>
+<span class="mx-1">•</span>
+<span>Võ thuật, Thể thao</span>
+</div>
+</div>
+</div>
+</section>
+<div class="mt-16 flex justify-center">
+<nav class="flex items-center gap-2">
+<button class="p-2 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-10 h-10 rounded-lg bg-primary text-white font-bold">1</button>
+<button class="w-10 h-10 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">2</button>
+<button class="w-10 h-10 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">3</button>
+<span class="px-2 text-slate-500">...</span>
+<button class="w-10 h-10 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">12</button>
+<button class="p-2 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</nav>
+</div>
+</main>
+<footer class="border-t border-primary/20 bg-background-light dark:bg-[#120a1a] py-12 mt-20">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12">
+<div class="space-y-4">
+<div class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined text-3xl font-bold">movie_filter</span>
+<h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">CinemaStar</h1>
+</div>
+<p class="text-sm text-slate-500 leading-relaxed">Hệ thống rạp chiếu phim hiện đại hàng đầu với trải nghiệm âm thanh và hình ảnh sống động nhất.</p>
+</div>
+<div>
+<h4 class="font-bold text-primary mb-6 uppercase tracking-wider text-sm">Về CinemaStar</h4>
+<ul class="space-y-3 text-sm text-slate-500 dark:text-slate-400">
+<li><a class="hover:text-primary transition-colors" href="#">Giới thiệu</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Chính sách bảo mật</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Điều khoản sử dụng</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-primary mb-6 uppercase tracking-wider text-sm">Hỗ trợ</h4>
+<ul class="space-y-3 text-sm text-slate-500 dark:text-slate-400">
+<li><a class="hover:text-primary transition-colors" href="#">Câu hỏi thường gặp</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Liên hệ</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Góp ý khách hàng</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-primary mb-6 uppercase tracking-wider text-sm">Kết nối với chúng tôi</h4>
+<div class="flex gap-4">
+<a class="w-10 h-10 rounded-full glass flex items-center justify-center hover:bg-primary transition-colors text-primary hover:text-white" href="#">
+<span class="material-symbols-outlined">public</span>
+</a>
+<a class="w-10 h-10 rounded-full glass flex items-center justify-center hover:bg-primary transition-colors text-primary hover:text-white" href="#">
+<span class="material-symbols-outlined">alternate_email</span>
+</a>
+<a class="w-10 h-10 rounded-full glass flex items-center justify-center hover:bg-primary transition-colors text-primary hover:text-white" href="#">
+<span class="material-symbols-outlined">call</span>
+</a>
+</div>
+</div>
+</div>
+<div class="mt-12 pt-8 border-t border-primary/10 text-center text-xs text-slate-500">
+                © 2024 CinemaStar. All rights reserved. Design for better cinematic experience.
+            </div>
+</div>
+</footer>
+</body></html>
