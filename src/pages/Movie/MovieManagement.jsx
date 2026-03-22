@@ -1,6 +1,20 @@
-import { AdminSidebar, Button, Icon, Text, Input } from '../../components/ui'
+import { useState } from 'react'
+import { AdminSidebar, Button, Icon, Text, Input, CustomSelect } from '../../components/ui'
+
+const MANAGEMENT_STATUS_OPTIONS = [
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: 'NOW_SHOWING', label: 'Đang chiếu' },
+  { value: 'COMING_SOON', label: 'Sắp chiếu' },
+  { value: 'STOP_SHOWING', label: 'Ngừng chiếu' },
+]
 
 function MovieManagement() {
+  const [statusFilter, setStatusFilter] = useState('')
+
+  const handleStatusChange = (e) => {
+    setStatusFilter(e.target.value)
+  }
+
   return (
     <div className="bg-background-light dark:bg-background-dark min-h-screen flex text-slate-900 dark:text-slate-100">
       <AdminSidebar />
@@ -25,7 +39,7 @@ function MovieManagement() {
 
         {/* Filters */}
         <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <Input
                 name="search"
@@ -34,20 +48,14 @@ function MovieManagement() {
               />
             </div>
             <div>
-              <select className="w-full px-4 py-3 bg-slate-50 dark:bg-background-dark/50 border border-slate-200 dark:border-primary/20 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all appearance-none">
-                <option value="">Tất cả trạng thái</option>
-                <option value="NOW_SHOWING">Đang chiếu</option>
-                <option value="COMING_SOON">Sắp chiếu</option>
-                <option value="STOP_SHOWING">Ngừng chiếu</option>
-              </select>
+              <CustomSelect
+                name="statusFilter"
+                value={statusFilter}
+                onChange={handleStatusChange}
+                options={MANAGEMENT_STATUS_OPTIONS}
+                placeholder="Tất cả trạng thái"
+              />
             </div>
-            <Button
-              variant="ghost"
-              className="px-4 py-3 rounded-xl font-medium flex items-center justify-center gap-2 bg-slate-100 dark:bg-primary/10 hover:bg-slate-200 dark:hover:bg-primary/20 text-white"
-            >
-              <Icon name="filter_list" />
-              Lọc dữ liệu
-            </Button>
           </div>
         </section>
 

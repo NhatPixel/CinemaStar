@@ -1,6 +1,20 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { AdminSidebar, Button, Icon, Input, Text } from '../../components/ui'
+import { AdminSidebar, Button, Icon, Input, Text, CustomSelect } from '../../components/ui'
+
+const MOVIE_STATUS_OPTIONS_EDIT = [
+  { value: 'Đang chiếu', label: 'Đang chiếu' },
+  { value: 'Sắp chiếu', label: 'Sắp chiếu' },
+  { value: 'Đã kết thúc', label: 'Đã kết thúc' },
+]
+
+const AGE_RATING_OPTIONS_EDIT = [
+  { value: 'P', label: 'P - Mọi lứa tuổi' },
+  { value: 'K', label: 'K - Dưới 13 tuổi có giám hộ' },
+  { value: 'T13', label: 'T13 - Trên 13 tuổi' },
+  { value: 'T16', label: 'T16 - Trên 16 tuổi' },
+  { value: 'T18', label: 'T18 - Trên 18 tuổi' },
+]
 
 function MovieEdit() {
   const { id } = useParams()
@@ -122,36 +136,24 @@ function MovieEdit() {
                   </h3>
                   <div className="space-y-4 text-sm">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-2">
-                        Trạng thái phim
-                      </label>
-                      <select
+                      <CustomSelect
+                        label="Trạng thái phim"
                         name="status"
                         value={formData.status}
                         onChange={handleChange}
-                        className="w-full bg-primary/10 border-none rounded-lg py-2 px-3 focus:ring-1 focus:ring-primary"
-                      >
-                        <option>Đang chiếu</option>
-                        <option>Sắp chiếu</option>
-                        <option>Đã kết thúc</option>
-                      </select>
+                        options={MOVIE_STATUS_OPTIONS_EDIT}
+                        placeholder="Chọn trạng thái"
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-2">
-                        Phân loại độ tuổi
-                      </label>
-                      <select
+                      <CustomSelect
+                        label="Phân loại độ tuổi"
                         name="ageRating"
                         value={formData.ageRating}
                         onChange={handleChange}
-                        className="w-full bg-primary/10 border-none rounded-lg py-2 px-3 focus:ring-1 focus:ring-primary"
-                      >
-                        <option>P - Mọi lứa tuổi</option>
-                        <option>K - Dưới 13 tuổi có giám hộ</option>
-                        <option>T13 - Trên 13 tuổi</option>
-                        <option>T16 - Trên 16 tuổi</option>
-                        <option>T18 - Trên 18 tuổi</option>
-                      </select>
+                        options={AGE_RATING_OPTIONS_EDIT}
+                        placeholder="Chọn phân loại"
+                      />
                     </div>
                   </div>
                 </div>

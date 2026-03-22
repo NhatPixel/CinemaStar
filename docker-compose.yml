@@ -1,0 +1,10 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cinemastar-fe:latest
+    container_name: cinemastar-fe
+    ports:
+      - "5173:3000"
+    restart: unless-stopped

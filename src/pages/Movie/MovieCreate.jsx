@@ -1,5 +1,19 @@
 import { useState } from 'react'
-import { AdminSidebar, Button, Icon, Input, Text } from '../../components/ui'
+import { AdminSidebar, Button, Icon, Input, Text, CustomSelect } from '../../components/ui'
+
+const AGE_RATING_OPTIONS = [
+  { value: 'P', label: 'P - Cho mọi lứa tuổi' },
+  { value: 'K', label: 'K - Dưới 13 tuổi với người giám hộ' },
+  { value: 'T13', label: 'T13 - Trên 13 tuổi' },
+  { value: 'T16', label: 'T16 - Trên 16 tuổi' },
+  { value: 'T18', label: 'T18 - Trên 18 tuổi' },
+]
+
+const MOVIE_STATUS_OPTIONS = [
+  { value: 'COMING_SOON', label: 'Sắp chiếu (COMING SOON)' },
+  { value: 'NOW_SHOWING', label: 'Đang chiếu (NOW SHOWING)' },
+  { value: 'STOP_SHOWING', label: 'Ngừng chiếu (STOP SHOWING)' },
+]
 
 function MovieCreate() {
   const [formData, setFormData] = useState({
@@ -192,36 +206,24 @@ function MovieCreate() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Phân loại độ tuổi
-                    </label>
-                    <select
+                    <CustomSelect
+                      label="Phân loại độ tuổi"
                       name="ageRating"
                       value={formData.ageRating}
                       onChange={handleChange}
-                      className="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all appearance-none"
-                    >
-                      <option value="P">P - Cho mọi lứa tuổi</option>
-                      <option value="K">K - Dưới 13 tuổi với người giám hộ</option>
-                      <option value="T13">T13 - Trên 13 tuổi</option>
-                      <option value="T16">T16 - Trên 16 tuổi</option>
-                      <option value="T18">T18 - Trên 18 tuổi</option>
-                    </select>
+                      options={AGE_RATING_OPTIONS}
+                      placeholder="Chọn phân loại"
+                    />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Trạng thái phim
-                    </label>
-                    <select
+                    <CustomSelect
+                      label="Trạng thái phim"
                       name="status"
                       value={formData.status}
                       onChange={handleChange}
-                      className="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all appearance-none"
-                    >
-                      <option value="COMING_SOON">Sắp chiếu (COMING SOON)</option>
-                      <option value="NOW_SHOWING">Đang chiếu (NOW SHOWING)</option>
-                      <option value="STOP_SHOWING">Ngừng chiếu (STOP SHOWING)</option>
-                    </select>
+                      options={MOVIE_STATUS_OPTIONS}
+                      placeholder="Chọn trạng thái"
+                    />
                   </div>
                   <div className="flex flex-col gap-2 md:col-span-2">
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">

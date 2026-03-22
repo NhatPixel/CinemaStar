@@ -1,4 +1,26 @@
-import { Icon, Text, Button, MovieCard, AppHeader, AppFooter } from '../../components/ui'
+import { useState } from 'react'
+import { Icon, Text, Button, MovieCard, AppHeader, AppFooter, CustomSelect } from '../../components/ui'
+
+const LIST_STATUS_OPTIONS = [
+  { value: 'NOW_SHOWING', label: 'Đang chiếu' },
+  { value: 'COMING_SOON', label: 'Sắp chiếu' },
+  { value: 'STOP_SHOWING', label: 'Ngừng chiếu' },
+]
+
+const LIST_COUNTRY_OPTIONS = [
+  { value: 'all', label: 'Tất cả' },
+  { value: 'VN', label: 'Việt Nam' },
+  { value: 'US', label: 'Mỹ' },
+  { value: 'KR', label: 'Hàn Quốc' },
+  { value: 'JP', label: 'Nhật Bản' },
+]
+
+const LIST_LANGUAGE_OPTIONS = [
+  { value: 'all', label: 'Tất cả' },
+  { value: 'vi', label: 'Tiếng Việt' },
+  { value: 'subtitle', label: 'Phụ đề' },
+  { value: 'dub', label: 'Thuyết minh' },
+]
 
 const MOVIES = [
   {
@@ -88,6 +110,17 @@ const MOVIES = [
 ]
 
 function MovieList() {
+  const [filters, setFilters] = useState({
+    status: 'NOW_SHOWING',
+    country: 'all',
+    language: 'all',
+  })
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target
+    setFilters((prev) => ({ ...prev, [name]: value }))
+  }
+
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
       <AppHeader />
@@ -118,11 +151,13 @@ function MovieList() {
               >
                 Trạng thái
               </Text>
-              <select className="w-full bg-background-light dark:bg-background-dark border-primary/20 rounded-lg text-sm focus:ring-primary focus:border-primary">
-                <option>Đang chiếu</option>
-                <option>Sắp chiếu</option>
-                <option>Ngừng chiếu</option>
-              </select>
+              <CustomSelect
+                name="status"
+                value={filters.status}
+                onChange={handleFilterChange}
+                options={LIST_STATUS_OPTIONS}
+                placeholder="Chọn trạng thái"
+              />
             </div>
             <div className="space-y-2">
               <Text
@@ -131,13 +166,13 @@ function MovieList() {
               >
                 Quốc gia
               </Text>
-              <select className="w-full bg-background-light dark:bg-background-dark border-primary/20 rounded-lg text-sm focus:ring-primary focus:border-primary">
-                <option>Tất cả</option>
-                <option>Việt Nam</option>
-                <option>Mỹ</option>
-                <option>Hàn Quốc</option>
-                <option>Nhật Bản</option>
-              </select>
+              <CustomSelect
+                name="country"
+                value={filters.country}
+                onChange={handleFilterChange}
+                options={LIST_COUNTRY_OPTIONS}
+                placeholder="Chọn quốc gia"
+              />
             </div>
             <div className="space-y-2">
               <Text
@@ -146,12 +181,13 @@ function MovieList() {
               >
                 Ngôn ngữ
               </Text>
-              <select className="w-full bg-background-light dark:bg-background-dark border-primary/20 rounded-lg text-sm focus:ring-primary focus:border-primary">
-                <option>Tất cả</option>
-                <option>Tiếng Việt</option>
-                <option>Phụ đề</option>
-                <option>Thuyết minh</option>
-              </select>
+              <CustomSelect
+                name="language"
+                value={filters.language}
+                onChange={handleFilterChange}
+                options={LIST_LANGUAGE_OPTIONS}
+                placeholder="Chọn ngôn ngữ"
+              />
             </div>
             <div className="flex items-end">
               <Button
