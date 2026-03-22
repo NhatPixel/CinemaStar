@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Input, Button, Divider, Icon, Text } from '../../components/ui'
+import { login } from '../../api/Login/LoginApi'
 import UILink from '../../components/ui/Link'
 
 function Login() {
@@ -16,10 +17,21 @@ function Login() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Login submitted:', formData)
-    // Handle login logic here
+    try {
+      // Gọi API đăng nhập
+      const result = await login(formData.email, formData.password)
+      // Xử lý khi đăng nhập thành công (ví dụ: lưu token, chuyển trang, ...)
+      alert('Đăng nhập thành công!')
+      // console.log('Login success:', result)
+      // TODO: Lưu token vào localStorage/sessionStorage nếu cần
+      // TODO: Chuyển hướng sang trang chính hoặc dashboard
+    } catch (err) {
+      // Xử lý khi đăng nhập thất bại
+      alert(err.message || 'Đăng nhập thất bại!')
+      // console.error('Login error:', err)
+    }
   }
 
   const handleFacebookAuth = () => {
@@ -95,7 +107,7 @@ function Login() {
               />
             </div>
 
-            <Button type="submit" fullWidth>
+            <Button type="submit" fullWidth onClick={handleSubmit}>
               Đăng nhập
             </Button>
           </form>
