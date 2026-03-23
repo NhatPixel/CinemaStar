@@ -1,5 +1,6 @@
-import { callApi, buildPost } from '../client'
+import { callApiWithResponse, buildPost } from '../client'
 import { authPath } from '../paths'
+import { persistCookieHeaderFromResponse } from '../../utils/authCookieStorage'
 
 const REGISTER_URL = authPath('register')
 const STAFF_URL = authPath('staff')
@@ -24,8 +25,12 @@ export function toRegisterPayload(form) {
 
 async function postAuthRegister(url, payload) {
   const { url: u, options } = buildPost(url, payload)
-  const data = await callApi({ url: u, options })
+  const { payload: data, response } = await callApiWithResponse({
+    url: u,
+    options,
+  })
   if (data?.success) {
+    persistCookieHeaderFromResponse(response)
     return data.data
   }
   throw {

@@ -26,7 +26,7 @@ async function parseResponse(response) {
   return payload
 }
 
-export async function callApi({ url, options = {} }) {
+async function request(url, options = {}) {
   const finalUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
 
   const defaultHeaders = {
@@ -42,8 +42,18 @@ export async function callApi({ url, options = {} }) {
     ...options,
   }
 
-  const response = await fetch(finalUrl, mergedOptions)
+  return fetch(finalUrl, mergedOptions)
+}
+
+export async function callApi({ url, options = {} }) {
+  const response = await request(url, options)
   return parseResponse(response)
+}
+
+export async function callApiWithResponse({ url, options = {} }) {
+  const response = await request(url, options)
+  const payload = await parseResponse(response)
+  return { payload, response }
 }
 
 export function buildGet(url, params) {

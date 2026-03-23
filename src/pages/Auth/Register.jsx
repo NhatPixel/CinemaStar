@@ -84,8 +84,8 @@ function Register() {
       } else {
         await register(payload)
       }
-      toast.success('Đăng ký thành công! Vui lòng đăng nhập.')
-      navigate('/login')
+      toast.success('Đăng ký thành công! Vui lòng nhập mã OTP đã gửi tới email.')
+      navigate('/verify-otp')
     } catch (err) {
       toast.error(err.message || 'Đăng ký thất bại!')
     } finally {

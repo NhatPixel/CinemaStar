@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button, Icon, Input, Text, useToast } from '../../components/ui'
 import { resendOtp, verifyOtp } from '../../api/Auth/OtpApi'
 
@@ -9,20 +9,14 @@ const RESEND_INTERVAL_SEC = 60
 function VerifyOtp() {
   const toast = useToast()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const emailFromQuery = searchParams.get('email')?.trim() || ''
 
-  const [email, setEmail] = useState(emailFromQuery)
   const [digits, setDigits] = useState(() => Array(OTP_LEN).fill(''))
+  const [password, setPassword] = useState('')
   const [secondsLeft, setSecondsLeft] = useState(RESEND_INTERVAL_SEC)
   const [submitting, setSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
 
   const inputRefs = useRef([])
-
-  useEffect(() => {
-    setEmail(emailFromQuery)
-  }, [emailFromQuery])
 
   useEffect(() => {
     inputRefs.current[0]?.focus()
@@ -71,15 +65,10 @@ function VerifyOtp() {
   }
 
   const handleResend = async () => {
-    const target = email.trim()
-    if (!target) {
-      toast.error('Vui lòng nhập email.')
-      return
-    }
     if (secondsLeft > 0) return
     setResending(true)
     try {
-      await resendOtp({ email: target })
+      await resendOtp()
       toast.success('Đã gửi lại mã OTP.')
       setSecondsLeft(RESEND_INTERVAL_SEC)
     } catch (err) {
@@ -91,19 +80,18 @@ function VerifyOtp() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const target = email.trim()
-    const code = digits.join('')
-    if (!target) {
-      toast.error('Vui lòng nhập email.')
+    const otp = digits.join('')
+    if (otp.length !== OTP_LEN) {
+      toast.error(`Vui lòng nhập đủ ${OTP_LEN} số mã OTP.`)
       return
     }
-    if (code.length !== OTP_LEN) {
-      toast.error(`Vui lòng nhập đủ ${OTP_LEN} số mã OTP.`)
+    if (!password.trim()) {
+      toast.error('Vui lòng nhập mật khẩu.')
       return
     }
     setSubmitting(true)
     try {
-      await verifyOtp({ email: target, code })
+      await verifyOtp({ otp, password })
       toast.success('Xác nhận OTP thành công!')
       navigate('/login')
     } catch (err) {
@@ -147,23 +135,12 @@ function VerifyOtp() {
               Xác nhận <span className="text-[#7311d4]">OTP</span>
             </Text>
             <Text variant="small" className="mt-2 text-center text-slate-400">
-              Nhập mã {OTP_LEN} số đã gửi tới email của bạn. Có thể gửi lại mã sau mỗi{' '}
+              Nhập mã {OTP_LEN} số đã gửi tới email và mật khẩu đã đăng ký. Gửi lại mã sau mỗi{' '}
               {RESEND_INTERVAL_SEC}s.
             </Text>
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
-              icon="mail"
-              disabled={Boolean(emailFromQuery)}
-            />
-
             <div>
               <label className="text-sm font-medium text-slate-300 flex justify-center mb-2 px-1">
                 Mã OTP
@@ -188,6 +165,17 @@ function VerifyOtp() {
               </div>
             </div>
 
+            <Input
+              label="Mật khẩu"
+              name="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              icon="lock"
+              showPasswordToggle
+            />
+
             <Button type="submit" fullWidth disabled={submitting}>
               {submitting ? 'Đang xác nhận...' : 'Xác nhận'}
             </Button>
@@ -197,7 +185,7 @@ function VerifyOtp() {
             <button
               type="button"
               onClick={handleResend}
-              disabled={secondsLeft > 0 || resending || !email.trim()}
+              disabled={secondsLeft > 0 || resending}
               className="text-sm font-medium text-[#7311d4] hover:text-violet-400 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors"
             >
               {resending
