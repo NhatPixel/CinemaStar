@@ -165,7 +165,7 @@ function VerifyOtp() {
             />
 
             <div>
-              <label className="text-sm font-medium text-slate-300 block mb-2 px-1">
+              <label className="text-sm font-medium text-slate-300 flex justify-center mb-2 px-1">
                 Mã OTP
               </label>
               <div className="flex justify-center gap-2 sm:gap-3" onPaste={handleOtpPaste}>
