@@ -12,7 +12,7 @@ import {
   useToast,
 } from '../../components/ui'
 import UILink from '../../components/ui/Link'
-import { getBanks } from '../../api/bankApi'
+import { getBanks } from '../../api/Bank/bankApi'
 import {
   register,
   registerStaff,
@@ -247,15 +247,15 @@ function Register() {
                   />
                 </>
               )}
-              
+
               {/* Date of Birth */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300 block ml-1">
                   Ngày sinh
                 </label>
                 <div className="relative">
-                  <Icon 
-                    name="calendar_today" 
+                  <Icon
+                    name="calendar_today"
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl"
                   />
                   <input
@@ -264,7 +264,7 @@ function Register() {
                     value={formData.dateOfBirth}
                     onChange={handleChange}
                     className="w-full border rounded-lg py-3.5 pl-12 pr-4 text-white focus:outline-none focus:ring-2 transition-all"
-                    style={{ 
+                    style={{
                       backgroundColor: 'rgba(25, 16, 34, 0.5)',
                       borderColor: 'rgba(115, 17, 212, 0.2)'
                     }}

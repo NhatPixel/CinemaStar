@@ -35,6 +35,9 @@ async function request(url, options = {}) {
 
   const mergedOptions = {
     method: 'GET',
+    credentials: url.includes('localhost')
+      ? 'include'     // 👈 chỉ gửi cookie cho backend của bạn
+      : 'omit',       // 👈 API ngoài thì KHÔNG gửi
     headers: {
       ...defaultHeaders,
       ...(options.headers || {}),
@@ -76,6 +79,7 @@ export function buildPost(url, body) {
     options: {
       method: 'POST',
       body: JSON.stringify(body || {}),
+      credentials: 'include', // 👈 BẮT BUỘC
     },
   }
 }
