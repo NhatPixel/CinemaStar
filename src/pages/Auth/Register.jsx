@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Input,
   Button,
@@ -9,11 +9,21 @@ import {
   SelectableCard,
   CustomSelect,
   SearchableSelect,
+  useToast,
 } from '../../components/ui'
 import UILink from '../../components/ui/Link'
 import { getBanks } from '../../api/bankApi'
+import {
+  register,
+  registerStaff,
+  registerManager,
+  toRegisterPayload,
+} from '../../api/Auth/RegisterApi'
 
 function Register() {
+  const toast = useToast()
+  const navigate = useNavigate()
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     role: 'customer',
     fullName: '',
@@ -58,10 +68,29 @@ function Register() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Register submitted:', formData)
-    // Handle registration logic here
+    if (!formData.terms) {
+      toast.error('Vui lòng đồng ý điều khoản sử dụng.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const payload = toRegisterPayload(formData)
+      if (formData.role === 'manager') {
+        await registerManager(payload)
+      } else if (formData.role === 'staff') {
+        await registerStaff(payload)
+      } else {
+        await register(payload)
+      }
+      toast.success('Đăng ký thành công! Vui lòng đăng nhập.')
+      navigate('/login')
+    } catch (err) {
+      toast.error(err.message || 'Đăng ký thất bại!')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -284,8 +313,8 @@ function Register() {
             </Checkbox>
 
             {/* Submit Button */}
-            <Button type="submit" fullWidth size="lg">
-              Đăng ký ngay
+            <Button type="submit" fullWidth size="lg" disabled={submitting}>
+              {submitting ? 'Đang xử lý...' : 'Đăng ký ngay'}
             </Button>
 
             {/* Footer */}

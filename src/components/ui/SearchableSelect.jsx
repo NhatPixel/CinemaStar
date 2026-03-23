@@ -40,7 +40,6 @@ function SearchableSelect({
     onChange?.(fakeEvent)
     setOpen(false)
     setSearch('')
-    // Sau khi chọn xong thì blur input để không còn focus nữa
     if (inputRef.current) {
       inputRef.current.blur()
     }

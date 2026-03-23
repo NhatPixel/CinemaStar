@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Input, Button, Divider, Icon, Text } from '../../components/ui'
-import { login } from '../../api/Login/LoginApi'
+import { Input, Button, Divider, Icon, Text, useToast } from '../../components/ui'
+import { login } from '../../api/Auth/LoginApi'
 import UILink from '../../components/ui/Link'
 
 function Login() {
+  const toast = useToast()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -20,17 +21,10 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      // Gọi API đăng nhập
-      const result = await login(formData.email, formData.password)
-      // Xử lý khi đăng nhập thành công (ví dụ: lưu token, chuyển trang, ...)
-      alert('Đăng nhập thành công!')
-      // console.log('Login success:', result)
-      // TODO: Lưu token vào localStorage/sessionStorage nếu cần
-      // TODO: Chuyển hướng sang trang chính hoặc dashboard
+      await login(formData.email, formData.password)
+      toast.success('Đăng nhập thành công!')
     } catch (err) {
-      // Xử lý khi đăng nhập thất bại
-      alert(err.message || 'Đăng nhập thất bại!')
-      // console.error('Login error:', err)
+      toast.error(err.message || 'Đăng nhập thất bại!')
     }
   }
 

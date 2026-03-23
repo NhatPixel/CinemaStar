@@ -1,4 +1,4 @@
-const BASE_URL = '' // set backend base URL here if needed
+const BASE_URL = 'http://localhost/api'
 
 async function parseResponse(response) {
   const contentType = response.headers.get('content-type') || ''
