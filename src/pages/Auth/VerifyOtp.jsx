@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Button, Icon, Input, Text, useToast } from '../../components/ui'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Button, Checkbox, Icon, Input, Text, useToast } from '../../components/ui'
 import { resendOtp, verifyOtp } from '../../api/Auth/OtpApi'
 
 const OTP_LEN = 6
@@ -9,9 +9,12 @@ const RESEND_INTERVAL_SEC = 60
 function VerifyOtp() {
   const toast = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
+  const needPassword = Boolean(location.state?.needPassword ?? true)
 
   const [digits, setDigits] = useState(() => Array(OTP_LEN).fill(''))
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(true)
   const [secondsLeft, setSecondsLeft] = useState(RESEND_INTERVAL_SEC)
   const [submitting, setSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
@@ -85,14 +88,22 @@ function VerifyOtp() {
       toast.error(`Vui lòng nhập đủ ${OTP_LEN} số mã OTP.`)
       return
     }
-    if (!password.trim()) {
-      toast.error('Vui lòng nhập mật khẩu.')
+    if (needPassword && !password.trim()) {
+      toast.error('Vui lòng nhập mật khẩu mới.')
       return
     }
     setSubmitting(true)
     try {
-      await verifyOtp({ otp, password })
-      toast.success('Xác nhận OTP thành công!')
+      if (needPassword) {
+        await verifyOtp({ otp, password })
+      } else {
+        await verifyOtp({ otp })
+      }
+      toast.success(
+        needPassword
+          ? 'Đặt lại mật khẩu thành công!'
+          : 'Xác nhận OTP thành công!'
+      )
       navigate('/login')
     } catch (err) {
       toast.error(err.message || 'Mã OTP không đúng hoặc đã hết hạn.')
@@ -168,13 +179,22 @@ function VerifyOtp() {
             <Input
               label="Mật khẩu"
               name="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               icon="lock"
-              showPasswordToggle
             />
+
+            <Checkbox
+              id="show-password-otp"
+              name="showPassword"
+              checked={showPassword}
+              onChange={(e) => setShowPassword(Boolean(e.target.checked))}
+              label="Hiện mật khẩu"
+            >
+              Hiện mật khẩu
+            </Checkbox>
 
             <Button type="submit" fullWidth disabled={submitting}>
               {submitting ? 'Đang xác nhận...' : 'Xác nhận'}

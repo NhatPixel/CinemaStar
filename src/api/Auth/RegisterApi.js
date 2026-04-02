@@ -25,18 +25,18 @@ export function toRegisterPayload(form) {
 
 async function postAuthRegister(url, payload) {
   const { url: u, options } = buildPost(url, payload)
-  const { payload: data, response } = await callApiWithResponse({
+  const { payload: resp, response } = await callApiWithResponse({
     url: u,
     options,
   })
-  if (data?.success) {
+  if (resp?.success) {
     persistCookieHeaderFromResponse(response)
-    return data.data
+    return resp.data
   }
   throw {
-    status: data?.code || 400,
-    message: data?.message || 'Đăng ký thất bại',
-    raw: data,
+    status: resp?.code || 400,
+    message: resp?.message || 'Đăng ký thất bại',
+    raw: resp,
   }
 }
 

@@ -1,4 +1,4 @@
-import { callApi, buildGet } from './client'
+import { callApi, buildGet } from '../client'
 
 const VIETQR_BANKS_URL = 'https://api.vietqr.io/v2/banks'
 

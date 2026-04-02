@@ -12,7 +12,7 @@ import {
   useToast,
 } from '../../components/ui'
 import UILink from '../../components/ui/Link'
-import { getBanks } from '../../api/bankApi'
+import { getBanks } from '../../api/Bank/bankApi'
 import {
   register,
   registerStaff,
@@ -85,7 +85,7 @@ function Register() {
         await register(payload)
       }
       toast.success('Đăng ký thành công! Vui lòng nhập mã OTP đã gửi tới email.')
-      navigate('/verify-otp')
+      navigate('/verify-otp', { state: { needPassword: false } })
     } catch (err) {
       toast.error(err.message || 'Đăng ký thất bại!')
     } finally {

@@ -86,7 +86,7 @@ function Login() {
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
                 <label className="text-sm font-medium text-slate-300 block">Mật khẩu</label>
-                <UILink href="#" size="xs">
+                <UILink href="/forgot-password" size="xs">
                   Quên mật khẩu?
                 </UILink>
               </div>

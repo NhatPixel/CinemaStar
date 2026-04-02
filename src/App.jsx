@@ -3,6 +3,7 @@ import { ToastProvider } from './components/ui'
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
 import VerifyOtp from './pages/Auth/VerifyOtp'
+import ForgotPassword from './pages/Auth/ForgotPassword'
 import MovieList from './pages/Movie/MovieList'
 import MovieDetail from './pages/Movie/MovieDetail'
 import MovieManagement from './pages/Movie/MovieManagement'
@@ -17,6 +18,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/movies" element={<MovieList />} />
         <Route path="/movies/:id" element={<MovieDetail />} />
         <Route path="/management/movies" element={<MovieManagement />} />

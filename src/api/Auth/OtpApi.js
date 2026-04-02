@@ -7,7 +7,7 @@ const RESEND_URL = authPath('resend-otp')
 
 async function postAuth(url, body, extraHeaders = {}) {
   const { url: u, options } = buildPost(url, body)
-  const data = await callApi({
+  const resp = await callApi({
     url: u,
     options: {
       ...options,
@@ -17,20 +17,24 @@ async function postAuth(url, body, extraHeaders = {}) {
       },
     },
   })
-  if (data?.success) {
-    return data.data
+  if (resp?.success) {
+    return resp.data
   }
   throw {
-    status: data?.code || 400,
-    message: data?.message || 'Yêu cầu thất bại',
-    raw: data,
+    status: resp?.code || 400,
+    message: resp?.message || 'Yêu cầu thất bại',
+    raw: resp,
   }
 }
 
-export function verifyOtp({ otp, password }) {
+export function verifyOtp({ otp, password } = {}) {
   const cookie = getStoredAuthCookie()
   const extraHeaders = cookie ? { Cookie: cookie } : {}
-  return postAuth(VERIFY_URL, { otp, password }, extraHeaders)
+  const body = { otp }
+  if (password !== undefined) {
+    body.password = password
+  }
+  return postAuth(VERIFY_URL, body, extraHeaders)
 }
 
 export function resendOtp() {

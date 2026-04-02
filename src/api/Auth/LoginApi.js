@@ -5,15 +5,19 @@ const LoginURL = authPath('login')
 
 export async function login(email, password) {
     const { url, options } = buildPost(LoginURL, { email, password })
-    const data = await callApi({ url, options })
+    const resp = await callApi({ url, options })
     
-    if (data?.success) {
-        return data.data
+    if (resp?.success) {
+        const token = resp?.data?.accessToken
+        if (token) localStorage.setItem('accessToken', token)
+        return resp.data
     }
     throw {
-        status: data?.code || 400,
-        message: data?.message || 'Tên đăng nhập hoặc mật khẩu không chính xác!',
-        raw: data,
+        status: resp?.code || 400,
+        message:
+            resp?.message ||
+            'Tên đăng nhập hoặc mật khẩu không chính xác!',
+        raw: resp,
     }
 }
 
