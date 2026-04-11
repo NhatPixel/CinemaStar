@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Input, Button, Divider, Icon, Text, useToast } from '../../components/ui'
-import { login } from '../../api/Auth/LoginApi'
+import { login } from '../../api/Auth/loginApi'
 import UILink from '../../components/ui/Link'
 
 function Login() {

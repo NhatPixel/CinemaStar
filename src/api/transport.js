@@ -1,6 +1,6 @@
 import { buildCookieHeaders } from '../utils/authCookieStorage'
 
-export const BASE_URL = 'http://localhost/api'
+export const BASE_URL = 'http://103.15.222.141/api'
 
 const ACCESS_TOKEN_STORAGE_KEY = 'accessToken'
 
