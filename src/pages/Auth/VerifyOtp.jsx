@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Button, Checkbox, Icon, Input, Text, useToast } from '../../components/ui'
+import { Button, Icon, Input, Text, useToast } from '../../components/ui'
 import { resendOtp, verifyOtp } from '../../api/Auth/OtpApi'
 
 const OTP_LEN = 6
@@ -14,7 +14,6 @@ function VerifyOtp() {
 
   const [digits, setDigits] = useState(() => Array(OTP_LEN).fill(''))
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(true)
   const [secondsLeft, setSecondsLeft] = useState(RESEND_INTERVAL_SEC)
   const [submitting, setSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
@@ -179,22 +178,13 @@ function VerifyOtp() {
             <Input
               label="Mật khẩu"
               name="password"
-              type={showPassword ? 'text' : 'password'}
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               icon="lock"
+              showPasswordToggle
             />
-
-            <Checkbox
-              id="show-password-otp"
-              name="showPassword"
-              checked={showPassword}
-              onChange={(e) => setShowPassword(Boolean(e.target.checked))}
-              label="Hiện mật khẩu"
-            >
-              Hiện mật khẩu
-            </Checkbox>
 
             <Button type="submit" fullWidth disabled={submitting}>
               {submitting ? 'Đang xác nhận...' : 'Xác nhận'}

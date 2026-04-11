@@ -16,8 +16,13 @@ function SearchableSelect({
   const [search, setSearch] = useState('')
   const containerRef = useRef(null)
   const inputRef = useRef(null)
+  const searchRef = useRef('')
 
   const selectedOption = options.find((opt) => opt.value === value)
+
+  useEffect(() => {
+    searchRef.current = search
+  }, [search])
 
   const filteredOptions = useMemo(() => {
     if (!search) return options
@@ -45,8 +50,9 @@ function SearchableSelect({
     }
   }
 
-  const displayLabel = selectedOption ? selectedOption.label : ''
-  const inputValue = search !== '' ? search : displayLabel
+  const displayLabel =
+    value === '' || value == null ? '' : (selectedOption?.label ?? '')
+  const inputValue = open ? search : displayLabel
 
   useEffect(() => {
     if (!open) return
@@ -87,7 +93,11 @@ function SearchableSelect({
             setSearch(e.target.value)
             setOpen(true)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true)
+            setSearch('')
+            searchRef.current = ''
+          }}
           placeholder={placeholder}
           className={`w-full border rounded-lg py-3.5 pr-12 text-white focus:outline-none focus:ring-2 transition-all ${
             icon ? 'pl-12' : 'pl-4'
@@ -111,7 +121,16 @@ function SearchableSelect({
         />
         <button
           type="button"
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={() => {
+            setOpen((prev) => {
+              const next = !prev
+              if (next) {
+                setSearch('')
+                searchRef.current = ''
+              }
+              return next
+            })
+          }}
           className="absolute inset-y-0 right-0 px-3 flex items-center justify-center"
         >
           <Icon
@@ -132,7 +151,7 @@ function SearchableSelect({
               filteredOptions.map((option) => (
                 <button
                   type="button"
-                  key={option.value}
+                  key={option.value === '' ? `__empty__-${option.label}` : option.value}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelect(option)}
                   className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-800 ${
@@ -153,4 +172,3 @@ function SearchableSelect({
 }
 
 export default SearchableSelect
-

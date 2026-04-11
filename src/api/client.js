@@ -1,82 +1,45 @@
-const BASE_URL = 'http://localhost/api'
+import { refreshAccessToken } from './Auth/refreshTokenApi'
+import { parseResponse, request } from './transport'
 
-async function parseResponse(response) {
-  const contentType = response.headers.get('content-type') || ''
-  const isJson = contentType.includes('application/json')
+const ACCESS_TOKEN_STORAGE_KEY = 'accessToken'
 
-  let payload
+export { refreshAccessToken }
+export { buildAuthHeaders, buildGet, buildPost } from './transport'
+
+async function retryAfter401(response, url, options) {
+  if (options.skipAuthRefresh) {
+    return response
+  }
+  if (response.status !== 401) {
+    return response
+  }
+  let hadToken = false
   try {
-    payload = isJson ? await response.json() : await response.text()
-  } catch (e) {
-    payload = null
+    hadToken = Boolean(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY))
+  } catch {
+    return response
+  }
+  if (!hadToken) {
+    return response
   }
 
-  if (!response.ok) {
-    const error = {
-      status: response.status,
-      message:
-        (payload && (payload.message || payload.desc)) ||
-        'Yêu cầu thất bại, vui lòng thử lại sau',
-      code: payload && payload.code,
-      raw: payload,
-    }
-    throw error
+  const refreshed = await refreshAccessToken()
+  if (!refreshed) {
+    localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY)
+    return response
   }
-
-  return payload
-}
-
-async function request(url, options = {}) {
-  const finalUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
-
-  const defaultHeaders = {
-    'Content-Type': 'application/json',
-  }
-
-  const mergedOptions = {
-    method: 'GET',
-    headers: {
-      ...defaultHeaders,
-      ...(options.headers || {}),
-    },
-    ...options,
-  }
-
-  return fetch(finalUrl, mergedOptions)
+  return request(url, options)
 }
 
 export async function callApi({ url, options = {} }) {
-  const response = await request(url, options)
+  let response = await request(url, options)
+  response = await retryAfter401(response, url, options)
   return parseResponse(response)
 }
 
 export async function callApiWithResponse({ url, options = {} }) {
-  const response = await request(url, options)
+  let response = await request(url, options)
+  response = await retryAfter401(response, url, options)
   const payload = await parseResponse(response)
   return { payload, response }
 }
-
-export function buildGet(url, params) {
-  if (!params || Object.keys(params).length === 0) {
-    return { url, options: { method: 'GET' } }
-  }
-
-  const qs = new URLSearchParams(params).toString()
-  const fullUrl = `${url}?${qs}`
-
-  return {
-    url: fullUrl,
-    options: { method: 'GET' },
-  }
-}
-
-export function buildPost(url, body) {
-  return {
-    url,
-    options: {
-      method: 'POST',
-      body: JSON.stringify(body || {}),
-    },
-  }
-}
-

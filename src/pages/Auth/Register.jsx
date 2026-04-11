@@ -18,7 +18,7 @@ import {
   registerStaff,
   registerManager,
   toRegisterPayload,
-} from '../../api/Auth/RegisterApi'
+} from '../../api/Auth/registerApi'
 
 function Register() {
   const toast = useToast()

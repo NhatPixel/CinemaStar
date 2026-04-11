@@ -4,6 +4,11 @@ export function getStoredAuthCookie() {
   return localStorage.getItem(AUTH_COOKIE_STORAGE_KEY)
 }
 
+export function buildCookieHeaders() {
+  const cookie = getStoredAuthCookie()
+  return cookie ? { Cookie: cookie } : {}
+}
+
 export function persistCookieHeaderFromResponse(response) {
   if (!response?.headers) return
   const raw =

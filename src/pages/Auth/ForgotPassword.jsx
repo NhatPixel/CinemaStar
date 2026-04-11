@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Icon, Input, Text, useToast } from '../../components/ui'
-import { forgotPassword } from '../../api/Auth/ForgotPasswordApi'
+import { forgotPassword } from '../../api/Auth/forgotPasswordApi'
 
 function ForgotPassword() {
   const toast = useToast()

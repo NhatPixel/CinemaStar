@@ -1,120 +1,192 @@
-import { useState } from 'react'
-import { Icon, Text, Button, MovieCard, AppHeader, AppFooter, CustomSelect } from '../../components/ui'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  Icon,
+  Text,
+  MovieCard,
+  AppHeader,
+  AppFooter,
+  CustomSelect,
+  SearchableSelect,
+  Input,
+  useToast,
+} from '../../components/ui'
+import { buildFilmsSearchBody, searchFilms } from '../../api/Film/filmApi'
+import {
+  COUNTRY_FILTER_OPTIONS,
+  LANGUAGE_FILTER_OPTIONS,
+} from '../../constants/filmFilterOptions'
+
+const PAGE_SIZE = 10
 
 const LIST_STATUS_OPTIONS = [
+  { value: 'all', label: 'Tất cả' },
+  { value: 'COMING_SOON', label: 'Phim sắp chiếu' },
   { value: 'NOW_SHOWING', label: 'Đang chiếu' },
-  { value: 'COMING_SOON', label: 'Sắp chiếu' },
-  { value: 'STOP_SHOWING', label: 'Ngừng chiếu' },
+  { value: 'ENDED', label: 'Ngừng chiếu' },
+  { value: 'ARCHIVED', label: 'Lưu trữ' },
 ]
 
-const LIST_COUNTRY_OPTIONS = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'VN', label: 'Việt Nam' },
-  { value: 'US', label: 'Mỹ' },
-  { value: 'KR', label: 'Hàn Quốc' },
-  { value: 'JP', label: 'Nhật Bản' },
-]
+const STATUS_META = {
+  COMING_SOON: { label: 'Sắp chiếu', color: 'bg-slate-600' },
+  NOW_SHOWING: { label: 'Đang chiếu', color: 'bg-primary' },
+  ENDED: { label: 'Ngừng chiếu', color: 'bg-slate-700' },
+  ARCHIVED: { label: 'Lưu trữ', color: 'bg-slate-800' },
+}
 
-const LIST_LANGUAGE_OPTIONS = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'vi', label: 'Tiếng Việt' },
-  { value: 'subtitle', label: 'Phụ đề' },
-  { value: 'dub', label: 'Thuyết minh' },
-]
+const ALL_OPTION = { value: '', label: 'Tất cả' }
 
-const MOVIES = [
-  {
-    id: 1,
-    title: 'Chiến Binh Thiên Hà',
-    duration: '120 phút',
-    genres: 'Hành động, Viễn tưởng',
-    ageLabel: 'T13',
+function formatAgeRating(rating) {
+  if (!rating) return ''
+  const m = String(rating).match(/RATING_(\d+)/i)
+  if (m) return `T${m[1]}`
+  return String(rating).replace(/^RATING_/i, '')
+}
+
+function mapFilmToCardProps(film) {
+  const meta = STATUS_META[film.status] || {
+    label: film.status || '',
+    color: 'bg-slate-600',
+  }
+  const muted = film.status === 'ENDED' || film.status === 'ARCHIVED'
+  const overlayVariant = film.status === 'COMING_SOON' ? 'remind' : 'buy'
+  const sub = [film.country, film.language].filter(Boolean).join(' • ')
+  return {
+    title: film.title,
+    duration: film.duration != null ? `${film.duration} phút` : '—',
+    genres: sub || '—',
+    ageLabel: formatAgeRating(film.ageRating),
     ageColorClass: 'bg-red-600',
-    statusLabel: 'NOW_SHOWING',
-    statusColorClass: 'bg-primary',
-    overlayVariant: 'buy',
-    muted: false,
-    posterSrc: '/assets/movie-sample.jpg',
-    posterAlt: 'Epic sci-fi movie poster featuring galaxy and stars',
-  },
-  {
-    id: 2,
-    title: 'Hào Quang Rực Rỡ',
-    duration: '105 phút',
-    genres: 'Tâm lý, Âm nhạc',
-    ageLabel: 'P',
-    ageColorClass: 'bg-green-600',
-    statusLabel: 'NOW_SHOWING',
-    statusColorClass: 'bg-primary',
-    overlayVariant: 'buy',
-    muted: false,
-    posterSrc: '/assets/movie-sample.jpg',
-    posterAlt: 'Modern cinematic poster with vibrant city lights',
-  },
-  {
-    id: 3,
-    title: 'Lời Nguyền Bóng Đêm',
-    duration: '135 phút',
-    genres: 'Kinh dị, Giật gân',
-    ageLabel: 'T18',
-    ageColorClass: 'bg-red-700',
-    statusLabel: 'Coming_Soon',
-    statusColorClass: 'bg-slate-600',
-    overlayVariant: 'remind',
-    muted: false,
-    posterSrc: '/assets/movie-sample.jpg',
-    posterAlt: 'Dark mysterious movie poster with foggy forest',
-  },
-  {
-    id: 4,
-    title: 'Gia Đình Siêu Quậy',
-    duration: '95 phút',
-    genres: 'Hoạt hình, Hài hước',
-    ageLabel: 'P',
-    ageColorClass: 'bg-green-600',
-    statusLabel: 'NOW_SHOWING',
-    statusColorClass: 'bg-primary',
-    overlayVariant: 'buy',
-    muted: false,
-    posterSrc: '/assets/movie-sample.jpg',
-    posterAlt: 'Colorful animated movie poster for family audience',
-  },
-  {
-    id: 5,
-    title: 'Dòng Sông Kỷ Niệm',
-    duration: '112 phút',
-    genres: 'Lãng mạn, Chính kịch',
-    ageLabel: 'T16',
-    ageColorClass: 'bg-orange-500',
-    statusLabel: 'NOW_SHOWING',
-    statusColorClass: 'bg-primary',
-    overlayVariant: 'buy',
-    muted: false,
-    posterSrc: '/assets/movie-sample.jpg',
-    posterAlt: 'Romantic drama movie poster with soft sunset background',
-  },
-  {
-    id: 6,
-    title: 'Cú Đấm Thép',
-    duration: '118 phút',
-    genres: 'Võ thuật, Thể thao',
-    ageLabel: 'STOP_SHOWING',
-    ageColorClass: 'bg-slate-800',
-    statusLabel: '',
-    statusColorClass: '',
-    overlayVariant: 'buy',
-    muted: true,
-    posterSrc: '/assets/movie-sample.jpg',
-    posterAlt: 'Sports action movie poster showing a boxer in ring',
-  },
-]
+    statusLabel: meta.label,
+    statusColorClass: meta.color,
+    overlayVariant,
+    muted,
+    posterSrc: film.poster || '/assets/movie-sample.jpg',
+    posterAlt: film.title || 'Poster',
+  }
+}
 
 function MovieList() {
+  const toast = useToast()
+  const [titleSearch, setTitleSearch] = useState('')
+  const [debouncedTitle, setDebouncedTitle] = useState('')
   const [filters, setFilters] = useState({
-    status: 'NOW_SHOWING',
-    country: 'all',
-    language: 'all',
+    status: 'all',
+    country: '',
+    language: '',
   })
+
+  const countrySelectOptions = useMemo(
+    () => [ALL_OPTION, ...COUNTRY_FILTER_OPTIONS],
+    []
+  )
+  const languageSelectOptions = useMemo(
+    () => [ALL_OPTION, ...LANGUAGE_FILTER_OPTIONS],
+    []
+  )
+  const [items, setItems] = useState([])
+  const [nextCursor, setNextCursor] = useState(null)
+  const [hasNext, setHasNext] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const abortRef = useRef(null)
+  const sentinelRef = useRef(null)
+  const loadMoreRef = useRef(() => {})
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTitle(titleSearch), 400)
+    return () => clearTimeout(t)
+  }, [titleSearch])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setItems([])
+    setNextCursor(null)
+    setHasNext(false)
+
+    abortRef.current?.abort()
+    const ac = new AbortController()
+    abortRef.current = ac
+
+    const body = buildFilmsSearchBody({
+      size: PAGE_SIZE,
+      title: debouncedTitle,
+      status: filters.status,
+      country: filters.country,
+      language: filters.language,
+    })
+
+    ;(async () => {
+      try {
+        const data = await searchFilms(body, { signal: ac.signal })
+        if (cancelled) return
+        setItems(data?.data || [])
+        setNextCursor(data?.nextCursor ?? null)
+        setHasNext(Boolean(data?.hasNext))
+      } catch (e) {
+        if (cancelled || e?.name === 'AbortError') return
+        toast.error(e?.message || 'Không tải được danh sách phim')
+        setItems([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
+  }, [debouncedTitle, filters.status, filters.country, filters.language])
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || !hasNext || loadingMore || loading) return
+    setLoadingMore(true)
+    try {
+      const body = buildFilmsSearchBody({
+        cursor: nextCursor,
+        size: PAGE_SIZE,
+        title: debouncedTitle,
+        status: filters.status,
+        country: filters.country,
+        language: filters.language,
+      })
+      const data = await searchFilms(body)
+      setItems((prev) => [...prev, ...(data?.data || [])])
+      setNextCursor(data?.nextCursor ?? null)
+      setHasNext(Boolean(data?.hasNext))
+    } catch (e) {
+      toast.error(e?.message || 'Không tải thêm phim')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [
+    nextCursor,
+    hasNext,
+    loadingMore,
+    loading,
+    debouncedTitle,
+    filters.status,
+    filters.country,
+    filters.language,
+  ])
+
+  loadMoreRef.current = loadMore
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMoreRef.current()
+        }
+      },
+      { root: null, rootMargin: '240px', threshold: 0 }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [items.length, hasNext])
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target
@@ -149,6 +221,21 @@ function MovieList() {
                 variant="caption"
                 className="text-xs font-bold uppercase tracking-wider text-primary"
               >
+                Tìm theo tên phim
+              </Text>
+              <Input
+                name="titleSearch"
+                value={titleSearch}
+                onChange={(e) => setTitleSearch(e.target.value)}
+                placeholder="Nhập tên phim..."
+                icon="search"
+              />
+            </div>
+            <div className="space-y-2">
+              <Text
+                variant="caption"
+                className="text-xs font-bold uppercase tracking-wider text-primary"
+              >
                 Trạng thái
               </Text>
               <CustomSelect
@@ -166,12 +253,14 @@ function MovieList() {
               >
                 Quốc gia
               </Text>
-              <CustomSelect
+              <SearchableSelect
                 name="country"
                 value={filters.country}
                 onChange={handleFilterChange}
-                options={LIST_COUNTRY_OPTIONS}
-                placeholder="Chọn quốc gia"
+                icon="public"
+                options={countrySelectOptions}
+                placeholder="Tất cả"
+                searchPlaceholder="Tìm quốc gia..."
               />
             </div>
             <div className="space-y-2">
@@ -181,55 +270,47 @@ function MovieList() {
               >
                 Ngôn ngữ
               </Text>
-              <CustomSelect
+              <SearchableSelect
                 name="language"
                 value={filters.language}
                 onChange={handleFilterChange}
-                options={LIST_LANGUAGE_OPTIONS}
-                placeholder="Chọn ngôn ngữ"
+                icon="translate"
+                options={languageSelectOptions}
+                placeholder="Tất cả"
+                searchPlaceholder="Tìm ngôn ngữ..."
               />
-            </div>
-            <div className="flex items-end">
-              <Button
-                variant="primary"
-                size="md"
-                fullWidth
-                className="flex items-center justify-center gap-2"
-              >
-                <Icon name="filter_list" className="text-lg" />
-                Lọc kết quả
-              </Button>
             </div>
           </div>
         </section>
 
+        {loading && (
+          <div className="text-center py-12 text-slate-500 dark:text-slate-400">
+            Đang tải...
+          </div>
+        )}
+
+        {!loading && items.length === 0 && (
+          <div className="text-center py-12 text-slate-500 dark:text-slate-400">
+            Không có phim phù hợp.
+          </div>
+        )}
+
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {MOVIES.map((movie) => (
-            <MovieCard key={movie.id} {...movie} />
-          ))}
+          {!loading &&
+            items.map((film) => (
+              <Link key={film.id} to={`/movies/${film.id}`} className="block">
+                <MovieCard {...mapFilmToCardProps(film)} />
+              </Link>
+            ))}
         </section>
 
-        <div className="mt-16 flex justify-center">
-          <nav className="flex items-center gap-2">
-            <button className="p-2 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">
-              <span className="material-symbols-outlined">chevron_left</span>
-            </button>
-            <button className="w-10 h-10 rounded-lg bg-primary text-white font-bold">1</button>
-            <button className="w-10 h-10 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">
-              2
-            </button>
-            <button className="w-10 h-10 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">
-              3
-            </button>
-            <span className="px-2 text-slate-500">...</span>
-            <button className="w-10 h-10 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">
-              12
-            </button>
-            <button className="p-2 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors">
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
-          </nav>
-        </div>
+        <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
+
+        {loadingMore && (
+          <div className="text-center py-6 text-slate-500 dark:text-slate-400 text-sm">
+            Đang tải thêm...
+          </div>
+        )}
       </main>
 
       <AppFooter />
@@ -238,4 +319,3 @@ function MovieList() {
 }
 
 export default MovieList
-

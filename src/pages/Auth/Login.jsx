@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Input, Button, Divider, Icon, Text, useToast } from '../../components/ui'
 import { login } from '../../api/Auth/LoginApi'
 import UILink from '../../components/ui/Link'
 
 function Login() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -23,6 +24,7 @@ function Login() {
     try {
       await login(formData.email, formData.password)
       toast.success('Đăng nhập thành công!')
+      navigate('/movies')
     } catch (err) {
       toast.error(err.message || 'Đăng nhập thất bại!')
     }
@@ -74,7 +76,7 @@ function Login() {
           {/* Login Form */}
           <form className="space-y-6" onSubmit={handleSubmit}>
             <Input
-              label="Email hoặc Số điện thoại"
+              label="Email"
               name="email"
               type="text"
               value={formData.email}

@@ -28,14 +28,6 @@ function AppHeader({ showLoginButton = true }) {
             </nav>
           </div>
           <div className="flex items-center gap-6">
-            <div className="hidden lg:flex items-center bg-primary/10 rounded-full px-4 py-2 border border-primary/20">
-              <Icon name="search" className="text-primary text-xl" />
-              <input
-                className="bg-transparent border-none focus:ring-0 text-sm w-48 placeholder:text-slate-500"
-                placeholder="Tìm kiếm phim..."
-                type="text"
-              />
-            </div>
             {showLoginButton ? (
               <Button
                 variant="primary"
