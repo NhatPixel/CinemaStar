@@ -1,7 +1,9 @@
-import { callApi, buildPost } from '../client'
+import { callApi, buildDelete, buildPost, buildPut } from '../client'
 import { filmPath } from '../paths'
 
 const FILMS_SEARCH_URL = filmPath('search')
+const FILMS_CREATE_URL = filmPath('')
+const filmDetailUrl = (id) => filmPath(id)
 
 export function buildFilmsSearchBody({
   cursor,
@@ -12,16 +14,19 @@ export function buildFilmsSearchBody({
   language,
 }) {
   const filterBy = []
-  if (title) {
+  const t = title?.trim()
+  if (t) {
     filterBy.push({ field: 'TITLE', operator: 'LIKE', value: t })
   }
-  if (status) {
+  if (status && status !== 'all') {
     filterBy.push({ field: 'STATUS', operator: 'LIKE', value: status })
   }
-  if (country) {
+  const c = country?.trim()
+  if (c && c !== 'all') {
     filterBy.push({ field: 'COUNTRY', operator: 'LIKE', value: c })
   }
-  if (language) {
+  const lang = language?.trim()
+  if (lang && lang !== 'all') {
     filterBy.push({ field: 'LANGUAGE', operator: 'LIKE', value: lang })
   }
   const body = {
@@ -47,6 +52,45 @@ export async function searchFilms(body, { signal } = {}) {
   throw {
     status: resp?.code || 400,
     message: resp?.message || 'Không tải được danh sách phim',
+    raw: resp,
+  }
+}
+
+export async function createFilm(payload) {
+  const { url, options } = buildPost(FILMS_CREATE_URL, payload)
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể tạo phim',
+    raw: resp,
+  }
+}
+
+export async function updateFilm(id, payload) {
+  const { url, options } = buildPut(filmDetailUrl(id), payload)
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể cập nhật phim',
+    raw: resp,
+  }
+}
+
+export async function deleteFilm(id, payload) {
+  const { url, options } = buildDelete(filmDetailUrl(id), payload)
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể xóa phim',
     raw: resp,
   }
 }

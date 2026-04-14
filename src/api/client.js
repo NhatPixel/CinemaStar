@@ -4,7 +4,14 @@ import { parseResponse, request } from './transport'
 const ACCESS_TOKEN_STORAGE_KEY = 'accessToken'
 
 export { refreshAccessToken }
-export { buildAuthHeaders, buildGet, buildPost } from './transport'
+export {
+  buildAuthHeaders,
+  buildGet,
+  buildPost,
+  buildPut,
+  buildDelete,
+  thirdPartyFetchDefaults,
+} from './transport'
 
 async function retryAfter401(response, url, options) {
   if (options.skipAuthRefresh) {

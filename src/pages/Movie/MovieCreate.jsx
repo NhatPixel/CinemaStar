@@ -1,32 +1,37 @@
 import { useState } from 'react'
-import { AdminSidebar, Button, Icon, Input, Text, CustomSelect } from '../../components/ui'
+import { useNavigate } from 'react-router-dom'
+import { AdminSidebar, Button, Icon, Input, Text, TextArea, CustomSelect, useToast } from '../../components/ui'
+import { createFilm } from '../../api/Film/filmApi'
 
 const AGE_RATING_OPTIONS = [
-  { value: 'P', label: 'P - Cho mọi lứa tuổi' },
-  { value: 'K', label: 'K - Dưới 13 tuổi với người giám hộ' },
-  { value: 'T13', label: 'T13 - Trên 13 tuổi' },
-  { value: 'T16', label: 'T16 - Trên 16 tuổi' },
-  { value: 'T18', label: 'T18 - Trên 18 tuổi' },
+  { value: 'RATING_1', label: 'Mọi lứa tuổi (0+)' },
+  { value: 'RATING_2', label: 'Cần hướng dẫn của phụ huynh (6+)' },
+  { value: 'RATING_3', label: 'Trẻ em trên 13 tuổi (13+)' },
+  { value: 'RATING_4', label: 'Trẻ em trên 16 tuổi (16+)' },
+  { value: 'RATING_5', label: 'Chỉ dành cho người từ 18 tuổi trở lên (18+)' },
 ]
 
 const MOVIE_STATUS_OPTIONS = [
-  { value: 'COMING_SOON', label: 'Sắp chiếu (COMING SOON)' },
-  { value: 'NOW_SHOWING', label: 'Đang chiếu (NOW SHOWING)' },
-  { value: 'STOP_SHOWING', label: 'Ngừng chiếu (STOP SHOWING)' },
+  { value: 'COMING_SOON', label: 'Sắp chiếu' },
+  { value: 'NOW_SHOWING', label: 'Đang chiếu' },
+  { value: 'ENDED', label: 'Ngừng chiếu' },
+  { value: 'ARCHIVED', label: 'Lưu trữ' },
 ]
 
 function MovieCreate() {
+  const toast = useToast()
+  const navigate = useNavigate()
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     director: '',
-    cast: '',
     genre: '',
     country: '',
     releaseDate: '',
     language: '',
     duration: '',
     description: '',
-    ageRating: 'P',
+    ageRating: 'RATING_1',
     status: 'NOW_SHOWING',
     trailerUrl: '',
     posterUrl: '',
@@ -37,10 +42,46 @@ function MovieCreate() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Create movie submitted:', formData)
-    // TODO: call API to create movie
+    if (!formData.title.trim()) {
+      toast.error('Vui lòng nhập tiêu đề phim')
+      return
+    }
+    const duration = Number.parseInt(formData.duration, 10)
+    if (!Number.isFinite(duration) || duration <= 0) {
+      toast.error('Thời lượng phim phải lớn hơn 0')
+      return
+    }
+    if (!formData.releaseDate) {
+      toast.error('Vui lòng chọn ngày phát hành')
+      return
+    }
+
+    const payload = {
+      duration,
+      country: formData.country.trim(),
+      genre: formData.genre.trim(),
+      releaseDate: formData.releaseDate,
+      language: formData.language.trim(),
+      ageRating: formData.ageRating,
+      title: formData.title.trim(),
+      trailer: formData.trailerUrl.trim(),
+      poster: formData.posterUrl.trim(),
+      director: formData.director.trim(),
+      status: formData.status,
+    }
+
+    try {
+      setSubmitting(true)
+      await createFilm(payload)
+      toast.success('Tạo phim thành công')
+      navigate('/management/movies')
+    } catch (err) {
+      toast.error(err?.message || 'Tạo phim thất bại')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -59,12 +100,21 @@ function MovieCreate() {
             </Text>
           </div>
           <div className="hidden md:flex gap-4">
-            <Button variant="ghost" className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-primary/10">
+            <Button
+              type="button"
+              variant="ghost"
+              className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-primary/10"
+              onClick={() => navigate('/management/movies')}
+            >
               Hủy
             </Button>
-            <Button className="px-5 py-2.5 rounded-lg font-semibold shadow-lg shadow-primary/20 flex items-center gap-2">
+            <Button
+              type="submit"
+              className="px-5 py-2.5 rounded-lg font-semibold shadow-lg shadow-primary/20 flex items-center gap-2"
+              disabled={submitting}
+            >
               <Icon name="save" />
-              Lưu phim
+              {submitting ? 'Đang lưu...' : 'Lưu phim'}
             </Button>
           </div>
         </header>
@@ -82,7 +132,7 @@ function MovieCreate() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Tiêu đề phim <span className="text-red-500">*</span>
+                      Tiêu đề phim
                     </label>
                     <Input
                       name="title"
@@ -90,9 +140,6 @@ function MovieCreate() {
                       onChange={handleChange}
                       placeholder="Nhập tiêu đề phim"
                     />
-                    <span className="text-xs text-red-500 font-medium italic">
-                      Trường này là bắt buộc
-                    </span>
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -103,17 +150,6 @@ function MovieCreate() {
                       value={formData.director}
                       onChange={handleChange}
                       placeholder="Tên đạo diễn"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2 md:col-span-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Diễn viên
-                    </label>
-                    <Input
-                      name="cast"
-                      value={formData.cast}
-                      onChange={handleChange}
-                      placeholder="Tên các diễn viên (phân cách bằng dấu phẩy)"
                     />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -136,6 +172,36 @@ function MovieCreate() {
                       value={formData.country}
                       onChange={handleChange}
                       placeholder="Việt Nam, Mỹ..."
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Media & Phân loại */}
+              <section className="bg-white dark:bg-background-dark/30 border border-slate-200 dark:border-primary/10 rounded-xl p-6">
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                  <Icon name="link" className="text-primary" />
+                  Media &amp; Phân loại
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-2">
+                    <CustomSelect
+                      label="Phân loại độ tuổi"
+                      name="ageRating"
+                      value={formData.ageRating}
+                      onChange={handleChange}
+                      options={AGE_RATING_OPTIONS}
+                      placeholder="Chọn phân loại"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <CustomSelect
+                      label="Trạng thái phim"
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      options={MOVIE_STATUS_OPTIONS}
+                      placeholder="Chọn trạng thái"
                     />
                   </div>
                 </div>
@@ -184,59 +250,14 @@ function MovieCreate() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Mô tả phim
-                  </label>
-                  <textarea
+                  <TextArea
+                    label="Mô tả phim"
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
                     rows={4}
-                    className="w-full rounded-lg bg-slate-50 dark:bg-background-dark border-slate-200 dark:border-primary/20 focus:border-primary focus:ring-primary dark:text-white px-4 py-3 outline-none transition-all resize-none"
                     placeholder="Nhập nội dung tóm tắt phim..."
                   />
-                </div>
-              </section>
-
-              {/* Media & Phân loại */}
-              <section className="bg-white dark:bg-background-dark/30 border border-slate-200 dark:border-primary/10 rounded-xl p-6">
-                <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                  <Icon name="link" className="text-primary" />
-                  Media &amp; Phân loại
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex flex-col gap-2">
-                    <CustomSelect
-                      label="Phân loại độ tuổi"
-                      name="ageRating"
-                      value={formData.ageRating}
-                      onChange={handleChange}
-                      options={AGE_RATING_OPTIONS}
-                      placeholder="Chọn phân loại"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <CustomSelect
-                      label="Trạng thái phim"
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      options={MOVIE_STATUS_OPTIONS}
-                      placeholder="Chọn trạng thái"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2 md:col-span-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      URL Trailer
-                    </label>
-                    <Input
-                      name="trailerUrl"
-                      type="url"
-                      value={formData.trailerUrl}
-                      onChange={handleChange}
-                      placeholder="https://youtube.com/watch?v=..."
-                    />
-                  </div>
                 </div>
               </section>
             </div>
@@ -251,28 +272,15 @@ function MovieCreate() {
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      URL Poster <span className="text-red-500">*</span>
+                      URL Poster
                     </label>
-                    <div className="flex gap-2">
-                      <Input
-                        name="posterUrl"
-                        type="url"
-                        value={formData.posterUrl}
-                        onChange={handleChange}
-                        placeholder="https://..."
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="bg-primary/20 text-primary p-3 rounded-lg hover:bg-primary/30 transition-colors"
-                      >
-                        <Icon name="refresh" />
-                      </Button>
-                    </div>
-                    <span className="text-xs text-red-500 font-medium italic">
-                      Trường này là bắt buộc
-                    </span>
+                    <Input
+                      name="posterUrl"
+                      type="url"
+                      value={formData.posterUrl}
+                      onChange={handleChange}
+                      placeholder="https://..."
+                    />
                   </div>
                   <div className="aspect-[2/3] w-full rounded-xl border-2 border-dashed border-slate-200 dark:border-primary/30 bg-slate-50 dark:bg-background-dark/50 flex flex-col items-center justify-center text-slate-400 overflow-hidden group relative">
                     {formData.posterUrl ? (
@@ -311,14 +319,16 @@ function MovieCreate() {
               type="button"
               variant="ghost"
               className="flex-1 py-3 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-bold"
+              onClick={() => navigate('/management/movies')}
             >
               Hủy
             </Button>
             <Button
               type="submit"
               className="flex-1 py-3 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/20"
+              disabled={submitting}
             >
-              Lưu phim
+              {submitting ? 'Đang lưu...' : 'Lưu phim'}
             </Button>
           </div>
         </form>

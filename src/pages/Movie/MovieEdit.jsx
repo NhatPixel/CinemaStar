@@ -1,23 +1,28 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { AdminSidebar, Button, Icon, Input, Text, CustomSelect } from '../../components/ui'
+import { useNavigate, useParams } from 'react-router-dom'
+import { AdminSidebar, Button, Icon, Input, Text, CustomSelect, useToast } from '../../components/ui'
+import { updateFilm } from '../../api/Film/filmApi'
 
 const MOVIE_STATUS_OPTIONS_EDIT = [
-  { value: 'Đang chiếu', label: 'Đang chiếu' },
-  { value: 'Sắp chiếu', label: 'Sắp chiếu' },
-  { value: 'Đã kết thúc', label: 'Đã kết thúc' },
+  { value: 'COMING_SOON', label: 'Sắp chiếu' },
+  { value: 'NOW_SHOWING', label: 'Đang chiếu' },
+  { value: 'ENDED', label: 'Ngừng chiếu' },
+  { value: 'ARCHIVED', label: 'Lưu trữ' },
 ]
 
 const AGE_RATING_OPTIONS_EDIT = [
-  { value: 'P', label: 'P - Mọi lứa tuổi' },
-  { value: 'K', label: 'K - Dưới 13 tuổi có giám hộ' },
-  { value: 'T13', label: 'T13 - Trên 13 tuổi' },
-  { value: 'T16', label: 'T16 - Trên 16 tuổi' },
-  { value: 'T18', label: 'T18 - Trên 18 tuổi' },
+  { value: 'RATING_1', label: 'Mọi lứa tuổi (0+)' },
+  { value: 'RATING_2', label: 'Cần hướng dẫn của phụ huynh (6+)' },
+  { value: 'RATING_3', label: 'Trẻ em trên 13 tuổi (13+)' },
+  { value: 'RATING_4', label: 'Trẻ em trên 16 tuổi (16+)' },
+  { value: 'RATING_5', label: 'Chỉ dành cho người từ 18 tuổi trở lên (18+)' },
 ]
 
 function MovieEdit() {
+  const toast = useToast()
+  const navigate = useNavigate()
   const { id } = useParams()
+  const [submitting, setSubmitting] = useState(false)
 
   const [formData, setFormData] = useState({
     title: 'Người Vợ Cuối Cùng',
@@ -32,8 +37,8 @@ function MovieEdit() {
       'Lấy cảm hứng từ tiểu thuyết Hồ Oán Hận của nhà văn Hồng Thái, bộ phim lấy bối cảnh Việt Nam vào thế kỷ 19. Chuyện phim xoay quanh Linh – người vợ thứ ba của một viên Quan tri huyện uy quyền. Giữa những hủ tục phong kiến khắc nghiệt, Linh vô tình gặp lại người yêu cũ của mình là Nhân, dẫn đến một chuỗi bi kịch và những lựa chọn đẫm nước mắt về tình yêu và sự tự do.',
     posterUrl: '/assets/movie-sample.jpg',
     trailerUrl: 'https://youtube.com/watch?v=TrailerNguoiVoCuoiCung',
-    status: 'Đang chiếu',
-    ageRating: 'T18',
+    status: 'NOW_SHOWING',
+    ageRating: 'RATING_5',
   })
 
   const handleChange = (e) => {
@@ -41,10 +46,49 @@ function MovieEdit() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Update movie', id, formData)
-    // TODO: call API to update movie
+    if (!id) {
+      toast.error('Không xác định được phim cần cập nhật')
+      return
+    }
+    if (!formData.title.trim()) {
+      toast.error('Vui lòng nhập tiêu đề phim')
+      return
+    }
+    const duration = Number.parseInt(formData.duration, 10)
+    if (!Number.isFinite(duration) || duration <= 0) {
+      toast.error('Thời lượng phim phải lớn hơn 0')
+      return
+    }
+    if (!formData.releaseDate) {
+      toast.error('Vui lòng chọn ngày phát hành')
+      return
+    }
+
+    const payload = {
+      duration,
+      country: formData.country.trim(),
+      releaseDate: formData.releaseDate,
+      language: formData.language.trim(),
+      ageRating: formData.ageRating,
+      title: formData.title.trim(),
+      trailer: formData.trailerUrl.trim(),
+      poster: formData.posterUrl.trim(),
+      status: formData.status,
+      director: formData.director.trim(),
+    }
+
+    try {
+      setSubmitting(true)
+      await updateFilm(id, payload)
+      toast.success('Cập nhật phim thành công')
+      navigate('/management/movies')
+    } catch (err) {
+      toast.error(err?.message || 'Cập nhật phim thất bại')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -74,16 +118,22 @@ function MovieEdit() {
                   Hủy
                 </Button>
                 <Button
+                  form="movie-edit-form"
                   type="submit"
                   className="px-6 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2"
+                  disabled={submitting}
                 >
                   <Icon name="save" />
-                  Cập nhật phim
+                  {submitting ? 'Đang cập nhật...' : 'Cập nhật phim'}
                 </Button>
               </div>
             </div>
 
-            <form className="grid grid-cols-1 lg:grid-cols-3 gap-8" onSubmit={handleSubmit}>
+            <form
+              id="movie-edit-form"
+              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+              onSubmit={handleSubmit}
+            >
               {/* Left Column: Poster & Status */}
               <div className="lg:col-span-1 space-y-6">
                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-6">
@@ -258,15 +308,17 @@ function MovieEdit() {
                     type="button"
                     variant="ghost"
                     className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-primary/10"
+                    onClick={() => navigate('/management/movies')}
                   >
                     Hủy thay đổi
                   </Button>
                   <Button
                     type="submit"
                     className="px-8 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 shadow-xl shadow-primary/30 flex items-center gap-2"
+                    disabled={submitting}
                   >
                     <Icon name="save" />
-                    Cập nhật phim
+                    {submitting ? 'Đang cập nhật...' : 'Cập nhật phim'}
                   </Button>
                 </div>
               </div>

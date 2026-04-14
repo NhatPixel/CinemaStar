@@ -1,6 +1,6 @@
 import { buildCookieHeaders } from '../utils/authCookieStorage'
 
-export const BASE_URL = 'http://103.15.222.141/api'
+export const BASE_URL = 'https://cinema-api.duckdns.org/api'
 
 const ACCESS_TOKEN_STORAGE_KEY = 'accessToken'
 
@@ -37,25 +37,51 @@ export async function parseResponse(response) {
   return payload
 }
 
+export const thirdPartyFetchDefaults = {
+  skipAuthHeaders: true,
+  skipCookieHeaders: true,
+  skipAuthRefresh: true,
+  credentials: 'omit',
+}
+
 /**
  * @param {string} url
- * @param {RequestInit & { skipAuthHeaders?: boolean; skipAuthRefresh?: boolean }} options
+ * @param {RequestInit & {
+ *   skipAuthHeaders?: boolean
+ *   skipCookieHeaders?: boolean
+ *   skipAuthRefresh?: boolean
+ * }} options
  */
 
 export async function request(url, options = {}) {
-  const { skipAuthHeaders = false, skipAuthRefresh, ...fetchOpts } = options
+  const {
+    skipAuthHeaders = false,
+    skipCookieHeaders = false,
+    skipAuthRefresh,
+    credentials = 'include',
+    ...fetchOpts
+  } = options
   const finalUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
+
+  const method = String(fetchOpts.method || 'GET').toUpperCase()
+  const hasBody =
+    fetchOpts.body != null &&
+    fetchOpts.body !== '' &&
+    method !== 'GET' &&
+    method !== 'HEAD'
+
+  const headers = {
+    ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+    ...(skipCookieHeaders ? {} : buildCookieHeaders()),
+    ...(skipAuthHeaders ? {} : buildAuthHeaders()),
+    ...(fetchOpts.headers || {}),
+  }
 
   const mergedOptions = {
     method: 'GET',
-    credentials: 'include',
+    credentials,
     ...fetchOpts,
-    headers: {
-      'Content-Type': 'application/json',
-      ...buildCookieHeaders(),
-      ...(skipAuthHeaders ? {} : buildAuthHeaders()),
-      ...(fetchOpts.headers || {}),
-    },
+    headers,
   }
 
   return fetch(finalUrl, mergedOptions)
@@ -87,5 +113,26 @@ export function buildPost(url, body) {
       method: 'POST',
       body: JSON.stringify(body || {}),
     },
+  }
+}
+
+export function buildPut(url, body) {
+  return {
+    url,
+    options: {
+      method: 'PUT',
+      body: JSON.stringify(body || {}),
+    },
+  }
+}
+
+export function buildDelete(url, body) {
+  const options = { method: 'DELETE' }
+  if (body !== undefined) {
+    options.body = JSON.stringify(body)
+  }
+  return {
+    url,
+    options,
   }
 }

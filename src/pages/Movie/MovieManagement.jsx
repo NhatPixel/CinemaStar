@@ -1,27 +1,200 @@
-import { useState } from 'react'
-import { AdminSidebar, Button, Icon, Text, Input, CustomSelect } from '../../components/ui'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  AdminSidebar,
+  Button,
+  Icon,
+  Text,
+  Input,
+  CustomSelect,
+  useToast,
+} from '../../components/ui'
+import { buildFilmsSearchBody, deleteFilm, searchFilms } from '../../api/Film/filmApi'
+
+const PAGE_SIZE = 12
 
 const MANAGEMENT_STATUS_OPTIONS = [
-  { value: '', label: 'Tất cả trạng thái' },
+  { value: 'all', label: 'Tất cả trạng thái' },
   { value: 'NOW_SHOWING', label: 'Đang chiếu' },
   { value: 'COMING_SOON', label: 'Sắp chiếu' },
-  { value: 'STOP_SHOWING', label: 'Ngừng chiếu' },
+  { value: 'ENDED', label: 'Ngừng chiếu' },
+  { value: 'ARCHIVED', label: 'Lưu trữ' },
 ]
 
-function MovieManagement() {
-  const [statusFilter, setStatusFilter] = useState('')
+const STATUS_META = {
+  NOW_SHOWING: {
+    label: 'Đang chiếu',
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
+  },
+  COMING_SOON: {
+    label: 'Sắp chiếu',
+    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  },
+  ENDED: {
+    label: 'Ngừng chiếu',
+    className: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
+  },
+  ARCHIVED: {
+    label: 'Lưu trữ',
+    className: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  },
+}
 
-  const handleStatusChange = (e) => {
-    setStatusFilter(e.target.value)
-  }
+function formatDate(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleDateString('vi-VN')
+}
+
+function trailerPoster(trailerUrl) {
+  if (!trailerUrl) return ''
+  const raw = String(trailerUrl)
+  const short = raw.match(/youtu\.be\/([^?&]+)/i)?.[1]
+  const full = raw.match(/[?&]v=([^?&]+)/i)?.[1]
+  const embed = raw.match(/youtube\.com\/embed\/([^?&]+)/i)?.[1]
+  const id = short || full || embed
+  if (!id) return ''
+  return `https://img.youtube.com/vi/${id}/hqdefault.jpg`
+}
+
+function rowPoster(film) {
+  return trailerPoster(film?.trailer) || film?.poster || '/assets/movie-sample.jpg'
+}
+
+function MovieManagement() {
+  const toast = useToast()
+  const [titleSearch, setTitleSearch] = useState('')
+  const [debouncedTitle, setDebouncedTitle] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [rows, setRows] = useState([])
+  const [nextCursor, setNextCursor] = useState(null)
+  const [hasNext, setHasNext] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [deletingId, setDeletingId] = useState('')
+  const abortRef = useRef(null)
+  const sentinelRef = useRef(null)
+  const loadMoreRef = useRef(() => {})
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTitle(titleSearch), 400)
+    return () => clearTimeout(t)
+  }, [titleSearch])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setRows([])
+    setNextCursor(null)
+    setHasNext(false)
+
+    abortRef.current?.abort()
+    const ac = new AbortController()
+    abortRef.current = ac
+
+    const body = buildFilmsSearchBody({
+      size: PAGE_SIZE,
+      title: debouncedTitle,
+      status: statusFilter,
+    })
+
+    ;(async () => {
+      try {
+        const data = await searchFilms(body, { signal: ac.signal })
+        if (cancelled) return
+        setRows(data?.data || [])
+        setNextCursor(data?.nextCursor ?? null)
+        setHasNext(Boolean(data?.hasNext))
+      } catch (e) {
+        if (cancelled || e?.name === 'AbortError') return
+        toast.error(e?.message || 'Không tải được danh sách phim')
+        setRows([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
+  }, [debouncedTitle, statusFilter, toast])
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || !hasNext || loadingMore || loading) return
+    setLoadingMore(true)
+    try {
+      const body = buildFilmsSearchBody({
+        cursor: nextCursor,
+        size: PAGE_SIZE,
+        title: debouncedTitle,
+        status: statusFilter,
+      })
+      const data = await searchFilms(body)
+      setRows((prev) => [...prev, ...(data?.data || [])])
+      setNextCursor(data?.nextCursor ?? null)
+      setHasNext(Boolean(data?.hasNext))
+    } catch (e) {
+      toast.error(e?.message || 'Không tải thêm phim')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [nextCursor, hasNext, loadingMore, loading, debouncedTitle, statusFilter, toast])
+
+  loadMoreRef.current = loadMore
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMoreRef.current()
+        }
+      },
+      { root: null, rootMargin: '280px', threshold: 0 }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [rows.length, hasNext])
+
+  const handleDeleteFilm = useCallback(
+    async (film) => {
+      if (!film?.id) return
+      const ok = window.confirm(`Xóa phim "${film.title || ''}"?`)
+      if (!ok) return
+
+      const payload = {
+        duration: film.duration ?? undefined,
+        country: film.country ?? '',
+        releaseDate: film.releaseDate || film.publishedAt || '',
+        language: film.language ?? '',
+        ageRating: film.ageRating ?? '',
+        title: film.title ?? '',
+        trailer: film.trailer ?? '',
+        status: film.status ?? '',
+        director: film.director ?? '',
+      }
+
+      try {
+        setDeletingId(film.id)
+        await deleteFilm(film.id, payload)
+        setRows((prev) => prev.filter((item) => item.id !== film.id))
+        toast.success('Xóa phim thành công')
+      } catch (e) {
+        toast.error(e?.message || 'Xóa phim thất bại')
+      } finally {
+        setDeletingId('')
+      }
+    },
+    [toast]
+  )
 
   return (
     <div className="bg-background-light dark:bg-background-dark min-h-screen flex text-slate-900 dark:text-slate-100">
       <AdminSidebar />
-
-      {/* Main Content */}
       <main className="flex-1 min-w-0 p-6 md:p-8">
-        {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <Text variant="h1" className="text-3xl font-bold dark:text-slate-100">
@@ -31,19 +204,22 @@ function MovieManagement() {
               Quản lý danh sách phim, trạng thái và thông tin chi tiết
             </Text>
           </div>
-          <Button className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30">
-            <Icon name="add" />
-            Tạo phim mới
-          </Button>
+          <Link to="/management/movies/new">
+            <Button className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30">
+              <Icon name="add" />
+              Tạo phim mới
+            </Button>
+          </Link>
         </header>
 
-        {/* Filters */}
         <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <Input
-                name="search"
-                placeholder="Tìm kiếm tên phim, đạo diễn..."
+                name="titleSearch"
+                value={titleSearch}
+                onChange={(e) => setTitleSearch(e.target.value)}
+                placeholder="Tìm kiếm tên phim..."
                 icon="search"
               />
             </div>
@@ -51,7 +227,7 @@ function MovieManagement() {
               <CustomSelect
                 name="statusFilter"
                 value={statusFilter}
-                onChange={handleStatusChange}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 options={MANAGEMENT_STATUS_OPTIONS}
                 placeholder="Tất cả trạng thái"
               />
@@ -59,7 +235,6 @@ function MovieManagement() {
           </div>
         </section>
 
-        {/* Movie Table */}
         <div className="bg-white dark:bg-primary/5 rounded-2xl border border-slate-200 dark:border-primary/20 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -76,237 +251,113 @@ function MovieManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
-                {/* Row 1 */}
-                <tr className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors">
-                  <td className="px-6 py-4">
-                    <div
-                      className="w-12 h-16 rounded-lg bg-slate-200 dark:bg-primary/20 bg-cover bg-center shadow-sm"
-                      style={{ backgroundImage: "url('/assets/movie-sample.jpg')" }}
-                    />
-                  </td>
-                  <td className="px-6 py-4 font-semibold">Avengers: Endgame</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">Anthony Russo</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">181 phút</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">26/04/2019</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">Mỹ</td>
-                  <td className="px-6 py-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500/10 text-green-500 border border-green-500/20">
-                      NOW_SHOWING
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                {!loading &&
+                  rows.map((film) => {
+                    const meta = STATUS_META[film.status] || {
+                      label: film.status || '—',
+                      className: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
+                    }
+                    return (
+                      <tr
+                        key={film.id}
+                        className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
                       >
-                        <Icon name="visibility" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="edit" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="delete" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* Row 2 */}
-                <tr className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors">
-                  <td className="px-6 py-4">
-                    <div
-                      className="w-12 h-16 rounded-lg bg-slate-200 dark:bg-primary/20 bg-cover bg-center shadow-sm"
-                      style={{ backgroundImage: "url('/assets/movie-sample.jpg')" }}
-                    />
-                  </td>
-                  <td className="px-6 py-4 font-semibold">Dune: Part Two</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">Denis Villeneuve</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">166 phút</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">01/03/2024</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">Mỹ</td>
-                  <td className="px-6 py-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                      COMING_SOON
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="visibility" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="edit" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="delete" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* Row 3 */}
-                <tr className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors">
-                  <td className="px-6 py-4">
-                    <div
-                      className="w-12 h-16 rounded-lg bg-slate-200 dark:bg-primary/20 bg-cover bg-center shadow-sm"
-                      style={{ backgroundImage: "url('/assets/movie-sample.jpg')" }}
-                    />
-                  </td>
-                  <td className="px-6 py-4 font-semibold">Lật Mặt 7</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">Lý Hải</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">138 phút</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">26/04/2024</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">Việt Nam</td>
-                  <td className="px-6 py-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-500 border border-slate-500/20">
-                      STOP_SHOWING
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="visibility" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="edit" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="delete" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* Row 4 */}
-                <tr className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors">
-                  <td className="px-6 py-4">
-                    <div
-                      className="w-12 h-16 rounded-lg bg-slate-200 dark:bg-primary/20 bg-cover bg-center shadow-sm"
-                      style={{ backgroundImage: "url('/assets/movie-sample.jpg')" }}
-                    />
-                  </td>
-                  <td className="px-6 py-4 font-semibold">Mai</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">Trấn Thành</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">131 phút</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">10/02/2024</td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">Việt Nam</td>
-                  <td className="px-6 py-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-500 border border-slate-500/20">
-                      STOP_SHOWING
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="visibility" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="edit" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                      >
-                        <Icon name="delete" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
+                        <td className="px-6 py-4">
+                          <div
+                            className="w-12 h-16 rounded-lg bg-slate-200 dark:bg-primary/20 bg-cover bg-center shadow-sm"
+                            style={{ backgroundImage: `url('${rowPoster(film)}')` }}
+                          />
+                        </td>
+                        <td className="px-6 py-4 font-semibold">{film.title || '—'}</td>
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                          {film.director || '—'}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                          {film.duration != null ? `${film.duration} phút` : '—'}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                          {formatDate(film.releaseDate || film.publishedAt || film.createdAt)}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                          {film.country || '—'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold border ${meta.className}`}
+                          >
+                            {meta.label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center gap-2">
+                            <Link to={`/movies/${film.id}`}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                              >
+                                <Icon name="visibility" />
+                              </Button>
+                            </Link>
+                            <Link to={`/management/movies/${film.id}/edit`}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
+                              >
+                                <Icon name="edit" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                              onClick={() => handleDeleteFilm(film)}
+                              disabled={deletingId === film.id}
+                            >
+                              <Icon name="delete" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20 flex flex-col md:flex-row justify-between items-center gap-4">
-            <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-              Hiển thị 1 - 4 trong số 128 phim
-            </Text>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 dark:border-primary/20 hover:bg-white dark:hover:bg-primary/20 transition-all"
-              >
-                <Icon name="chevron_left" />
-              </Button>
-              <Button className="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-white font-bold">
-                1
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 dark:border-primary/20 hover:bg-white dark:hover:bg-primary/20 transition-all font-medium"
-              >
-                2
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 dark:border-primary/20 hover:bg-white dark:hover:bg-primary/20 transition-all font-medium"
-              >
-                3
-              </Button>
-              <span className="px-2">...</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 dark:border-primary/20 hover:bg-white dark:hover:bg-primary/20 transition-all font-medium"
-              >
-                15
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 dark:border-primary/20 hover:bg-white dark:hover:bg-primary/20 transition-all"
-              >
-                <Icon name="chevron_right" />
-              </Button>
-            </div>
+          <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20">
+            {loading && (
+              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
+                Đang tải danh sách phim...
+              </Text>
+            )}
+            {!loading && rows.length === 0 && (
+              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
+                Không có phim phù hợp.
+              </Text>
+            )}
+            {!loading && rows.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
+                  Đang hiển thị {rows.length} phim
+                </Text>
+                {hasNext && (
+                  <Text variant="small" className="text-xs text-slate-400 dark:text-slate-500">
+                    Cuộn xuống để tải thêm.
+                  </Text>
+                )}
+              </div>
+            )}
+            {loadingMore && (
+              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                Đang tải thêm phim...
+              </Text>
+            )}
           </div>
         </div>
+
+        <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
       </main>
     </div>
   )

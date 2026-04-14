@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Icon,
@@ -7,15 +7,10 @@ import {
   AppHeader,
   AppFooter,
   CustomSelect,
-  SearchableSelect,
   Input,
   useToast,
 } from '../../components/ui'
 import { buildFilmsSearchBody, searchFilms } from '../../api/Film/filmApi'
-import {
-  COUNTRY_FILTER_OPTIONS,
-  LANGUAGE_FILTER_OPTIONS,
-} from '../../constants/filmFilterOptions'
 
 const PAGE_SIZE = 10
 
@@ -33,8 +28,6 @@ const STATUS_META = {
   ENDED: { label: 'Ngừng chiếu', color: 'bg-slate-700' },
   ARCHIVED: { label: 'Lưu trữ', color: 'bg-slate-800' },
 }
-
-const ALL_OPTION = { value: '', label: 'Tất cả' }
 
 function formatAgeRating(rating) {
   if (!rating) return ''
@@ -72,18 +65,7 @@ function MovieList() {
   const [debouncedTitle, setDebouncedTitle] = useState('')
   const [filters, setFilters] = useState({
     status: 'all',
-    country: '',
-    language: '',
   })
-
-  const countrySelectOptions = useMemo(
-    () => [ALL_OPTION, ...COUNTRY_FILTER_OPTIONS],
-    []
-  )
-  const languageSelectOptions = useMemo(
-    () => [ALL_OPTION, ...LANGUAGE_FILTER_OPTIONS],
-    []
-  )
   const [items, setItems] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [hasNext, setHasNext] = useState(false)
@@ -113,8 +95,6 @@ function MovieList() {
       size: PAGE_SIZE,
       title: debouncedTitle,
       status: filters.status,
-      country: filters.country,
-      language: filters.language,
     })
 
     ;(async () => {
@@ -137,7 +117,7 @@ function MovieList() {
       cancelled = true
       ac.abort()
     }
-  }, [debouncedTitle, filters.status, filters.country, filters.language])
+  }, [debouncedTitle, filters.status])
 
   const loadMore = useCallback(async () => {
     if (!nextCursor || !hasNext || loadingMore || loading) return
@@ -148,8 +128,6 @@ function MovieList() {
         size: PAGE_SIZE,
         title: debouncedTitle,
         status: filters.status,
-        country: filters.country,
-        language: filters.language,
       })
       const data = await searchFilms(body)
       setItems((prev) => [...prev, ...(data?.data || [])])
@@ -167,8 +145,6 @@ function MovieList() {
     loading,
     debouncedTitle,
     filters.status,
-    filters.country,
-    filters.language,
   ])
 
   loadMoreRef.current = loadMore
@@ -215,7 +191,7 @@ function MovieList() {
         </div>
 
         <section className="glass rounded-xl p-6 mb-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Text
                 variant="caption"
@@ -244,40 +220,6 @@ function MovieList() {
                 onChange={handleFilterChange}
                 options={LIST_STATUS_OPTIONS}
                 placeholder="Chọn trạng thái"
-              />
-            </div>
-            <div className="space-y-2">
-              <Text
-                variant="caption"
-                className="text-xs font-bold uppercase tracking-wider text-primary"
-              >
-                Quốc gia
-              </Text>
-              <SearchableSelect
-                name="country"
-                value={filters.country}
-                onChange={handleFilterChange}
-                icon="public"
-                options={countrySelectOptions}
-                placeholder="Tất cả"
-                searchPlaceholder="Tìm quốc gia..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Text
-                variant="caption"
-                className="text-xs font-bold uppercase tracking-wider text-primary"
-              >
-                Ngôn ngữ
-              </Text>
-              <SearchableSelect
-                name="language"
-                value={filters.language}
-                onChange={handleFilterChange}
-                icon="translate"
-                options={languageSelectOptions}
-                placeholder="Tất cả"
-                searchPlaceholder="Tìm ngôn ngữ..."
               />
             </div>
           </div>

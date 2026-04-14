@@ -1,10 +1,13 @@
-import { callApi, buildGet } from '../client'
+import { callApi, buildGet, thirdPartyFetchDefaults } from '../client'
 
 const VIETQR_BANKS_URL = 'https://api.vietqr.io/v2/banks'
 
 export async function getBanks() {
   const { url, options } = buildGet(VIETQR_BANKS_URL)
-  const data = await callApi({ url, options })
+  const data = await callApi({
+    url,
+    options: { ...options, ...thirdPartyFetchDefaults },
+  })
 
   if (data?.code === '00' && Array.isArray(data.data)) {
     return data.data
@@ -16,4 +19,3 @@ export async function getBanks() {
     raw: data,
   }
 }
-
