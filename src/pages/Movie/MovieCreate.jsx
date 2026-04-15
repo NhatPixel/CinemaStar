@@ -25,6 +25,7 @@ function MovieCreate() {
   const [formData, setFormData] = useState({
     title: '',
     director: '',
+    actor: '',
     type: '',
     country: '',
     releaseDate: '',
@@ -70,6 +71,7 @@ function MovieCreate() {
       trailer: formData.trailerUrl.trim(),
       poster: formData.posterUrl.trim(),
       director: formData.director.trim(),
+      actor: formData.actor.trim(),
       status: formData.status,
     }
 
@@ -152,6 +154,17 @@ function MovieCreate() {
                       value={formData.director}
                       onChange={handleChange}
                       placeholder="Tên đạo diễn"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 md:col-span-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Diễn viên
+                    </label>
+                    <Input
+                      name="actor"
+                      value={formData.actor}
+                      onChange={handleChange}
+                      placeholder="Tên diễn viên (phân cách bằng dấu phẩy)"
                     />
                   </div>
                   <div className="flex flex-col gap-2">

@@ -113,7 +113,7 @@ function VerifyOtp() {
 
   return (
     <div
-      className="font-display text-slate-100 min-h-screen flex items-center justify-center relative overflow-hidden"
+      className="text-slate-100 min-h-screen flex items-center justify-center relative overflow-hidden"
       style={{ backgroundColor: '#191022' }}
     >
       <div
