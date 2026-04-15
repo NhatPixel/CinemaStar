@@ -1,15 +1,15 @@
-function Link({ 
-  children, 
-  href = '#', 
+function CustomLink({
+  children,
+  href = '#',
   className = '',
   size = 'sm',
-  ...props 
+  ...props
 }) {
   const sizes = {
     xs: 'text-xs',
     sm: 'text-sm',
     md: 'text-base',
-    lg: 'text-lg'
+    lg: 'text-lg',
   }
 
   const handleMouseEnter = (e) => {
@@ -24,9 +24,9 @@ function Link({
     <a
       href={href}
       className={`font-bold transition-colors underline ${sizes[size]} ${className}`}
-      style={{ 
+      style={{
         color: '#7311d4',
-        textDecorationColor: 'rgba(115, 17, 212, 0.3)'
+        textDecorationColor: 'rgba(115, 17, 212, 0.3)',
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -37,4 +37,4 @@ function Link({
   )
 }
 
-export default Link
+export default CustomLink

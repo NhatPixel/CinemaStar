@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, Icon, Input, Text, useToast } from '../../components/ui'
+import { Button, Icon, Input, Text, useToast } from '../../components'
 import { forgotPassword } from '../../api/Auth/forgotPasswordApi'
 
 function ForgotPassword() {

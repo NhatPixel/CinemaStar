@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
 import {
   AdminSidebar,
   Button,
+  ConfirmModal,
   Icon,
   Text,
   Input,
   CustomSelect,
   useToast,
-} from '../../components/ui'
+} from '../../components'
 import { buildFilmsSearchBody, deleteFilm, searchFilms } from '../../api/Film/filmApi'
 
 const PAGE_SIZE = 12
@@ -73,6 +74,7 @@ function MovieManagement() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [deletingId, setDeletingId] = useState('')
+  const [pendingDeleteFilm, setPendingDeleteFilm] = useState(null)
   const abortRef = useRef(null)
   const sentinelRef = useRef(null)
   const loadMoreRef = useRef(() => {})
@@ -160,10 +162,9 @@ function MovieManagement() {
   }, [rows.length, hasNext])
 
   const handleDeleteFilm = useCallback(
-    async (film) => {
+    async () => {
+      const film = pendingDeleteFilm
       if (!film?.id) return
-      const ok = window.confirm(`Xóa phim "${film.title || ''}"?`)
-      if (!ok) return
 
       const payload = {
         duration: film.duration ?? undefined,
@@ -172,8 +173,11 @@ function MovieManagement() {
         language: film.language ?? '',
         ageRating: film.ageRating ?? '',
         title: film.title ?? '',
+        description: film.description ?? '',
+        type: film.type ?? '',
         trailer: film.trailer ?? '',
         status: film.status ?? '',
+        actor: film.actor ?? '',
         director: film.director ?? '',
       }
 
@@ -182,13 +186,14 @@ function MovieManagement() {
         await deleteFilm(film.id, payload)
         setRows((prev) => prev.filter((item) => item.id !== film.id))
         toast.success('Xóa phim thành công')
+        setPendingDeleteFilm(null)
       } catch (e) {
         toast.error(e?.message || 'Xóa phim thất bại')
       } finally {
         setDeletingId('')
       }
     },
-    [toast]
+    [pendingDeleteFilm, toast]
   )
 
   return (
@@ -312,7 +317,7 @@ function MovieManagement() {
                               variant="ghost"
                               size="sm"
                               className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                              onClick={() => handleDeleteFilm(film)}
+                              onClick={() => setPendingDeleteFilm(film)}
                               disabled={deletingId === film.id}
                             >
                               <Icon name="delete" />
@@ -359,6 +364,16 @@ function MovieManagement() {
 
         <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
       </main>
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDeleteFilm)}
+        title="Xác nhận xóa phim"
+        message={`Bạn có chắc chắn muốn xóa phim "${pendingDeleteFilm?.title || ''}"?`}
+        onConfirm={handleDeleteFilm}
+        onCancel={() => setPendingDeleteFilm(null)}
+        disableConfirm={deletingId === pendingDeleteFilm?.id}
+        closeOnOverlayClick={deletingId !== pendingDeleteFilm?.id}
+      />
     </div>
   )
 }

@@ -9,7 +9,7 @@ import {
   CustomSelect,
   Input,
   useToast,
-} from '../../components/ui'
+} from '../../components'
 import { buildFilmsSearchBody, searchFilms } from '../../api/Film/filmApi'
 
 const PAGE_SIZE = 10
@@ -176,7 +176,7 @@ function MovieList() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <nav className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
-            <a className="hover:text-primary" href="#">
+            <a className="hover:text-primary" href="/movies">
               Trang chủ
             </a>
             <Icon name="chevron_right" className="text-xs" />
@@ -190,7 +190,7 @@ function MovieList() {
           </Text>
         </div>
 
-        <section className="glass rounded-xl p-6 mb-10">
+        <section className="glass rounded-xl mb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Text

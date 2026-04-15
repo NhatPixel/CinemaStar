@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Button, Icon, Input, Text, useToast } from '../../components/ui'
+import { Button, Icon, Input, Text, useToast } from '../../components'
 import { resendOtp, verifyOtp } from '../../api/Auth/otpApi'
 
 const OTP_LEN = 6

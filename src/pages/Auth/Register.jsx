@@ -10,8 +10,8 @@ import {
   CustomSelect,
   SearchableSelect,
   useToast,
-} from '../../components/ui'
-import UILink from '../../components/ui/Link'
+  CustomLink,
+} from '../../components'
 import { getBanks } from '../../api/Bank/bankApi'
 import {
   register,
@@ -306,9 +306,9 @@ function Register() {
               className="pt-2"
             >
               Tôi đồng ý với các{' '}
-              <UILink href="#">Điều khoản sử dụng</UILink>
+              <CustomLink href="#">Điều khoản sử dụng</CustomLink>
               {' '}và{' '}
-              <UILink href="#">Chính sách bảo mật</UILink>
+              <CustomLink href="#">Chính sách bảo mật</CustomLink>
               {' '}của CinemaStar.
             </Checkbox>
 

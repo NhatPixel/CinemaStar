@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AdminSidebar, Button, Icon, Input, Text, TextArea, CustomSelect, useToast } from '../../components/ui'
+import { AdminSidebar, Button, Icon, Input, Text, TextArea, CustomSelect, useToast } from '../../components'
 import { createFilm } from '../../api/Film/filmApi'
 
 const AGE_RATING_OPTIONS = [
@@ -25,7 +25,7 @@ function MovieCreate() {
   const [formData, setFormData] = useState({
     title: '',
     director: '',
-    genre: '',
+    type: '',
     country: '',
     releaseDate: '',
     language: '',
@@ -61,11 +61,12 @@ function MovieCreate() {
     const payload = {
       duration,
       country: formData.country.trim(),
-      genre: formData.genre.trim(),
+      type: formData.type.trim(),
       releaseDate: formData.releaseDate,
       language: formData.language.trim(),
       ageRating: formData.ageRating,
       title: formData.title.trim(),
+      description: formData.description.trim(),
       trailer: formData.trailerUrl.trim(),
       poster: formData.posterUrl.trim(),
       director: formData.director.trim(),
@@ -109,6 +110,7 @@ function MovieCreate() {
               Hủy
             </Button>
             <Button
+              form="movie-create-form"
               type="submit"
               className="px-5 py-2.5 rounded-lg font-semibold shadow-lg shadow-primary/20 flex items-center gap-2"
               disabled={submitting}
@@ -119,7 +121,7 @@ function MovieCreate() {
           </div>
         </header>
 
-        <form onSubmit={handleSubmit}>
+        <form id="movie-create-form" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             {/* Form Section */}
             <div className="xl:col-span-2 space-y-8">
@@ -157,8 +159,8 @@ function MovieCreate() {
                       Thể loại
                     </label>
                     <Input
-                      name="genre"
-                      value={formData.genre}
+                      name="type"
+                      value={formData.type}
                       onChange={handleChange}
                       placeholder="Hành động, Phiêu lưu..."
                     />
@@ -202,6 +204,16 @@ function MovieCreate() {
                       onChange={handleChange}
                       options={MOVIE_STATUS_OPTIONS}
                       placeholder="Chọn trạng thái"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Input
+                      label="URL Trailer"
+                      name="trailerUrl"
+                      type="url"
+                      value={formData.trailerUrl}
+                      onChange={handleChange}
+                      placeholder="https://www.youtube.com/watch?v=..."
                     />
                   </div>
                 </div>

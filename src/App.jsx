@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ToastProvider } from './components/ui'
+import { ToastProvider } from './components'
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
 import VerifyOtp from './pages/Auth/VerifyOtp'

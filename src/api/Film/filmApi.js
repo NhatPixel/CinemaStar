@@ -1,4 +1,4 @@
-import { callApi, buildDelete, buildPost, buildPut } from '../client'
+import { callApi, buildDelete, buildGet, buildPost, buildPut } from '../client'
 import { filmPath } from '../paths'
 
 const FILMS_SEARCH_URL = filmPath('search')
@@ -19,7 +19,7 @@ export function buildFilmsSearchBody({
     filterBy.push({ field: 'TITLE', operator: 'LIKE', value: t })
   }
   if (status && status !== 'all') {
-    filterBy.push({ field: 'STATUS', operator: 'LIKE', value: status })
+    filterBy.push({ field: 'STATUS', operator: 'EQ', value: status })
   }
   const c = country?.trim()
   if (c && c !== 'all') {
@@ -65,6 +65,22 @@ export async function createFilm(payload) {
   throw {
     status: resp?.code || 400,
     message: resp?.message || 'Không thể tạo phim',
+    raw: resp,
+  }
+}
+
+export async function getFilmById(id, { signal } = {}) {
+  const { url, options } = buildGet(filmDetailUrl(id))
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được thông tin phim',
     raw: resp,
   }
 }

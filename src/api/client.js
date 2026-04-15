@@ -13,7 +13,7 @@ export {
   thirdPartyFetchDefaults,
 } from './transport'
 
-async function retryAfter401(response, url, options) {
+async function retryAfterUnauthorized(response, url, options) {
   if (options.skipAuthRefresh) {
     return response
   }
@@ -40,13 +40,13 @@ async function retryAfter401(response, url, options) {
 
 export async function callApi({ url, options = {} }) {
   let response = await request(url, options)
-  response = await retryAfter401(response, url, options)
+  response = await retryAfterUnauthorized(response, url, options)
   return parseResponse(response)
 }
 
 export async function callApiWithResponse({ url, options = {} }) {
   let response = await request(url, options)
-  response = await retryAfter401(response, url, options)
+  response = await retryAfterUnauthorized(response, url, options)
   const payload = await parseResponse(response)
   return { payload, response }
 }

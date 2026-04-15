@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Input, Button, Divider, Icon, Text, useToast } from '../../components/ui'
+import { Input, Button, Divider, Icon, Text, useToast, CustomLink } from '../../components'
 import { login } from '../../api/Auth/loginApi'
-import UILink from '../../components/ui/Link'
 
 function Login() {
   const toast = useToast()
@@ -88,9 +87,9 @@ function Login() {
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
                 <label className="text-sm font-medium text-slate-300 block">Mật khẩu</label>
-                <UILink href="/forgot-password" size="xs">
+                <CustomLink href="/forgot-password" size="xs">
                   Quên mật khẩu?
-                </UILink>
+                </CustomLink>
               </div>
               <Input
                 name="password"
