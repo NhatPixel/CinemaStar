@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#7311d4",
+                        "primary-container": "#7311d4",
+                        "background": "#060e20",
+                        "surface": "#0b1326",
+                        "surface-container-low": "#0b1326",
+                        "surface-container-high": "#171f33",
+                        "on-background": "#dae2fd",
+                        "outline-variant": "#2d3449"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "display": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0b1326;
+            color: #dae2fd;
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary-container selection:text-white" style="background-color: #060e20; color: #dae2fd;">
+<!-- SideNavBar (The Anchor) -->
+<!-- Main Stage -->
+<main class="min-h-screen p-12 max-w-7xl mx-auto bg-[#060e20]">
+<!-- Header Section -->
+<header class="flex justify-between items-end mb-16">
+<div class="space-y-1">
+<nav class="flex items-center gap-2 text-outline text-xs mb-4">
+<span>Admin Suite</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span>Hệ thống người dùng</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-primary text-[#7311d4]">Chi tiết hồ sơ</span>
+</nav>
+<h2 class="font-display text-5xl font-extrabold tracking-tighter text-white">Hồ sơ người dùng</h2>
+</div>
+<button class="flex items-center gap-2 bg-surface-bright/60 backdrop-blur-xl text-primary border border-outline-variant/20 px-6 py-3 rounded-xl font-semibold hover:bg-surface-bright transition-all active:scale-95 bg-primary text-white border-none text-[#7311d4]">
+<span class="material-symbols-outlined text-sm">edit</span>
+                Chỉnh sửa hồ sơ
+            </button>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-8">
+<!-- Sidebar: Visual Identity Card -->
+<div class="col-span-12 lg:col-span-4 space-y-8">
+<section class="rounded-3xl p-8 flex flex-col items-center text-center relative overflow-hidden bg-[#0b1326] border border-white/5">
+<div class="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-primary-container/30 to-transparent"></div>
+<div class="relative mt-8 mb-6">
+<img alt="User Avatar" class="w-32 h-32 rounded-full border-4 border-surface ring-4 ring-primary-container/20 object-cover" data-alt="A sophisticated professional portrait of a medium-shot male administrator in a high-end cinematic editorial style. He has a clean, modern appearance, wearing a dark turtleneck. The lighting is dramatic and low-key, featuring deep purple and cosmic blue rim lighting that aligns with the CinemaStar brand identity. The background is a blurred, dark production studio environment with subtle lens flares." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA88ompYeC-BIX1d4-0uXP-uNOoyB95MXriBA2wMSWxfiDoOP5quC_e940OCdVZE0RbvADfs-P1rZHY_BcnI98pjRIv_oQJcwFeRq593l388hAII_Kp9CBKQTwBbI5WGFTkoJccutUP61V8Asf5TSW-PQB1hdT_ASDU3xSGzEW_H0WRbJW0y9YflVXtQgzgz8DLqfLrqRSX8p36iPconklw0IslHyHYMAwr2ksFgM7IPtWhc8GNy0ZydRLn2Oxj-wmN70kc47urs5I"/>
+<div class="absolute bottom-0 right-0 bg-green-500 w-6 h-6 rounded-full border-4 border-surface"></div>
+</div>
+<h3 class="font-display text-2xl font-bold text-on-background">Nguyễn Minh Quân</h3>
+<p class="text-primary font-medium tracking-wide text-[#7311d4]">Quản trị viên hệ thống</p>
+<div class="mt-8 grid grid-cols-2 gap-4 w-full">
+<div class="bg-surface-container-high rounded-2xl p-4">
+<p class="text-[10px] uppercase tracking-widest text-outline mb-1">Trạng thái</p>
+<p class="text-sm font-semibold text-green-400 text-[#7311d4]">Đang hoạt động</p>
+</div>
+<div class="bg-surface-container-high rounded-2xl p-4">
+<p class="text-[10px] uppercase tracking-widest text-outline mb-1">Xác minh</p>
+<p class="text-sm font-semibold text-primary text-[#7311d4]">Đã xác minh</p>
+</div>
+</div>
+</section>
+<!-- Quick Stats / Badges -->
+<section class="rounded-3xl p-8 bg-[#0b1326] border border-white/5">
+<h4 class="font-display text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm text-[#7311d4]">verified_user</span>
+                        Phân quyền hệ thống
+                    </h4>
+<div class="space-y-4">
+<div class="flex justify-between items-center p-3 bg-surface-container-highest/30 rounded-xl">
+<span class="text-sm text-outline">Truy cập API</span>
+<span class="material-symbols-outlined text-green-400 text-base text-[#7311d4]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center p-3 bg-surface-container-highest/30 rounded-xl">
+<span class="text-sm text-outline">Quản lý thanh toán</span>
+<span class="material-symbols-outlined text-green-400 text-base text-[#7311d4]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center p-3 bg-surface-container-highest/30 rounded-xl opacity-50">
+<span class="text-sm text-outline">Xóa dữ liệu gốc</span>
+<span class="material-symbols-outlined text-outline text-base">cancel</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Main Content Area -->
+<div class="col-span-12 lg:col-span-8 space-y-8">
+<!-- Section: Personal Information -->
+<section class="rounded-3xl p-10 bg-[#0b1326] border border-white/5">
+<div class="flex items-center gap-4 mb-10">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[#7311d4]">person</span>
+</div>
+<h4 class="font-display text-xl font-bold">Thông tin cá nhân</h4>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
+<div class="group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">Họ và tên</label>
+<p class="text-lg font-medium text-on-background border-b border-outline-variant/10 pb-2 group-hover:border-primary/40 transition-colors">Nguyễn Minh Quân</p>
+</div>
+<div class="group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">Ngày sinh</label>
+<p class="text-lg font-medium text-on-background border-b border-outline-variant/10 pb-2 group-hover:border-primary/40 transition-colors">15/08/1992</p>
+</div>
+<div class="group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">Giới tính</label>
+<p class="text-lg font-medium text-on-background border-b border-outline-variant/10 pb-2 group-hover:border-primary/40 transition-colors">Nam</p>
+</div>
+<div class="group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">Số điện thoại</label>
+<p class="text-lg font-medium text-on-background border-b border-outline-variant/10 pb-2 group-hover:border-primary/40 transition-colors">090 888 7766</p>
+</div>
+</div>
+</section>
+<!-- Section: Account Details -->
+<section class="rounded-3xl p-10 bg-[#0b1326] border border-white/5">
+<div class="flex items-center gap-4 mb-10">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[#7311d4]">settings_account_box</span>
+</div>
+<h4 class="font-display text-xl font-bold">Chi tiết tài khoản</h4>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
+<div class="md:col-span-2 group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">ID - UUID</label>
+<div class="flex items-center gap-2 border-b border-outline-variant/10 pb-2">
+<code class="text-sm font-mono text-primary bg-primary/5 px-2 py-0.5 rounded text-[#7311d4]">f47ac10b-58cc-4372-a567-0e02b2c3d479</code>
+<span class="material-symbols-outlined text-outline text-xs cursor-pointer hover:text-primary transition-colors">content_copy</span>
+</div>
+</div>
+<div class="group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">Email</label>
+<p class="text-lg font-medium text-on-background border-b border-outline-variant/10 pb-2 group-hover:border-primary/40 transition-colors">quan.nguyen@cinemastar.vn</p>
+</div>
+<div class="group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">Vai trò</label>
+<span class="inline-block bg-primary-container/20 text-primary px-4 py-1 rounded-full text-xs font-bold tracking-widest mt-1 text-[#7311d4]">ADMIN</span>
+</div>
+<div class="group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">Ngày tạo</label>
+<p class="text-lg font-medium text-on-background border-b border-outline-variant/10 pb-2 group-hover:border-primary/40 transition-colors">12/01/2023 08:30</p>
+</div>
+<div class="group">
+<label class="text-[10px] uppercase tracking-widest text-outline block mb-2 font-semibold">Ngày cập nhật</label>
+<p class="text-lg font-medium text-on-background border-b border-outline-variant/10 pb-2 group-hover:border-primary/40 transition-colors">24/05/2024 14:15</p>
+</div>
+</div>
+</section>
+<!-- Section: Banking Information -->
+<section class="rounded-3xl p-10 relative overflow-hidden bg-[#0b1326] border border-white/5">
+<!-- Glassmorphism decorative element -->
+<div class="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
+<div class="flex items-center gap-4 mb-10">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[#7311d4]">account_balance</span>
+</div>
+<h4 class="font-display text-xl font-bold">Thông tin ngân hàng</h4>
+</div>
+<div class="bg-surface-container-high/40 rounded-3xl p-8 border border-outline-variant/10 backdrop-blur-sm">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="space-y-1">
+<label class="text-[10px] uppercase tracking-widest text-outline font-semibold block">Ngân hàng</label>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-white/10 flex items-center justify-center p-1">
+<span class="material-symbols-outlined text-primary text-[#7311d4]">account_balance_wallet</span>
+</div>
+<p class="text-lg font-bold text-on-background">Vietcombank</p>
+</div>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase tracking-widest text-outline font-semibold block">Số tài khoản</label>
+<p class="text-lg font-mono tracking-wider font-semibold text-on-background">0071 0000 8888 99</p>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase tracking-widest text-outline font-semibold block">Tên tài khoản</label>
+<p class="text-lg font-bold text-primary uppercase text-[#7311d4]">NGUYEN MINH QUAN</p>
+</div>
+</div>
+<!-- Professional Empty State example inside the banking section -->
+<div class="mt-8 pt-8 border-t border-outline-variant/10">
+<div class="flex items-center justify-between">
+<div>
+<label class="text-[10px] uppercase tracking-widest text-outline font-semibold block mb-1">Phương thức thanh toán phụ</label>
+<p class="text-sm italic text-outline/50">Chưa được thiết lập</p>
+</div>
+<button class="text-primary text-xs font-bold hover:underline text-[#7311d4]">Thêm thông tin +</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Footer Visual Element -->
+</main>
+</body></html>

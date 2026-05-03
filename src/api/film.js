@@ -1,5 +1,5 @@
-import { callApi, buildDelete, buildGet, buildPost, buildPut } from '../client'
-import { filmPath } from '../paths'
+import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/client'
+import { filmPath } from './config/paths'
 
 const FILMS_SEARCH_URL = filmPath('search')
 const FILMS_CREATE_URL = filmPath('')
@@ -98,8 +98,8 @@ export async function updateFilm(id, payload) {
   }
 }
 
-export async function deleteFilm(id, payload) {
-  const { url, options } = buildDelete(filmDetailUrl(id), payload)
+export async function deleteFilm(id) {
+  const { url, options } = buildDelete(filmDetailUrl(id))
   const resp = await callApi({ url, options })
   if (resp?.success) {
     return resp.data

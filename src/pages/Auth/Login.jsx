@@ -1,7 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Input, Button, Divider, Icon, Text, useToast, CustomLink } from '../../components'
-import { login } from '../../api/Auth/loginApi'
+import {
+  AuthPageShell,
+  Input,
+  Button,
+  Divider,
+  Icon,
+  Text,
+  useToast,
+  CustomLink,
+} from '../../components'
+import { login } from '../../api/auth'
 
 function Login() {
   const toast = useToast()
@@ -21,8 +30,8 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await login(formData.email, formData.password)
-      toast.success('Đăng nhập thành công!')
+      const data = await login(formData.email, formData.password)
+      toast.success(data?.message || 'Đăng nhập thành công!')
       navigate('/movies')
     } catch (err) {
       toast.error(err.message || 'Đăng nhập thất bại!')
@@ -38,27 +47,10 @@ function Login() {
   }
 
   return (
-    <div className="text-slate-100 min-h-screen flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#191022' }}>
-      {/* Background Gradient Layer */}
-      <div
-        className="fixed inset-0 z-0"
-        style={{
-          background: 'radial-gradient(circle at top right, #3b0764, transparent), radial-gradient(circle at bottom left, #1e1b4b, transparent)'
-        }}
-      />
-      {/* Background Image Layer */}
-      <div
-        className="fixed inset-0 z-0 opacity-60"
-        style={{
-          backgroundImage: "url('/assets/auth-bg.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      />
-
-      {/* Content Overlay */}
-      <div className="relative z-10 w-full max-w-md px-6">
-        <div className="glass-panel rounded-xl p-8 shadow-2xl">
+    <AuthPageShell>
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-10 w-full">
+        <div className="w-full max-w-md">
+          <div className="glass-panel rounded-xl p-8 shadow-2xl">
           {/* Branding */}
           <div className="flex flex-col items-center mb-10">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(115,17,212,0.5)]" style={{ backgroundColor: '#7311d4' }}>
@@ -141,12 +133,9 @@ function Login() {
             </Link>
           </p>
         </div>
-      </div>
-
-      {/* Decorative Elements */}
-      <div className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" style={{ backgroundColor: 'rgba(115, 17, 212, 0.2)' }}></div>
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-600/20 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2"></div>
-    </div>
+        </div>
+      </main>
+    </AuthPageShell>
   )
 }
 

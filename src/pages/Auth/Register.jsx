@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
+  AuthPageShell,
   Input,
   Button,
   Icon,
@@ -12,13 +13,14 @@ import {
   useToast,
   CustomLink,
 } from '../../components'
-import { getBanks } from '../../api/Bank/bankApi'
+import { getBanks } from '../../api/bank'
 import {
   register,
   registerStaff,
   registerManager,
   toRegisterPayload,
-} from '../../api/Auth/registerApi'
+} from '../../api/auth'
+import { REGISTER_GENDER_OPTIONS } from '../../constants/genderMeta'
 
 function Register() {
   const toast = useToast()
@@ -77,14 +79,15 @@ function Register() {
     setSubmitting(true)
     try {
       const payload = toRegisterPayload(formData)
+      let data
       if (formData.role === 'manager') {
-        await registerManager(payload)
+        data = await registerManager(payload)
       } else if (formData.role === 'staff') {
-        await registerStaff(payload)
+        data = await registerStaff(payload)
       } else {
-        await register(payload)
+        data = await register(payload)
       }
-      toast.success('Đăng ký thành công! Vui lòng nhập mã OTP đã gửi tới email.')
+      toast.success(data?.message || 'Đăng ký thành công! Vui lòng nhập mã OTP đã gửi tới email.')
       navigate('/verify-otp', { state: { needPassword: false } })
     } catch (err) {
       toast.error(err.message || 'Đăng ký thất bại!')
@@ -94,26 +97,9 @@ function Register() {
   }
 
   return (
-    <div className="ftext-slate-100 min-h-screen flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#191022' }}>
-      {/* Background Gradient Layer */}
-      <div
-        className="fixed inset-0 z-0"
-        style={{
-          background: 'radial-gradient(circle at top right, #3b0764, transparent), radial-gradient(circle at bottom left, #1e1b4b, transparent)'
-        }}
-      />
-      {/* Background Image Layer */}
-      <div
-        className="fixed inset-0 z-0 opacity-60"
-        style={{
-          backgroundImage: "url('/assets/auth-bg.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      />
-
-      {/* Content Overlay */}
-      <div className="relative z-10 w-full max-w-2xl px-6 py-12">
+    <AuthPageShell>
+      <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto">
+        <div className="w-full max-w-2xl mx-auto">
         {/* Header Text */}
         <div className="text-center mb-10">
           <Text variant="h1" className="mb-4 tracking-tight">
@@ -288,11 +274,7 @@ function Register() {
                 onChange={handleChange}
                 icon="wc"
                 placeholder="Chọn giới tính"
-                options={[
-                  { value: 'male', label: 'Nam' },
-                  { value: 'female', label: 'Nữ' },
-                  { value: 'other', label: 'Khác' },
-                ]}
+                options={REGISTER_GENDER_OPTIONS}
               />
             </div>
 
@@ -326,12 +308,9 @@ function Register() {
             </p>
           </form>
         </div>
-      </div>
-
-      {/* Decorative Elements */}
-      <div className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" style={{ backgroundColor: 'rgba(115, 17, 212, 0.2)' }}></div>
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-600/20 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2"></div>
-    </div>
+        </div>
+      </main>
+    </AuthPageShell>
   )
 }
 

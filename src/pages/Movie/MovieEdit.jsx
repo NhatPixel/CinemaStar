@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   AdminSidebar,
+  AppFooter,
   Button,
   ConfirmModal,
   Icon,
@@ -11,22 +12,10 @@ import {
   CustomSelect,
   useToast,
 } from '../../components'
-import { getFilmById, updateFilm } from '../../api/Film/filmApi'
-
-const AGE_RATING_OPTIONS = [
-  { value: 'RATING_1', label: 'Mọi lứa tuổi (0+)' },
-  { value: 'RATING_2', label: 'Cần hướng dẫn của phụ huynh (6+)' },
-  { value: 'RATING_3', label: 'Trẻ em trên 13 tuổi (13+)' },
-  { value: 'RATING_4', label: 'Trẻ em trên 16 tuổi (16+)' },
-  { value: 'RATING_5', label: 'Chỉ dành cho người từ 18 tuổi trở lên (18+)' },
-]
-
-const MOVIE_STATUS_OPTIONS = [
-  { value: 'COMING_SOON', label: 'Sắp chiếu' },
-  { value: 'NOW_SHOWING', label: 'Đang chiếu' },
-  { value: 'ENDED', label: 'Ngừng chiếu' },
-  { value: 'ARCHIVED', label: 'Lưu trữ' },
-]
+import { getFilmById, updateFilm } from '../../api/film'
+import { AGE_RATING_OPTIONS } from '../../constants/ageRatingMeta'
+import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
+import { PAGE_SHELL_STACK, PAGE_SIDEBAR_ROW } from '../../constants/pageLayout'
 
 function MovieEdit() {
   const toast = useToast()
@@ -144,8 +133,8 @@ function MovieEdit() {
 
     try {
       setSubmitting(true)
-      await updateFilm(id, payload)
-      toast.success('Cập nhật phim thành công')
+      const data = await updateFilm(id, payload)
+      toast.success(data?.message || 'Cập nhật phim thành công')
       navigate('/management/movies')
     } catch (err) {
       toast.error(err?.message || 'Cập nhật phim thất bại')
@@ -155,10 +144,11 @@ function MovieEdit() {
   }
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen flex text-slate-900 dark:text-slate-100">
-      <AdminSidebar />
+    <div className={PAGE_SHELL_STACK}>
+      <div className={PAGE_SIDEBAR_ROW}>
+        <AdminSidebar />
 
-      <main className="flex-1 min-w-0 p-6 md:p-8">
+        <main className="flex-1 min-w-0 p-6 md:p-8">
         <header className="flex items-center justify-between mb-8">
           <div>
             <Text variant="h1" className="text-3xl font-bold tracking-tight">
@@ -403,7 +393,7 @@ function MovieEdit() {
             </div>
           </div>
 
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-background-dark border-t border-slate-200 dark:border-primary/20 flex gap-4 md:hidden">
+          <div className="fixed bottom-0 left-0 right-0 z-30 p-4 bg-white dark:bg-background-dark border-t border-slate-200 dark:border-primary/20 flex gap-4 md:hidden">
             <Button
               type="button"
               variant="ghost"
@@ -422,6 +412,7 @@ function MovieEdit() {
           </div>
         </form>
       </main>
+      </div>
 
       <ConfirmModal
         isOpen={showSubmitConfirm}
@@ -431,6 +422,7 @@ function MovieEdit() {
         onCancel={() => setShowSubmitConfirm(false)}
         disableConfirm={submitting}
       />
+      <AppFooter />
     </div>
   )
 }

@@ -1,39 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { AppHeader, AppFooter, Icon, Text, Button, useToast } from '../../components'
-import { getFilmById } from '../../api/Film/filmApi'
+import { getFilmById } from '../../api/film'
+import { AGE_RATING_META } from '../../constants/ageRatingMeta'
+import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
+import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
 
-const STATUS_LABELS = {
-  COMING_SOON: 'Sắp chiếu',
-  NOW_SHOWING: 'Đang chiếu',
-  ENDED: 'Ngừng chiếu',
-  ARCHIVED: 'Lưu trữ',
-}
-
-const AGE_RATING_META = {
-  RATING_1: { short: 'T0', text: 'Mọi lứa tuổi' },
-  RATING_2: { short: 'T6', text: 'Từ 6 tuổi trở lên' },
-  RATING_3: { short: 'T13', text: 'Từ 13 tuổi trở lên' },
-  RATING_4: { short: 'T16', text: 'Từ 16 tuổi trở lên' },
-  RATING_5: { short: 'T18', text: 'Từ 18 tuổi trở lên' },
-}
+const STATUS_LABELS = Object.fromEntries(MOVIE_STATUS_OPTIONS.map((option) => [option.value, option.label]))
 
 function formatDate(value) {
   if (!value) return '—'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
   return d.toLocaleDateString('vi-VN')
-}
-
-function trailerPoster(trailerUrl) {
-  if (!trailerUrl) return ''
-  const raw = String(trailerUrl)
-  const short = raw.match(/youtu\.be\/([^?&]+)/i)?.[1]
-  const full = raw.match(/[?&]v=([^?&]+)/i)?.[1]
-  const embed = raw.match(/youtube\.com\/embed\/([^?&]+)/i)?.[1]
-  const id = short || full || embed
-  if (!id) return ''
-  return `https://img.youtube.com/vi/${id}/hqdefault.jpg`
 }
 
 function parseActors(actorValue) {
@@ -45,6 +24,21 @@ function parseActors(actorValue) {
     .split(',')
     .map((name) => name.trim())
     .filter(Boolean)
+}
+
+function getTrailerEmbedUrl(trailerUrl) {
+  if (!trailerUrl) return ''
+  const raw = String(trailerUrl).trim()
+
+  const short = raw.match(/youtu\.be\/([^?&]+)/i)?.[1]
+  const full = raw.match(/[?&]v=([^?&]+)/i)?.[1]
+  const embed = raw.match(/youtube\.com\/embed\/([^?&]+)/i)?.[1]
+  const id = short || full || embed
+  if (id) {
+    return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`
+  }
+
+  return raw
 }
 
 function MovieDetail() {
@@ -85,15 +79,14 @@ function MovieDetail() {
   const actorList = useMemo(() => parseActors(movie?.actor || movie?.cast), [movie?.actor, movie?.cast])
   const ageMeta = AGE_RATING_META[movie?.ageRating] || { short: '—', text: 'Không xác định' }
   const statusLabel = STATUS_LABELS[movie?.status] || movie?.status || '—'
-  const poster = movie?.poster || trailerPoster(movie?.trailer) || '/assets/movie-sample.jpg'
-  const trailerPreview = trailerPoster(movie?.trailer) || poster
-  const trailerHref = movie?.trailer || '#'
+  const poster = movie?.poster || '/assets/movie-sample.jpg'
+  const trailerEmbedUrl = getTrailerEmbedUrl(movie?.trailer)
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+    <div className={PAGE_SHELL}>
       <AppHeader />
 
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-12">
+      <main className={PAGE_MAIN}>
         {loading && (
           <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
             Đang tải thông tin phim...
@@ -139,33 +132,26 @@ function MovieDetail() {
               </div>
 
               {/* Trailer Player */}
-              <a
-                href={trailerHref}
-                target="_blank"
-                rel="noreferrer"
-                className="relative aspect-video rounded-xl overflow-hidden bg-black shadow-xl group cursor-pointer block"
-              >
-                <div
-                  className="absolute inset-0 bg-cover bg-center opacity-60"
-                  style={{ backgroundImage: `url('${trailerPreview}')` }}
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="size-20 bg-primary/90 hover:bg-primary text-white rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-lg">
-                    <Icon name="play_arrow" className="text-4xl" />
-                  </span>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs font-bold text-white uppercase tracking-widest">
-                      Xem Trailer
+              <div className="relative aspect-video rounded-xl overflow-hidden bg-black shadow-xl">
+                {trailerEmbedUrl ? (
+                  <iframe
+                    src={trailerEmbedUrl}
+                    title={`Trailer ${movie?.title || ''}`}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div
+                    className="h-full w-full bg-cover bg-center flex items-center justify-center"
+                    style={{ backgroundImage: `url('${poster}')` }}
+                  >
+                    <span className="rounded-full bg-black/60 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white">
+                      Chưa có trailer
                     </span>
-                    <div className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
-                      <div className="w-1/3 h-full bg-primary" />
-                    </div>
-                    <span className="text-xs text-white">YouTube</span>
                   </div>
-                </div>
-              </a>
+                )}
+              </div>
 
               <div className="flex flex-wrap gap-4 mt-2">
                 <Button

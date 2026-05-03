@@ -10,17 +10,13 @@ import {
   Input,
   useToast,
 } from '../../components'
-import { buildFilmsSearchBody, searchFilms } from '../../api/Film/filmApi'
+import { buildFilmsSearchBody, searchFilms } from '../../api/film'
+import { AGE_RATING_META } from '../../constants/ageRatingMeta'
+import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
+import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
 
 const PAGE_SIZE = 10
-
-const LIST_STATUS_OPTIONS = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'COMING_SOON', label: 'Phim sắp chiếu' },
-  { value: 'NOW_SHOWING', label: 'Đang chiếu' },
-  { value: 'ENDED', label: 'Ngừng chiếu' },
-  { value: 'ARCHIVED', label: 'Lưu trữ' },
-]
+const LIST_STATUS_OPTIONS = [{ value: 'all', label: 'Tất cả' }, ...MOVIE_STATUS_OPTIONS]
 
 const STATUS_META = {
   COMING_SOON: { label: 'Sắp chiếu', color: 'bg-slate-600' },
@@ -31,8 +27,8 @@ const STATUS_META = {
 
 function formatAgeRating(rating) {
   if (!rating) return ''
-  const m = String(rating).match(/RATING_(\d+)/i)
-  if (m) return `T${m[1]}`
+  const meta = AGE_RATING_META[rating]
+  if (meta?.short) return meta.short
   return String(rating).replace(/^RATING_/i, '')
 }
 
@@ -170,13 +166,13 @@ function MovieList() {
   }
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+    <div className={PAGE_SHELL}>
       <AppHeader />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={PAGE_MAIN}>
         <div className="mb-8">
           <nav className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
-            <a className="hover:text-primary" href="/movies">
+            <a className="hover:text-primary" href="/">
               Trang chủ
             </a>
             <Icon name="chevron_right" className="text-xs" />

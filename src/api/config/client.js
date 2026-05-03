@@ -1,11 +1,7 @@
-import { refreshAccessToken } from './Auth/refreshTokenApi'
-import { parseResponse, request } from './transport'
-
-const ACCESS_TOKEN_STORAGE_KEY = 'accessToken'
+import { parseResponse, refreshAccessToken, request } from './transport'
 
 export { refreshAccessToken }
 export {
-  buildAuthHeaders,
   buildGet,
   buildPost,
   buildPut,
@@ -20,19 +16,8 @@ async function retryAfterUnauthorized(response, url, options) {
   if (response.status !== 401) {
     return response
   }
-  let hadToken = false
-  try {
-    hadToken = Boolean(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY))
-  } catch {
-    return response
-  }
-  if (!hadToken) {
-    return response
-  }
-
   const refreshed = await refreshAccessToken()
   if (!refreshed) {
-    localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY)
     return response
   }
   return request(url, options)

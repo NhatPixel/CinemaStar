@@ -1,4 +1,4 @@
-import { callApi, buildGet, thirdPartyFetchDefaults } from '../client'
+import { callApi, buildGet, thirdPartyFetchDefaults } from './config/client'
 
 const VIETQR_BANKS_URL = 'https://api.vietqr.io/v2/banks'
 

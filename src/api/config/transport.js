@@ -1,17 +1,7 @@
-import { buildCookieHeaders } from '../utils/authCookieStorage'
+import { buildCookieHeaders } from '../../utils/authCookieStorage'
+import { authPath } from './paths'
 
 export const BASE_URL = 'https://cinema-api.duckdns.org/api'
-
-const ACCESS_TOKEN_STORAGE_KEY = 'accessToken'
-
-export function buildAuthHeaders() {
-  const headers = {}
-  const token = localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-  return headers
-}
 
 export async function parseResponse(response) {
   const contentType = response.headers.get('content-type') || ''
@@ -73,7 +63,6 @@ export async function request(url, options = {}) {
   const headers = {
     ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
     ...(skipCookieHeaders ? {} : buildCookieHeaders()),
-    ...(skipAuthHeaders ? {} : buildAuthHeaders()),
     ...(fetchOpts.headers || {}),
   }
 
@@ -135,4 +124,37 @@ export function buildDelete(url, body) {
     url,
     options,
   }
+}
+
+const REFRESH_URL = authPath('refresh_token')
+
+let refreshInFlight = null
+
+/** Called from `client` on 401 — does not import `client` to avoid circular dependency. */
+export async function refreshAccessToken() {
+  if (refreshInFlight) {
+    return refreshInFlight
+  }
+  refreshInFlight = (async () => {
+    try {
+      const { url, options } = buildPost(REFRESH_URL, {})
+      const resp = await callApiRaw({
+        url,
+        options: {
+          ...options,
+          skipAuthHeaders: true,
+          skipAuthRefresh: true,
+        },
+      })
+      if (resp?.success) {
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  })().finally(() => {
+    refreshInFlight = null
+  })
+  return refreshInFlight
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Button, Icon, Input, Text, useToast } from '../../components'
-import { resendOtp, verifyOtp } from '../../api/Auth/otpApi'
+import { AuthPageShell, Button, Icon, Input, Text, useToast } from '../../components'
+import { resendOtp, verifyOtp } from '../../api/auth'
 
 const OTP_LEN = 6
 const RESEND_INTERVAL_SEC = 60
@@ -70,8 +70,8 @@ function VerifyOtp() {
     if (secondsLeft > 0) return
     setResending(true)
     try {
-      await resendOtp()
-      toast.success('Đã gửi lại mã OTP.')
+      const data = await resendOtp()
+      toast.success(data?.message || 'Đã gửi lại mã OTP.')
       setSecondsLeft(RESEND_INTERVAL_SEC)
     } catch (err) {
       toast.error(err.message || 'Không thể gửi lại mã.')
@@ -93,15 +93,17 @@ function VerifyOtp() {
     }
     setSubmitting(true)
     try {
+      let data
       if (needPassword) {
-        await verifyOtp({ otp, password })
+        data = await verifyOtp({ otp, password })
       } else {
-        await verifyOtp({ otp })
+        data = await verifyOtp({ otp })
       }
       toast.success(
-        needPassword
-          ? 'Đặt lại mật khẩu thành công!'
-          : 'Xác nhận OTP thành công!'
+        data?.message ||
+          (needPassword
+            ? 'Đặt lại mật khẩu thành công!'
+            : 'Xác nhận OTP thành công!')
       )
       navigate('/login')
     } catch (err) {
@@ -112,28 +114,10 @@ function VerifyOtp() {
   }
 
   return (
-    <div
-      className="text-slate-100 min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ backgroundColor: '#191022' }}
-    >
-      <div
-        className="fixed inset-0 z-0"
-        style={{
-          background:
-            'radial-gradient(circle at top right, #3b0764, transparent), radial-gradient(circle at bottom left, #1e1b4b, transparent)',
-        }}
-      />
-      <div
-        className="fixed inset-0 z-0 opacity-60"
-        style={{
-          backgroundImage: "url('/assets/auth-bg.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
-
-      <div className="relative z-10 w-full max-w-md px-6">
-        <div className="glass-panel rounded-xl p-8 shadow-2xl">
+    <AuthPageShell>
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-10 w-full">
+        <div className="w-full max-w-md">
+          <div className="glass-panel rounded-xl p-8 shadow-2xl">
           <div className="flex flex-col items-center mb-8">
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(115,17,212,0.5)]"
@@ -215,14 +199,9 @@ function VerifyOtp() {
             </Link>
           </p>
         </div>
-      </div>
-
-      <div
-        className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2"
-        style={{ backgroundColor: 'rgba(115, 17, 212, 0.2)' }}
-      />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-600/20 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2" />
-    </div>
+        </div>
+      </main>
+    </AuthPageShell>
   )
 }
 

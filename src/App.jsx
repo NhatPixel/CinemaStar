@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { ToastProvider } from './components'
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
@@ -9,8 +9,31 @@ import MovieDetail from './pages/Movie/MovieDetail'
 import MovieManagement from './pages/Movie/MovieManagement'
 import MovieCreate from './pages/Movie/MovieCreate'
 import MovieEdit from './pages/Movie/MovieEdit'
+import UserProfile from './pages/User/UserProfile'
+
+function resolveManagementRedirectPath() {
+  try {
+    const raw = localStorage.getItem('currentUser')
+    if (!raw) return '/'
+    const user = JSON.parse(raw)
+    const role = String(user?.role || '').trim().toUpperCase()
+    if (role === 'ADMIN') return '/management/movies'
+    if (role === 'MANAGER') return '/'
+    return '/'
+  } catch {
+    return '/'
+  }
+}
+
+function resolveRootRedirectPath() {
+  const hasCurrentUser = Boolean(localStorage.getItem('currentUser'))
+  return hasCurrentUser ? '/movies' : '/login'
+}
 
 function App() {
+  const managementPath = resolveManagementRedirectPath()
+  const rootPath = resolveRootRedirectPath()
+
   return (
     <ToastProvider>
     <BrowserRouter>
@@ -21,10 +44,12 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/movies" element={<MovieList />} />
         <Route path="/movies/:id" element={<MovieDetail />} />
+        <Route path="/profile" element={<UserProfile />} />
+        <Route path="/management" element={<Navigate to={managementPath} replace />} />
         <Route path="/management/movies" element={<MovieManagement />} />
         <Route path="/management/movies/new" element={<MovieCreate />} />
         <Route path="/management/movies/:id/edit" element={<MovieEdit />} />
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Navigate to={rootPath} replace />} />
       </Routes>
     </BrowserRouter>
     </ToastProvider>

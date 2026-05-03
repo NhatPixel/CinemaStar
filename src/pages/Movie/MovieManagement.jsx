@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AdminSidebar,
+  AppFooter,
   Button,
   ConfirmModal,
   Icon,
@@ -10,33 +11,26 @@ import {
   CustomSelect,
   useToast,
 } from '../../components'
-import { buildFilmsSearchBody, deleteFilm, searchFilms } from '../../api/Film/filmApi'
+import { buildFilmsSearchBody, deleteFilm, searchFilms } from '../../api/film'
+import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
+import { PAGE_SHELL_STACK, PAGE_SIDEBAR_ROW } from '../../constants/pageLayout'
 
 const PAGE_SIZE = 12
 
-const MANAGEMENT_STATUS_OPTIONS = [
-  { value: 'all', label: 'Tất cả trạng thái' },
-  { value: 'NOW_SHOWING', label: 'Đang chiếu' },
-  { value: 'COMING_SOON', label: 'Sắp chiếu' },
-  { value: 'ENDED', label: 'Ngừng chiếu' },
-  { value: 'ARCHIVED', label: 'Lưu trữ' },
-]
+const MANAGEMENT_STATUS_OPTIONS = [{ value: 'all', label: 'Tất cả trạng thái' }, ...MOVIE_STATUS_OPTIONS]
+const STATUS_LABELS = Object.fromEntries(MOVIE_STATUS_OPTIONS.map((option) => [option.value, option.label]))
 
 const STATUS_META = {
   NOW_SHOWING: {
-    label: 'Đang chiếu',
     className: 'bg-green-500/10 text-green-500 border-green-500/20',
   },
   COMING_SOON: {
-    label: 'Sắp chiếu',
     className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   },
   ENDED: {
-    label: 'Ngừng chiếu',
     className: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
   },
   ARCHIVED: {
-    label: 'Lưu trữ',
     className: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   },
 }
@@ -48,19 +42,8 @@ function formatDate(value) {
   return d.toLocaleDateString('vi-VN')
 }
 
-function trailerPoster(trailerUrl) {
-  if (!trailerUrl) return ''
-  const raw = String(trailerUrl)
-  const short = raw.match(/youtu\.be\/([^?&]+)/i)?.[1]
-  const full = raw.match(/[?&]v=([^?&]+)/i)?.[1]
-  const embed = raw.match(/youtube\.com\/embed\/([^?&]+)/i)?.[1]
-  const id = short || full || embed
-  if (!id) return ''
-  return `https://img.youtube.com/vi/${id}/hqdefault.jpg`
-}
-
 function rowPoster(film) {
-  return trailerPoster(film?.trailer) || film?.poster || '/assets/movie-sample.jpg'
+  return film?.poster || '/assets/movie-sample.jpg'
 }
 
 function MovieManagement() {
@@ -166,26 +149,11 @@ function MovieManagement() {
       const film = pendingDeleteFilm
       if (!film?.id) return
 
-      const payload = {
-        duration: film.duration ?? undefined,
-        country: film.country ?? '',
-        releaseDate: film.releaseDate || film.publishedAt || '',
-        language: film.language ?? '',
-        ageRating: film.ageRating ?? '',
-        title: film.title ?? '',
-        description: film.description ?? '',
-        type: film.type ?? '',
-        trailer: film.trailer ?? '',
-        status: film.status ?? '',
-        actor: film.actor ?? '',
-        director: film.director ?? '',
-      }
-
       try {
         setDeletingId(film.id)
-        await deleteFilm(film.id, payload)
+        const data = await deleteFilm(film.id)
         setRows((prev) => prev.filter((item) => item.id !== film.id))
-        toast.success('Xóa phim thành công')
+        toast.success(data?.message || 'Xóa phim thành công')
         setPendingDeleteFilm(null)
       } catch (e) {
         toast.error(e?.message || 'Xóa phim thất bại')
@@ -197,9 +165,10 @@ function MovieManagement() {
   )
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen flex text-slate-900 dark:text-slate-100">
-      <AdminSidebar />
-      <main className="flex-1 min-w-0 p-6 md:p-8">
+    <div className={PAGE_SHELL_STACK}>
+      <div className={PAGE_SIDEBAR_ROW}>
+        <AdminSidebar />
+        <main className="flex-1 min-w-0 p-6 md:p-8">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <Text variant="h1" className="text-3xl font-bold dark:text-slate-100">
@@ -258,8 +227,8 @@ function MovieManagement() {
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
                 {!loading &&
                   rows.map((film) => {
+                    const statusLabel = STATUS_LABELS[film.status] || film.status || '—'
                     const meta = STATUS_META[film.status] || {
-                      label: film.status || '—',
                       className: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
                     }
                     return (
@@ -290,7 +259,7 @@ function MovieManagement() {
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-bold border ${meta.className}`}
                           >
-                            {meta.label}
+                            {statusLabel}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -364,6 +333,7 @@ function MovieManagement() {
 
         <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
       </main>
+      </div>
 
       <ConfirmModal
         isOpen={Boolean(pendingDeleteFilm)}
@@ -374,6 +344,7 @@ function MovieManagement() {
         disableConfirm={deletingId === pendingDeleteFilm?.id}
         closeOnOverlayClick={deletingId !== pendingDeleteFilm?.id}
       />
+      <AppFooter />
     </div>
   )
 }
