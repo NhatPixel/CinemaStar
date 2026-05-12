@@ -50,7 +50,7 @@ function App() {
         <Route path="/management" element={<ManagementLayout />}>
           <Route index element={<Navigate to={managementPath} replace />} />
           <Route path="movies" element={<MovieManagement />} />
-          <Route path="movies/new" element={<MovieCreate />} />
+          <Route path="movies/create" element={<MovieCreate />} />
           <Route path="movies/:id/edit" element={<MovieEdit />} />
           <Route path="cinemas" element={<CinemaManagement />} />
         </Route>

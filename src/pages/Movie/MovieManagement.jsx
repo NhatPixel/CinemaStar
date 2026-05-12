@@ -173,7 +173,7 @@ function MovieManagement() {
               Quản lý danh sách phim, trạng thái và thông tin chi tiết
             </Text>
           </div>
-          <Link to="/management/movies/new">
+          <Link to="/management/movies/create">
             <Button className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30">
               <Icon name="add" />
               Tạo phim mới
