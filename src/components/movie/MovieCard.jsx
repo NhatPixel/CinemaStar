@@ -1,5 +1,5 @@
-import Icon from './Icon'
-import Text from './Text'
+import Icon from '../Icon'
+import Text from '../Text'
 
 function MovieCard({
   title,
@@ -85,4 +85,3 @@ function MovieCard({
 }
 
 export default MovieCard
-

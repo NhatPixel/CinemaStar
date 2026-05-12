@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  AdminSidebar,
-  AppFooter,
   Button,
   ConfirmModal,
   Icon,
@@ -13,7 +11,6 @@ import {
 } from '../../components'
 import { buildFilmsSearchBody, deleteFilm, searchFilms } from '../../api/film'
 import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
-import { PAGE_SHELL_STACK, PAGE_SIDEBAR_ROW } from '../../constants/pageLayout'
 
 const PAGE_SIZE = 12
 
@@ -165,10 +162,8 @@ function MovieManagement() {
   )
 
   return (
-    <div className={PAGE_SHELL_STACK}>
-      <div className={PAGE_SIDEBAR_ROW}>
-        <AdminSidebar />
-        <main className="flex-1 min-w-0 p-6 md:p-8">
+    <>
+      <main className="flex-1 min-w-0 p-6 md:p-8">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <Text variant="h1" className="text-3xl font-bold dark:text-slate-100">
@@ -220,7 +215,7 @@ function MovieManagement() {
                   <th className="px-6 py-4 font-semibold text-sm">Thời lượng</th>
                   <th className="px-6 py-4 font-semibold text-sm">Phát hành</th>
                   <th className="px-6 py-4 font-semibold text-sm">Quốc gia</th>
-                  <th className="px-6 py-4 font-semibold text-sm">Trạng thái</th>
+                  <th className="px-6 py-4 font-semibold text-sm min-w-[150px]">Trạng thái</th>
                   <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
                 </tr>
               </thead>
@@ -255,7 +250,7 @@ function MovieManagement() {
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                           {film.country || '—'}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 min-w-[150px]">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-bold border ${meta.className}`}
                           >
@@ -333,7 +328,6 @@ function MovieManagement() {
 
         <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
       </main>
-      </div>
 
       <ConfirmModal
         isOpen={Boolean(pendingDeleteFilm)}
@@ -344,8 +338,7 @@ function MovieManagement() {
         disableConfirm={deletingId === pendingDeleteFilm?.id}
         closeOnOverlayClick={deletingId !== pendingDeleteFilm?.id}
       />
-      <AppFooter />
-    </div>
+    </>
   )
 }
 

@@ -15,7 +15,7 @@ import { AGE_RATING_META } from '../../constants/ageRatingMeta'
 import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 12
 const LIST_STATUS_OPTIONS = [{ value: 'all', label: 'Tất cả' }, ...MOVIE_STATUS_OPTIONS]
 
 const STATUS_META = {
@@ -60,7 +60,7 @@ function MovieList() {
   const [titleSearch, setTitleSearch] = useState('')
   const [debouncedTitle, setDebouncedTitle] = useState('')
   const [filters, setFilters] = useState({
-    status: 'all',
+    status: 'NOW_SHOWING',
   })
   const [items, setItems] = useState([])
   const [nextCursor, setNextCursor] = useState(null)

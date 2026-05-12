@@ -9,6 +9,8 @@ import MovieDetail from './pages/Movie/MovieDetail'
 import MovieManagement from './pages/Movie/MovieManagement'
 import MovieCreate from './pages/Movie/MovieCreate'
 import MovieEdit from './pages/Movie/MovieEdit'
+import CinemaManagement from './pages/Cinema/CinemaManagement'
+import ManagementLayout from './components/layout/ManagementLayout'
 import UserProfile from './pages/User/UserProfile'
 
 function resolveManagementRedirectPath() {
@@ -45,10 +47,13 @@ function App() {
         <Route path="/movies" element={<MovieList />} />
         <Route path="/movies/:id" element={<MovieDetail />} />
         <Route path="/profile" element={<UserProfile />} />
-        <Route path="/management" element={<Navigate to={managementPath} replace />} />
-        <Route path="/management/movies" element={<MovieManagement />} />
-        <Route path="/management/movies/new" element={<MovieCreate />} />
-        <Route path="/management/movies/:id/edit" element={<MovieEdit />} />
+        <Route path="/management" element={<ManagementLayout />}>
+          <Route index element={<Navigate to={managementPath} replace />} />
+          <Route path="movies" element={<MovieManagement />} />
+          <Route path="movies/new" element={<MovieCreate />} />
+          <Route path="movies/:id/edit" element={<MovieEdit />} />
+          <Route path="cinemas" element={<CinemaManagement />} />
+        </Route>
         <Route path="/" element={<Navigate to={rootPath} replace />} />
       </Routes>
     </BrowserRouter>

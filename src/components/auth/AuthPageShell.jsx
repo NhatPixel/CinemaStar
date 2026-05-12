@@ -33,9 +33,7 @@ function AuthPageShell({ children }) {
         className="fixed bottom-0 left-0 w-64 h-64 bg-indigo-600/20 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2 pointer-events-none z-[1]"
         aria-hidden
       />
-      <div className="relative z-10 flex flex-col flex-1 min-h-0 w-full">
-        {children}
-      </div>
+      <div className="relative z-10 flex flex-col flex-1 min-h-0 w-full">{children}</div>
     </div>
   )
 }

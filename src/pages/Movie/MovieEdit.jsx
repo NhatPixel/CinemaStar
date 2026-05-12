@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  AdminSidebar,
-  AppFooter,
   Button,
   ConfirmModal,
   Icon,
@@ -15,7 +13,6 @@ import {
 import { getFilmById, updateFilm } from '../../api/film'
 import { AGE_RATING_OPTIONS } from '../../constants/ageRatingMeta'
 import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
-import { PAGE_SHELL_STACK, PAGE_SIDEBAR_ROW } from '../../constants/pageLayout'
 
 function MovieEdit() {
   const toast = useToast()
@@ -144,11 +141,8 @@ function MovieEdit() {
   }
 
   return (
-    <div className={PAGE_SHELL_STACK}>
-      <div className={PAGE_SIDEBAR_ROW}>
-        <AdminSidebar />
-
-        <main className="flex-1 min-w-0 p-6 md:p-8">
+    <>
+      <main className="flex-1 min-w-0 p-6 md:p-8">
         <header className="flex items-center justify-between mb-8">
           <div>
             <Text variant="h1" className="text-3xl font-bold tracking-tight">
@@ -412,7 +406,6 @@ function MovieEdit() {
           </div>
         </form>
       </main>
-      </div>
 
       <ConfirmModal
         isOpen={showSubmitConfirm}
@@ -422,8 +415,7 @@ function MovieEdit() {
         onCancel={() => setShowSubmitConfirm(false)}
         disableConfirm={submitting}
       />
-      <AppFooter />
-    </div>
+    </>
   )
 }
 

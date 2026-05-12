@@ -18,12 +18,17 @@ function ConfirmModal({
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         onCancel?.()
+        return
+      }
+
+      if (event.key === 'Enter' && !disableConfirm) {
+        onConfirm?.()
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, onCancel])
+  }, [isOpen, onCancel, onConfirm, disableConfirm])
 
   if (!isOpen || typeof document === 'undefined') {
     return null

@@ -36,6 +36,7 @@ function AppHeader({ showLoginButton = true }) {
   const currentUserName = String(currentUser?.name || '').trim()
   const roles = readRolesFromStorage()
   const canAccessManagement = roles.includes('ADMIN') || roles.includes('MANAGER')
+  const managementPath = roles.includes('ADMIN') ? '/management/movies' : '/'
 
   const handleLogout = async () => {
     if (loggingOut) return
@@ -57,7 +58,7 @@ function AppHeader({ showLoginButton = true }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center gap-12">
-            <a className="flex items-center gap-3 text-primary" href="/">
+            <Link className="flex items-center gap-3 text-primary" to="/">
               <Icon name="movie_filter" className="text-4xl font-bold" />
               <Text
                 variant="h2"
@@ -65,13 +66,16 @@ function AppHeader({ showLoginButton = true }) {
               >
                 CinemaStar
               </Text>
-            </a>
+            </Link>
             <nav className="hidden md:flex items-center gap-8">
-              <a className="text-sm font-semibold hover:text-primary transition-colors" href="/movies">
+              <Link className="text-sm font-semibold hover:text-primary transition-colors" to="/movies">
                 Phim
-              </a>
+              </Link>
               {canAccessManagement ? (
-                <Link className="text-sm font-semibold hover:text-primary transition-colors" to="/management">
+                <Link
+                  className="text-sm font-semibold hover:text-primary transition-colors"
+                  to={managementPath}
+                >
                   Quản lý
                 </Link>
               ) : null}

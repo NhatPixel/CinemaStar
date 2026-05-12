@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  AdminSidebar,
-  AppFooter,
   Button,
   Icon,
   Input,
@@ -14,7 +12,6 @@ import {
 import { createFilm } from '../../api/film'
 import { AGE_RATING_OPTIONS } from '../../constants/ageRatingMeta'
 import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
-import { PAGE_SHELL_STACK, PAGE_SIDEBAR_ROW } from '../../constants/pageLayout'
 
 function MovieCreate() {
   const toast = useToast()
@@ -86,11 +83,7 @@ function MovieCreate() {
   }
 
   return (
-    <div className={PAGE_SHELL_STACK}>
-      <div className={PAGE_SIDEBAR_ROW}>
-        <AdminSidebar />
-
-        <main className="flex-1 min-w-0 p-6 md:p-8">
+    <main className="flex-1 min-w-0 p-6 md:p-8">
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
           <div>
@@ -356,10 +349,7 @@ function MovieCreate() {
             </Button>
           </div>
         </form>
-      </main>
-      </div>
-      <AppFooter />
-    </div>
+    </main>
   )
 }
 

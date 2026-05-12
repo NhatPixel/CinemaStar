@@ -18,7 +18,11 @@ function Avatar({
   const innerClass = className ? `${base} ${className}` : `${base} w-10 h-10`
 
   const content = src ? (
-    <img src={src} alt={name ? `Ảnh đại diện ${name}` : 'Ảnh đại diện'} className="h-full w-full object-cover" />
+    <img
+      src={src}
+      alt={name ? `Ảnh đại diện ${name}` : 'Ảnh đại diện'}
+      className="h-full w-full object-cover"
+    />
   ) : (
     getInitial(name)
   )
