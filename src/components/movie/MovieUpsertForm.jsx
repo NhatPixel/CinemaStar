@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Button from '../Button'
-import ConfirmModal from '../ConfirmModal'
 import CustomSelect from '../CustomSelect'
 import Icon from '../Icon'
 import Input from '../Input'
 import Text from '../Text'
 import TextArea from '../TextArea'
 import { useToast } from '../useToast'
+import { createFilm, getFilmById, updateFilm } from '../../api/film'
 import { AGE_RATING_OPTIONS } from '../../constants/ageRatingMeta'
 import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
 
@@ -25,6 +25,10 @@ const EMPTY_FORM = {
   trailerUrl: '',
   posterUrl: '',
 }
+
+const STATUS_LABELS = Object.fromEntries(
+  MOVIE_STATUS_OPTIONS.map((option) => [option.value, option.label]),
+)
 
 function filmToFormData(film) {
   if (!film) return { ...EMPTY_FORM }
@@ -63,39 +67,82 @@ function formDataToPayload(formData) {
   }
 }
 
+function formatDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toLocaleString('vi-VN')
+}
+
 /**
- * Form chung cho trang tạo và chỉnh sửa phim. Dùng bởi `MovieCreate` & `MovieEdit`.
- *
- * @param {object} props
- * @param {string} props.title - Tiêu đề trang.
- * @param {string} props.subtitle - Mô tả dưới tiêu đề.
- * @param {object|null} [props.initialData] - Dữ liệu phim ban đầu (cho edit). Null/undefined → form rỗng.
- * @param {boolean} [props.loading] - Đang tải dữ liệu ban đầu (edit). Disabled submit + show banner.
- * @param {{ title: string, message: string }|null} [props.confirm] - Cần ConfirmModal trước khi submit?
- * @param {string} [props.submitLabel] - Nhãn nút submit (default: "Lưu phim").
- * @param {(payload: object) => Promise<void>} props.onSubmit - Gọi khi submit; payload đã trim/parse.
- * @param {() => void} props.onCancel - Gọi khi user bấm "Hủy".
+ * Form tạo / chỉnh sửa / xem chi tiết phim.
+ * - `mode`: `create` | `edit` | `view`
+ * - `filmId`: bắt buộc với `edit` và `view` — gọi GET `/films/:id` khi mount.
  */
-function MovieUpsertForm({
-  title,
-  subtitle,
-  initialData = null,
-  loading = false,
-  confirm = null,
-  submitLabel = 'Lưu phim',
-  onSubmit,
-  onCancel,
-}) {
+function MovieUpsertForm({ mode = 'create', filmId, onCancel, onSubmitted }) {
   const toast = useToast()
+  const isCreate = mode === 'create'
+  const isEdit = mode === 'edit'
+  const isView = mode === 'view'
+  const readOnly = isView
+
+  const [detail, setDetail] = useState(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [formData, setFormData] = useState(() => filmToFormData(initialData))
+  const [formData, setFormData] = useState({ ...EMPTY_FORM })
+
+  const ageRatingLabel = useMemo(
+    () =>
+      AGE_RATING_OPTIONS.find((option) => option.value === formData.ageRating)?.label ||
+      formData.ageRating ||
+      '—',
+    [formData.ageRating],
+  )
+
+  const statusLabel = STATUS_LABELS[formData.status] || formData.status || '—'
 
   useEffect(() => {
-    setFormData(filmToFormData(initialData))
-  }, [initialData])
+    if (isCreate) {
+      setDetail(null)
+      setFormData({ ...EMPTY_FORM })
+      setSubmitting(false)
+      return undefined
+    }
+    if (!filmId) return undefined
+
+    const controller = new AbortController()
+    let cancelled = false
+    setLoadingDetail(true)
+  ;(async () => {
+      try {
+        const data = await getFilmById(filmId, { signal: controller.signal })
+        if (cancelled) return
+        setDetail(data)
+        setFormData(filmToFormData(data))
+      } catch (e) {
+        if (cancelled || e?.name === 'AbortError') return
+        toast.error(e?.message || 'Không tải được thông tin phim')
+        onCancel?.()
+      } finally {
+        if (!cancelled) setLoadingDetail(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [isCreate, filmId, toast, onCancel])
+
+  const title = isView ? 'Chi tiết phim' : isEdit ? 'Chỉnh sửa phim' : 'Thêm phim mới'
+  const subtitle = isView
+    ? 'Thông tin chi tiết phim từ hệ thống.'
+    : isEdit
+      ? 'Cập nhật thông tin phim trong hệ thống CinemaStar.'
+      : 'Nhập thông tin chi tiết để cập nhật phim vào hệ thống CinemaStar.'
 
   const handleChange = (e) => {
+    if (readOnly) return
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -117,74 +164,80 @@ function MovieUpsertForm({
     return true
   }
 
-  const runSubmit = async () => {
-    if (typeof onSubmit !== 'function') return
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (readOnly || submitting || loadingDetail) return
+    if (!validate()) return
+
     const payload = formDataToPayload(formData)
+
     try {
       setSubmitting(true)
-      await onSubmit(payload)
-    } catch (_e) {
-      // Caller đã hiển thị toast; ta chỉ reset trạng thái nút.
+      let data
+      if (isEdit) {
+        data = await updateFilm(filmId, payload)
+        toast.success(
+          typeof data?.message === 'string'
+            ? data.message
+            : 'Cập nhật phim thành công',
+        )
+      } else {
+        data = await createFilm(payload)
+        toast.success(
+          typeof data?.message === 'string' ? data.message : 'Tạo phim thành công',
+        )
+      }
+      onSubmitted?.(data, { isEdit })
+    } catch (err) {
+      toast.error(
+        err?.message || (isEdit ? 'Cập nhật phim thất bại' : 'Tạo phim thất bại'),
+      )
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (submitting || loading) return
-    if (!validate()) return
-    if (confirm) {
-      setShowConfirm(true)
-    } else {
-      runSubmit()
-    }
-  }
-
-  const handleConfirm = () => {
-    setShowConfirm(false)
-    runSubmit()
-  }
+  const fieldProps = readOnly ? { disabled: true, readOnly: true } : {}
 
   return (
-    <>
-      <main className="flex-1 min-w-0 p-6 md:p-8">
-        <header className="flex items-center justify-between mb-8">
-          <div>
-            <Text variant="h1" className="text-3xl font-bold tracking-tight">
-              {title}
-            </Text>
-            <Text variant="small" className="text-slate-500 dark:text-slate-400">
-              {subtitle}
-            </Text>
-          </div>
-          <div className="hidden md:flex gap-4">
-            <Button
-              type="button"
-              variant="ghost"
-              className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-primary/10"
-              onClick={onCancel}
-            >
-              Hủy
-            </Button>
+    <main className="flex-1 min-w-0 p-6 md:p-8">
+      <header className="flex items-center justify-between mb-8">
+        <div>
+          <Text variant="h1" className="text-3xl font-bold tracking-tight">
+            {title}
+          </Text>
+          <Text variant="small" className="text-slate-500 dark:text-slate-400">
+            {subtitle}
+          </Text>
+        </div>
+        <div className="hidden md:flex gap-4">
+          <Button
+            type="button"
+            variant="ghost"
+            className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-primary/10"
+            onClick={onCancel}
+          >
+            {isView ? 'Đóng' : 'Hủy'}
+          </Button>
+          {!isView ? (
             <Button
               form="movie-form"
               type="submit"
               className="px-5 py-2.5 rounded-lg font-semibold shadow-lg shadow-primary/20 flex items-center gap-2"
-              disabled={submitting || loading}
+              disabled={submitting || loadingDetail}
             >
               <Icon name="save" />
-              {submitting ? 'Đang lưu...' : submitLabel}
+              {submitting ? 'Đang lưu...' : isEdit ? 'Lưu thay đổi' : 'Lưu phim'}
             </Button>
-          </div>
-        </header>
+          ) : null}
+        </div>
+      </header>
 
-        {loading && (
-          <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
-            Đang tải thông tin phim...
-          </div>
-        )}
-
+      {loadingDetail ? (
+        <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+          Đang tải thông tin phim...
+        </div>
+      ) : (
         <form id="movie-form" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             <div className="xl:col-span-2 space-y-8">
@@ -203,6 +256,7 @@ function MovieUpsertForm({
                       value={formData.title}
                       onChange={handleChange}
                       placeholder="Nhập tiêu đề phim"
+                      {...fieldProps}
                     />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -214,6 +268,7 @@ function MovieUpsertForm({
                       value={formData.director}
                       onChange={handleChange}
                       placeholder="Tên đạo diễn"
+                      {...fieldProps}
                     />
                   </div>
                   <div className="flex flex-col gap-2 md:col-span-2">
@@ -225,6 +280,7 @@ function MovieUpsertForm({
                       value={formData.actor}
                       onChange={handleChange}
                       placeholder="Tên diễn viên (phân cách bằng dấu phẩy)"
+                      {...fieldProps}
                     />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -236,6 +292,7 @@ function MovieUpsertForm({
                       value={formData.type}
                       onChange={handleChange}
                       placeholder="Hành động, Phiêu lưu..."
+                      {...fieldProps}
                     />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -247,6 +304,7 @@ function MovieUpsertForm({
                       value={formData.country}
                       onChange={handleChange}
                       placeholder="Việt Nam, Mỹ..."
+                      {...fieldProps}
                     />
                   </div>
                 </div>
@@ -259,24 +317,46 @@ function MovieUpsertForm({
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex flex-col gap-2">
-                    <CustomSelect
-                      label="Phân loại độ tuổi"
-                      name="ageRating"
-                      value={formData.ageRating}
-                      onChange={handleChange}
-                      options={AGE_RATING_OPTIONS}
-                      placeholder="Chọn phân loại"
-                    />
+                    {readOnly ? (
+                      <Input
+                        label="Phân loại độ tuổi"
+                        name="ageRating"
+                        value={ageRatingLabel}
+                        onChange={() => {}}
+                        disabled
+                        readOnly
+                      />
+                    ) : (
+                      <CustomSelect
+                        label="Phân loại độ tuổi"
+                        name="ageRating"
+                        value={formData.ageRating}
+                        onChange={handleChange}
+                        options={AGE_RATING_OPTIONS}
+                        placeholder="Chọn phân loại"
+                      />
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
-                    <CustomSelect
-                      label="Trạng thái phim"
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      options={MOVIE_STATUS_OPTIONS}
-                      placeholder="Chọn trạng thái"
-                    />
+                    {readOnly ? (
+                      <Input
+                        label="Trạng thái phim"
+                        name="status"
+                        value={statusLabel}
+                        onChange={() => {}}
+                        disabled
+                        readOnly
+                      />
+                    ) : (
+                      <CustomSelect
+                        label="Trạng thái phim"
+                        name="status"
+                        value={formData.status}
+                        onChange={handleChange}
+                        options={MOVIE_STATUS_OPTIONS}
+                        placeholder="Chọn trạng thái"
+                      />
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <Input
@@ -286,6 +366,7 @@ function MovieUpsertForm({
                       value={formData.trailerUrl}
                       onChange={handleChange}
                       placeholder="https://www.youtube.com/watch?v=..."
+                      {...fieldProps}
                     />
                   </div>
                 </div>
@@ -306,6 +387,7 @@ function MovieUpsertForm({
                       type="date"
                       value={formData.releaseDate}
                       onChange={handleChange}
+                      {...fieldProps}
                     />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -317,6 +399,7 @@ function MovieUpsertForm({
                       value={formData.language}
                       onChange={handleChange}
                       placeholder="Phụ đề Tiếng Việt"
+                      {...fieldProps}
                     />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -329,6 +412,7 @@ function MovieUpsertForm({
                       value={formData.duration}
                       onChange={handleChange}
                       placeholder="120"
+                      {...fieldProps}
                     />
                   </div>
                 </div>
@@ -340,9 +424,39 @@ function MovieUpsertForm({
                     onChange={handleChange}
                     rows={4}
                     placeholder="Nhập nội dung tóm tắt phim..."
+                    {...fieldProps}
                   />
                 </div>
               </section>
+
+              {isView ? (
+                <section className="bg-white dark:bg-background-dark/30 border border-slate-200 dark:border-primary/10 rounded-xl p-6">
+                  <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                    <Icon name="schedule" className="text-primary" />
+                    Thông tin hệ thống
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input
+                      label="Ngày tạo"
+                      name="createdAt"
+                      value={formatDateTime(detail?.timeCreated || detail?.createdAt)}
+                      onChange={() => {}}
+                      icon="event"
+                      disabled
+                      readOnly
+                    />
+                    <Input
+                      label="Cập nhật lần cuối"
+                      name="updatedAt"
+                      value={formatDateTime(detail?.timeUpdated || detail?.updatedAt)}
+                      onChange={() => {}}
+                      icon="update"
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                </section>
+              ) : null}
             </div>
 
             <div className="space-y-8">
@@ -362,6 +476,7 @@ function MovieUpsertForm({
                       value={formData.posterUrl}
                       onChange={handleChange}
                       placeholder="https://..."
+                      {...fieldProps}
                     />
                   </div>
                   <div className="aspect-[2/3] w-full rounded-xl border-2 border-dashed border-slate-200 dark:border-primary/30 bg-slate-50 dark:bg-background-dark/50 flex flex-col items-center justify-center text-slate-400 overflow-hidden group relative">
@@ -372,11 +487,13 @@ function MovieUpsertForm({
                           className="absolute inset-0 w-full h-full object-cover"
                           src={formData.posterUrl}
                         />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
-                          <span className="text-white font-bold bg-primary px-4 py-2 rounded-lg">
-                            Preview Mode
-                          </span>
-                        </div>
+                        {!readOnly ? (
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
+                            <span className="text-white font-bold bg-primary px-4 py-2 rounded-lg">
+                              Preview Mode
+                            </span>
+                          </div>
+                        ) : null}
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center p-8 text-center gap-3">
@@ -402,30 +519,21 @@ function MovieUpsertForm({
               className="flex-1 py-3 rounded-lg border border-slate-200 dark:border-primary/30 text-slate-600 dark:text-slate-300 font-bold"
               onClick={onCancel}
             >
-              Hủy
+              {isView ? 'Đóng' : 'Hủy'}
             </Button>
-            <Button
-              type="submit"
-              className="flex-1 py-3 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/20"
-              disabled={submitting || loading}
-            >
-              {submitting ? 'Đang lưu...' : submitLabel}
-            </Button>
+            {!isView ? (
+              <Button
+                type="submit"
+                className="flex-1 py-3 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/20"
+                disabled={submitting || loadingDetail}
+              >
+                {submitting ? 'Đang lưu...' : isEdit ? 'Lưu thay đổi' : 'Lưu phim'}
+              </Button>
+            ) : null}
           </div>
         </form>
-      </main>
-
-      {confirm ? (
-        <ConfirmModal
-          isOpen={showConfirm}
-          title={confirm.title}
-          message={confirm.message}
-          onConfirm={handleConfirm}
-          onCancel={() => setShowConfirm(false)}
-          disableConfirm={submitting}
-        />
-      ) : null}
-    </>
+      )}
+    </main>
   )
 }
 

@@ -39,7 +39,7 @@ function mapFilmToCardProps(film) {
   }
   const muted = film.status === 'ENDED' || film.status === 'ARCHIVED'
   const overlayVariant = film.status === 'COMING_SOON' ? 'remind' : 'buy'
-  const sub = [film.country, film.language].filter(Boolean).join(' • ')
+  const sub = [film.country, film.language].filter(Boolean).join(' - ')
   return {
     title: film.title,
     duration: film.duration != null ? `${film.duration} phút` : '—',

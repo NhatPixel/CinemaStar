@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Button,
-  CinemaUpsertModal,
+  CinemaModal,
+  ConfirmModal,
   CustomSelect,
   Icon,
   Input,
   Text,
   useToast,
 } from '../../components'
-import { buildCinemasSearchBody, searchCinemas } from '../../api/cinema'
+import { buildCinemasSearchBody, deleteCinema, searchCinemas } from '../../api/cinema'
 import {
   CINEMA_STATUS_BADGE_CLASS,
   CINEMA_STATUS_LABEL_VI,
@@ -39,16 +40,18 @@ function CinemaManagement() {
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [rows, setRows] = useState([])
-  const [nextCursor, setNextCursor] = useState(null)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
   const [hasNext, setHasNext] = useState(false)
+  const [hasPrevious, setHasPrevious] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
-  const [editingCinema, setEditingCinema] = useState(null)
+  const [editingCinemaId, setEditingCinemaId] = useState(null)
+  const [viewingCinemaId, setViewingCinemaId] = useState(null)
+  const [pendingDeleteCinema, setPendingDeleteCinema] = useState(null)
+  const [deletingId, setDeletingId] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
-  const abortRef = useRef(null)
-  const sentinelRef = useRef(null)
-  const loadMoreRef = useRef(() => {})
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedKeyword(keyword.trim()), 400)
@@ -56,17 +59,17 @@ function CinemaManagement() {
   }, [keyword])
 
   useEffect(() => {
+    setPage(1)
+  }, [debouncedKeyword, statusFilter])
+
+  useEffect(() => {
     let cancelled = false
     setLoading(true)
-    setRows([])
-    setNextCursor(null)
-    setHasNext(false)
 
-    abortRef.current?.abort()
     const ac = new AbortController()
-    abortRef.current = ac
 
     const body = buildCinemasSearchBody({
+      page,
       size: PAGE_SIZE,
       keyword: debouncedKeyword,
       status: statusFilter,
@@ -77,12 +80,18 @@ function CinemaManagement() {
         const data = await searchCinemas(body, { signal: ac.signal })
         if (cancelled) return
         setRows(data?.data || [])
-        setNextCursor(data?.nextCursor ?? null)
+        setTotalPages(data?.totalPages ?? 0)
+        setTotalElements(data?.totalElements ?? 0)
         setHasNext(Boolean(data?.hasNext))
+        setHasPrevious(Boolean(data?.hasPrevious))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         toast.error(e?.message || 'Không tải được danh sách rạp')
         setRows([])
+        setTotalPages(0)
+        setTotalElements(0)
+        setHasNext(false)
+        setHasPrevious(false)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -92,47 +101,27 @@ function CinemaManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [debouncedKeyword, statusFilter, refreshTick, toast])
+  }, [page, debouncedKeyword, statusFilter, refreshTick, toast])
 
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || !hasNext || loadingMore || loading) return
-    setLoadingMore(true)
+  const handleDeleteCinema = useCallback(async () => {
+    const cinema = pendingDeleteCinema
+    if (!cinema?.id) return
+
     try {
-      const body = buildCinemasSearchBody({
-        cursor: nextCursor,
-        size: PAGE_SIZE,
-        keyword: debouncedKeyword,
-        status: statusFilter,
-      })
-      const data = await searchCinemas(body)
-      setRows((prev) => [...prev, ...(data?.data || [])])
-      setNextCursor(data?.nextCursor ?? null)
-      setHasNext(Boolean(data?.hasNext))
+      setDeletingId(cinema.id)
+      const data = await deleteCinema(cinema.id)
+      toast.success(data?.message || 'Xóa rạp thành công')
+      setPendingDeleteCinema(null)
+      setRefreshTick((n) => n + 1)
     } catch (e) {
-      toast.error(e?.message || 'Không tải thêm rạp')
+      toast.error(e?.message || 'Xóa rạp thất bại')
     } finally {
-      setLoadingMore(false)
+      setDeletingId('')
     }
-  }, [nextCursor, hasNext, loadingMore, loading, debouncedKeyword, statusFilter, toast])
-
-  loadMoreRef.current = loadMore
-
-  useEffect(() => {
-    const el = sentinelRef.current
-    if (!el) return
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          loadMoreRef.current()
-        }
-      },
-      { root: null, rootMargin: '280px', threshold: 0 },
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [rows.length, hasNext])
+  }, [pendingDeleteCinema, toast])
 
   return (
+    <>
     <main className="flex-1 min-w-0 p-6 md:p-8">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
@@ -226,16 +215,39 @@ function CinemaManagement() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-primary hover:bg-primary/10"
-                          onClick={() => setEditingCinema(cinema)}
-                        >
-                          <Icon name="edit" className="text-base" />
-                          Sửa
-                        </Button>
+                        <div className="inline-flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-primary/10"
+                            onClick={() => setViewingCinemaId(cinema.id)}
+                          >
+                            <Icon name="visibility" className="text-base" />
+                            Xem
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-primary hover:bg-primary/10"
+                            onClick={() => setEditingCinemaId(cinema.id)}
+                          >
+                            <Icon name="edit" className="text-base" />
+                            Sửa
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-red-500 hover:bg-red-500/10"
+                            onClick={() => setPendingDeleteCinema(cinema)}
+                            disabled={deletingId === cinema.id}
+                          >
+                            <Icon name="delete" className="text-base" />
+                            Xóa
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -244,7 +256,7 @@ function CinemaManagement() {
           </table>
         </div>
 
-        <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20">
+        <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {loading && (
             <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
               Đang tải danh sách rạp...
@@ -256,29 +268,46 @@ function CinemaManagement() {
             </Text>
           )}
           {!loading && rows.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-                Đang hiển thị {rows.length} rạp
-              </Text>
-              {hasNext && (
-                <Text variant="small" className="text-xs text-slate-400 dark:text-slate-500">
-                  Cuộn xuống để tải thêm.
-                </Text>
-              )}
-            </div>
-          )}
-          {loadingMore && (
-            <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-              Đang tải thêm rạp...
+            <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
+              {totalElements > 0
+                ? `Hiển thị ${rows.length} / ${totalElements} rạp`
+                : `Đang hiển thị ${rows.length} rạp`}
             </Text>
+          )}
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
+                disabled={!hasPrevious || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Trang trước
+              </Button>
+              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
+                Trang {page}
+                {totalPages > 0 ? ` / ${totalPages}` : ''}
+              </Text>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
+                disabled={!hasNext || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Trang sau
+              </Button>
+            </div>
           )}
         </div>
       </div>
 
-      <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
-
-      <CinemaUpsertModal
+      <CinemaModal
         isOpen={createOpen}
+        mode="create"
         onCancel={() => setCreateOpen(false)}
         onSubmitted={() => {
           setCreateOpen(false)
@@ -286,16 +315,35 @@ function CinemaManagement() {
         }}
       />
 
-      <CinemaUpsertModal
-        isOpen={Boolean(editingCinema)}
-        cinema={editingCinema}
-        onCancel={() => setEditingCinema(null)}
+      <CinemaModal
+        isOpen={Boolean(editingCinemaId)}
+        mode="edit"
+        cinemaId={editingCinemaId}
+        onCancel={() => setEditingCinemaId(null)}
         onSubmitted={() => {
-          setEditingCinema(null)
+          setEditingCinemaId(null)
           setRefreshTick((n) => n + 1)
         }}
       />
+
+      <CinemaModal
+        isOpen={Boolean(viewingCinemaId)}
+        mode="view"
+        cinemaId={viewingCinemaId}
+        onCancel={() => setViewingCinemaId(null)}
+      />
     </main>
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDeleteCinema)}
+        title="Xác nhận xóa rạp"
+        message={`Bạn có chắc chắn muốn xóa rạp "${pendingDeleteCinema?.name || pendingDeleteCinema?.code || ''}"?`}
+        onConfirm={handleDeleteCinema}
+        onCancel={() => setPendingDeleteCinema(null)}
+        disableConfirm={deletingId === pendingDeleteCinema?.id}
+        closeOnOverlayClick={deletingId !== pendingDeleteCinema?.id}
+      />
+    </>
   )
 }
 
