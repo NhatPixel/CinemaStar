@@ -115,6 +115,16 @@ export function buildPut(url, body) {
   }
 }
 
+export function buildPatch(url, body) {
+  return {
+    url,
+    options: {
+      method: 'PATCH',
+      body: JSON.stringify(body || {}),
+    },
+  }
+}
+
 export function buildDelete(url, body) {
   const options = { method: 'DELETE' }
   if (body !== undefined) {

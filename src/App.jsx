@@ -10,7 +10,9 @@ import MovieManagement from './pages/movie/MovieManagement'
 import MovieCreate from './pages/movie/MovieCreate'
 import MovieEdit from './pages/movie/MovieEdit'
 import CinemaManagement from './pages/cinema/CinemaManagement'
+import HallManagement from './pages/hall/HallManagement'
 import ManagementLayout from './components/layout/ManagementLayout'
+import RequireRole from './components/layout/RequireRole'
 import UserProfile from './pages/user/UserProfile'
 
 function resolveManagementRedirectPath() {
@@ -20,7 +22,7 @@ function resolveManagementRedirectPath() {
     const user = JSON.parse(raw)
     const role = String(user?.role || '').trim().toUpperCase()
     if (role === 'ADMIN') return '/management/movies'
-    if (role === 'MANAGER') return '/'
+    if (role === 'MANAGER') return '/management/halls'
     return '/'
   } catch {
     return '/'
@@ -53,6 +55,14 @@ function App() {
           <Route path="movies/create" element={<MovieCreate />} />
           <Route path="movies/:id/edit" element={<MovieEdit />} />
           <Route path="cinemas" element={<CinemaManagement />} />
+          <Route
+            path="halls"
+            element={
+              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+                <HallManagement />
+              </RequireRole>
+            }
+          />
         </Route>
         <Route path="/" element={<Navigate to={rootPath} replace />} />
       </Routes>

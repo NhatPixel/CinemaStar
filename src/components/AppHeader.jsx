@@ -36,7 +36,11 @@ function AppHeader({ showLoginButton = true }) {
   const currentUserName = String(currentUser?.name || '').trim()
   const roles = readRolesFromStorage()
   const canAccessManagement = roles.includes('ADMIN') || roles.includes('MANAGER')
-  const managementPath = roles.includes('ADMIN') ? '/management/movies' : '/'
+  const managementPath = roles.includes('ADMIN')
+    ? '/management/movies'
+    : roles.includes('MANAGER')
+      ? '/management/halls'
+      : '/'
 
   const handleLogout = async () => {
     if (loggingOut) return

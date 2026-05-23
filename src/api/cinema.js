@@ -1,4 +1,4 @@
-import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/client'
+import { callApi, buildDelete, buildGet, buildPatch, buildPost, buildPut } from './config/client'
 import { cinemaPath } from './config/paths'
 
 const CINEMAS_SEARCH_URL = cinemaPath('search')
@@ -81,6 +81,20 @@ export async function updateCinema(id, payload) {
   throw {
     status: resp?.code || 400,
     message: resp?.message || 'Không thể cập nhật rạp',
+    raw: resp,
+  }
+}
+
+/** PATCH /cinemas/:id — chỉ cập nhật trạng thái */
+export async function updateCinemaStatus(id, status) {
+  const { url, options } = buildPatch(cinemaDetailUrl(id), { status })
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể cập nhật trạng thái rạp',
     raw: resp,
   }
 }

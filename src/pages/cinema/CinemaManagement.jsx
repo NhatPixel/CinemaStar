@@ -9,10 +9,14 @@ import {
   Text,
   useToast,
 } from '../../components'
-import { buildCinemasSearchBody, deleteCinema, searchCinemas } from '../../api/cinema'
+import {
+  buildCinemasSearchBody,
+  deleteCinema,
+  searchCinemas,
+  updateCinemaStatus,
+} from '../../api/cinema'
 import {
   CINEMA_STATUS_BADGE_CLASS,
-  CINEMA_STATUS_LABEL_VI,
   CINEMA_STATUS_OPTIONS,
 } from '../../constants/cinemaStatusOptions'
 
@@ -51,6 +55,7 @@ function CinemaManagement() {
   const [viewingCinemaId, setViewingCinemaId] = useState(null)
   const [pendingDeleteCinema, setPendingDeleteCinema] = useState(null)
   const [deletingId, setDeletingId] = useState('')
+  const [statusUpdatingIds, setStatusUpdatingIds] = useState({})
   const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
@@ -120,6 +125,39 @@ function CinemaManagement() {
     }
   }, [pendingDeleteCinema, toast])
 
+  const handleStatusChange = useCallback(
+    async (cinema, nextStatus) => {
+      if (!cinema?.id || !nextStatus || nextStatus === cinema.status) return
+
+      const prevStatus = cinema.status
+      setRows((items) =>
+        items.map((item) =>
+          item.id === cinema.id ? { ...item, status: nextStatus } : item,
+        ),
+      )
+      setStatusUpdatingIds((ids) => ({ ...ids, [cinema.id]: true }))
+
+      try {
+        await updateCinemaStatus(cinema.id, nextStatus)
+        toast.success('Cập nhật trạng thái rạp thành công')
+      } catch (e) {
+        setRows((items) =>
+          items.map((item) =>
+            item.id === cinema.id ? { ...item, status: prevStatus } : item,
+          ),
+        )
+        toast.error(e?.message || 'Cập nhật trạng thái rạp thất bại')
+      } finally {
+        setStatusUpdatingIds((ids) => {
+          const next = { ...ids }
+          delete next[cinema.id]
+          return next
+        })
+      }
+    },
+    [toast],
+  )
+
   return (
     <>
     <main className="flex-1 min-w-0 p-6 md:p-8">
@@ -177,14 +215,12 @@ function CinemaManagement() {
                 <th className="px-6 py-4 font-semibold text-sm">Liên hệ</th>
                 <th className="px-6 py-4 font-semibold text-sm">Giờ mở cửa</th>
                 <th className="px-6 py-4 font-semibold text-sm min-w-[150px]">Trạng thái</th>
-                <th className="px-6 py-4 font-semibold text-sm text-right">Hành động</th>
+                <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
               {!loading &&
                 rows.map((cinema) => {
-                  const statusLabel =
-                    CINEMA_STATUS_LABEL_VI[cinema.status] || cinema.status || '—'
                   const badgeClass =
                     CINEMA_STATUS_BADGE_CLASS[cinema.status] ||
                     'bg-slate-500/10 text-slate-500 border-slate-500/20'
@@ -208,44 +244,45 @@ function CinemaManagement() {
                         </span>
                       </td>
                       <td className="px-6 py-4 min-w-[150px]">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}`}
+                        <select
+                          value={cinema.status || ''}
+                          disabled={Boolean(statusUpdatingIds[cinema.id])}
+                          onChange={(e) => handleStatusChange(cinema, e.target.value)}
+                          className={`rounded-full border px-3 py-1 text-xs font-bold outline-none transition disabled:cursor-wait disabled:opacity-60 ${badgeClass}`}
                         >
-                          {statusLabel}
-                        </span>
+                          {CINEMA_STATUS_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="inline-flex items-center gap-1">
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center gap-2">
                           <Button
-                            type="button"
                             variant="ghost"
                             size="sm"
-                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-primary/10"
+                            className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
                             onClick={() => setViewingCinemaId(cinema.id)}
                           >
-                            <Icon name="visibility" className="text-base" />
-                            Xem
+                            <Icon name="visibility" />
                           </Button>
                           <Button
-                            type="button"
                             variant="ghost"
                             size="sm"
-                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-primary hover:bg-primary/10"
+                            className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
                             onClick={() => setEditingCinemaId(cinema.id)}
                           >
-                            <Icon name="edit" className="text-base" />
-                            Sửa
+                            <Icon name="edit" />
                           </Button>
                           <Button
-                            type="button"
                             variant="ghost"
                             size="sm"
-                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-red-500 hover:bg-red-500/10"
+                            className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                             onClick={() => setPendingDeleteCinema(cinema)}
                             disabled={deletingId === cinema.id}
                           >
-                            <Icon name="delete" className="text-base" />
-                            Xóa
+                            <Icon name="delete" />
                           </Button>
                         </div>
                       </td>

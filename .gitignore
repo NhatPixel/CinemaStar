@@ -1,4 +1,8 @@
 src/seed/
+
+# Backend
+backend/
+
 # Logs
 logs
 *.log
@@ -45,3 +49,6 @@ coverage/
 
 # Package manager / misc
 .pnpm-store/
+
+#Stitch
+stitch/

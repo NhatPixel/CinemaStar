@@ -5,6 +5,7 @@ export {
   buildGet,
   buildPost,
   buildPut,
+  buildPatch,
   buildDelete,
   thirdPartyFetchDefaults,
 } from './transport'
