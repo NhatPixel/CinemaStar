@@ -339,7 +339,9 @@ function HallLayoutForm({
                     'aspect-square min-h-[28px] max-h-[36px] w-full min-w-0 max-w-full box-border rounded-md border flex items-center justify-center text-sm font-bold transition',
                     painted
                       ? paintedClass
-                      : 'border-dashed border-slate-300 dark:border-slate-600 bg-white/80 dark:bg-slate-900/40 text-slate-400',
+                      : readOnly
+                        ? 'border-transparent bg-transparent text-transparent'
+                        : 'border-dashed border-slate-300 dark:border-slate-600 bg-white/80 dark:bg-slate-900/40 text-slate-400',
                     coupleJoinClass,
                     isHover && canPaint && hoverMergeSide
                       ? COUPLE_HOVER_RING_JOIN_CLASS[hoverMergeSide]
@@ -360,7 +362,7 @@ function HallLayoutForm({
                             ? 'G'
                             : null}
                     </span>
-                  ) : (
+                  ) : readOnly ? null : (
                     <span className="text-slate-300 dark:text-slate-600">+</span>
                   )}
                 </button>
