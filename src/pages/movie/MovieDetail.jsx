@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { AppHeader, AppFooter, Icon, Text, Button, useToast } from '../../components'
 import { getFilmById } from '../../api/film'
 import { AGE_RATING_META } from '../../constants/ageRatingMeta'
@@ -154,13 +154,12 @@ function MovieDetail() {
               </div>
 
               <div className="flex flex-wrap gap-4 mt-2">
-                <Button
-                  className="flex-1 sm:flex-none min-w-[200px] py-4 px-8 rounded-xl flex items-center justify-center gap-2"
-                  onClick={() => toast.info('Tính năng đặt vé đang được phát triển')}
-                >
-                  <Icon name="confirmation_number" />
-                  Đặt vé ngay
-                </Button>
+                <Link to={`/booking/showtimes?filmId=${id}`} className="flex-1 sm:flex-none">
+                  <Button className="w-full min-w-[200px] py-4 px-8 rounded-xl flex items-center justify-center gap-2">
+                    <Icon name="confirmation_number" />
+                    Đặt vé ngay
+                  </Button>
+                </Link>
                 <Button
                   variant="secondary"
                   className="flex-1 sm:flex-none bg-slate-200 dark:bg-white/5 hover:bg-white/10 text-slate-900 dark:text-white font-bold py-4 px-8 rounded-xl flex items-center justify-center gap-2 transition-all border border-white/5"

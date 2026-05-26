@@ -10,6 +10,7 @@ function CustomSelect({
   options = [],
   placeholder = 'Chọn',
   className = '',
+  disabled = false,
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef(null)
@@ -33,6 +34,7 @@ function CustomSelect({
   const selectedOption = options.find((opt) => opt.value === value)
 
   const handleSelect = (option) => {
+    if (disabled) return
     const fakeEvent = {
       target: {
         name,
@@ -60,8 +62,11 @@ function CustomSelect({
         )}
         <button
           type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          className={`w-full border rounded-lg py-3.5 pr-12 text-left text-white focus:outline-none focus:ring-2 transition-all ${
+          disabled={disabled}
+          onClick={() => {
+            if (!disabled) setOpen((prev) => !prev)
+          }}
+          className={`w-full border rounded-lg py-3.5 pr-12 text-left text-white focus:outline-none focus:ring-2 transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
             icon ? 'pl-12' : 'pl-4'
           } ${className}`}
           style={{

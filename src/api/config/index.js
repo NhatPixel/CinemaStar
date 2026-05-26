@@ -6,6 +6,7 @@ export { BASE_URL, callApiRaw, parseResponse, request } from './transport'
 export {
   buildDelete,
   buildGet,
+  buildPatch,
   buildPost,
   buildPut,
   callApi,

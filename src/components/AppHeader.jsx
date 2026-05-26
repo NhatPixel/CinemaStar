@@ -75,6 +75,11 @@ function AppHeader({ showLoginButton = true }) {
               <Link className="text-sm font-semibold hover:text-primary transition-colors" to="/movies">
                 Phim
               </Link>
+              {hasCurrentUser ? (
+                <Link className="text-sm font-semibold hover:text-primary transition-colors" to="/bookings">
+                  Vé của tôi
+                </Link>
+              ) : null}
               {canAccessManagement ? (
                 <Link
                   className="text-sm font-semibold hover:text-primary transition-colors"

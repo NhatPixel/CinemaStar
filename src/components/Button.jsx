@@ -6,30 +6,25 @@ function Button({
   className = '',
   ...props 
 }) {
-  const baseStyles = 'font-bold transition-all active:scale-[0.98]'
-  
+  const baseStyles =
+    'inline-flex items-center justify-center gap-2 font-bold transition-all active:scale-[0.98] [&_.material-symbols-outlined]:text-current'
+
   const variants = {
     primary: {
-      className: 'text-white',
-      style: {
-        backgroundColor: '#7311d4',
-        boxShadow: '0 10px 15px -3px rgba(115, 17, 212, 0.25), 0 4px 6px -2px rgba(115, 17, 212, 0.25)'
-      },
-      onMouseEnter: (e) => e.target.style.backgroundColor = 'rgba(115, 17, 212, 0.9)',
-      onMouseLeave: (e) => e.target.style.backgroundColor = '#7311d4'
+      className:
+        'text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-60 disabled:pointer-events-none',
+      style: {},
     },
     secondary: {
-      className: 'bg-slate-800/50 hover:bg-slate-800 border border-slate-700 text-white',
+      className:
+        'bg-slate-800/50 hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-60 disabled:pointer-events-none',
       style: {},
-      onMouseEnter: null,
-      onMouseLeave: null
     },
     ghost: {
-      className: 'bg-transparent text-slate-500 hover:text-slate-300',
+      className:
+        'bg-transparent text-slate-500 hover:text-slate-300 disabled:opacity-60 disabled:pointer-events-none',
       style: {},
-      onMouseEnter: null,
-      onMouseLeave: null
-    }
+    },
   }
 
   const sizes = {
@@ -46,8 +41,6 @@ function Button({
     <button
       className={`${baseStyles} ${variantConfig.className} ${sizeClass} ${widthClass} ${className}`}
       style={variantConfig.style}
-      onMouseEnter={variantConfig.onMouseEnter}
-      onMouseLeave={variantConfig.onMouseLeave}
       {...props}
     >
       {children}

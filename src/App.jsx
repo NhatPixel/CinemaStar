@@ -11,6 +11,14 @@ import MovieCreate from './pages/movie/MovieCreate'
 import MovieEdit from './pages/movie/MovieEdit'
 import CinemaManagement from './pages/cinema/CinemaManagement'
 import HallManagement from './pages/hall/HallManagement'
+import ShowtimeManagement from './pages/showtime/ShowtimeManagement'
+import ShowtimeSelection from './pages/booking/ShowtimeSelection'
+import SeatFoodSelection from './pages/booking/SeatFoodSelection'
+import Payment from './pages/booking/Payment'
+import BookingResult from './pages/booking/BookingResult'
+import BookingHistory from './pages/booking/BookingHistory'
+import BookingDetail from './pages/booking/BookingDetail'
+import BookingManagement from './pages/booking/BookingManagement'
 import ManagementLayout from './components/layout/ManagementLayout'
 import RequireRole from './components/layout/RequireRole'
 import UserProfile from './pages/user/UserProfile'
@@ -49,6 +57,13 @@ function App() {
         <Route path="/movies" element={<MovieList />} />
         <Route path="/movies/:id" element={<MovieDetail />} />
         <Route path="/profile" element={<UserProfile />} />
+        <Route path="/bookings" element={<BookingHistory />} />
+        <Route path="/bookings/:id" element={<BookingDetail />} />
+        <Route path="/booking" element={<Navigate to="/booking/showtimes" replace />} />
+        <Route path="/booking/showtimes" element={<ShowtimeSelection />} />
+        <Route path="/booking/seats" element={<SeatFoodSelection />} />
+        <Route path="/booking/payment" element={<Payment />} />
+        <Route path="/booking/result" element={<BookingResult />} />
         <Route path="/management" element={<ManagementLayout />}>
           <Route index element={<Navigate to={managementPath} replace />} />
           <Route path="movies" element={<MovieManagement />} />
@@ -60,6 +75,22 @@ function App() {
             element={
               <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
                 <HallManagement />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="showtimes"
+            element={
+              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+                <ShowtimeManagement />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="bookings"
+            element={
+              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+                <BookingManagement />
               </RequireRole>
             }
           />

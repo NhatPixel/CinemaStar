@@ -227,7 +227,8 @@ function CinemaManagement() {
                   return (
                     <tr
                       key={cinema.id || cinema.code}
-                      className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
+                      className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
+                      onClick={() => setViewingCinemaId(cinema.id)}
                     >
                       <td className="px-6 py-4 font-semibold">{cinema.code || '—'}</td>
                       <td className="px-6 py-4">{cinema.name || '—'}</td>
@@ -243,7 +244,7 @@ function CinemaManagement() {
                           {formatHours(cinema)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 min-w-[150px]">
+                      <td className="px-6 py-4 min-w-[150px]" onClick={(e) => e.stopPropagation()}>
                         <select
                           value={cinema.status || ''}
                           disabled={Boolean(statusUpdatingIds[cinema.id])}
@@ -257,16 +258,8 @@ function CinemaManagement() {
                           ))}
                         </select>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
-                            onClick={() => setViewingCinemaId(cinema.id)}
-                          >
-                            <Icon name="visibility" />
-                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"

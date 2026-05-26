@@ -3,25 +3,31 @@ import {
   Button,
   ConfirmModal,
   CustomSelect,
-  HallModal,
   Icon,
   Input,
   Text,
   useToast,
 } from '../../components'
 import { buildCinemasSearchBody, searchCinemas } from '../../api/cinema'
-import { buildHallsSearchBody, deleteHall, searchHalls } from '../../api/hall'
+import { buildFilmsSearchBody, searchFilms } from '../../api/film'
+import { buildHallsSearchBody, searchHalls } from '../../api/hall'
 import {
-  HALL_STATUS_BADGE_CLASS,
-  HALL_STATUS_LABEL_VI,
-  HALL_STATUS_OPTIONS,
-} from '../../constants/hallStatusOptions'
+  buildShowtimesSearchBody,
+  deleteShowtime,
+  searchShowtimes,
+} from '../../api/showtime'
+import ShowtimeModal from '../../components/showtime/ShowtimeModal'
+import {
+  SHOWTIME_STATUS_BADGE_CLASS,
+  SHOWTIME_STATUS_LABEL_VI,
+  SHOWTIME_STATUS_OPTIONS,
+} from '../../constants/showtimeStatusOptions'
 
 const PAGE_SIZE = 12
 
 const MANAGEMENT_STATUS_OPTIONS = [
   { value: 'all', label: 'Tất cả trạng thái' },
-  ...HALL_STATUS_OPTIONS,
+  ...SHOWTIME_STATUS_OPTIONS,
 ]
 
 function formatShortId(id) {
@@ -30,18 +36,53 @@ function formatShortId(id) {
   return s.length > 8 ? `${s.slice(0, 8)}…` : s
 }
 
-function seatCount(hall) {
-  const n = hall?.seats?.length
-  return Number.isFinite(n) ? n : 0
+function formatDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value).replace('T', ' ').slice(0, 16)
+  return d.toLocaleString('vi-VN')
 }
 
-function HallManagement() {
+function getFilmName(showtime) {
+  return (
+    showtime?.filmResponse?.title ||
+    showtime?.film?.title ||
+    showtime?.filmTitle ||
+    showtime?.movieTitle ||
+    showtime?.filmId ||
+    '—'
+  )
+}
+
+function getCinemaName(showtime) {
+  return (
+    showtime?.cinemaResponse?.name ||
+    showtime?.cinema?.name ||
+    showtime?.cinemaName ||
+    showtime?.cinemaId ||
+    '—'
+  )
+}
+
+function getHallName(showtime) {
+  return (
+    showtime?.hallResponse?.name ||
+    showtime?.hall?.name ||
+    showtime?.hallName ||
+    showtime?.hallId ||
+    '—'
+  )
+}
+
+function ShowtimeManagement() {
   const toast = useToast()
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [cinemaFilter, setCinemaFilter] = useState('')
-  const [cinemaOptions, setCinemaOptions] = useState([{ value: '', label: 'Tất cả rạp' }])
+  const [filmOptions, setFilmOptions] = useState([])
+  const [cinemaOptions, setCinemaOptions] = useState([])
+  const [hallOptions, setHallOptions] = useState([])
   const [rows, setRows] = useState([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
@@ -50,9 +91,9 @@ function HallManagement() {
   const [hasPrevious, setHasPrevious] = useState(false)
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
-  const [editingHallId, setEditingHallId] = useState(null)
-  const [viewingHallId, setViewingHallId] = useState(null)
-  const [pendingDeleteHall, setPendingDeleteHall] = useState(null)
+  const [editingShowtimeId, setEditingShowtimeId] = useState(null)
+  const [viewingShowtimeId, setViewingShowtimeId] = useState(null)
+  const [pendingDeleteShowtime, setPendingDeleteShowtime] = useState(null)
   const [deletingId, setDeletingId] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
 
@@ -68,25 +109,43 @@ function HallManagement() {
   useEffect(() => {
     let cancelled = false
     const ac = new AbortController()
+
     ;(async () => {
       try {
-        const body = buildCinemasSearchBody({ page: 1, size: 100, keyword: '' })
-        const data = await searchCinemas(body, { signal: ac.signal })
-        if (cancelled) return
-        const list = data?.data || []
-        setCinemaOptions([
-          { value: '', label: 'Tất cả rạp' },
-          ...list.map((c) => ({
-            value: c.id,
-            label: c.name || c.code || c.id,
-          })),
+        const [films, cinemas, halls] = await Promise.all([
+          searchFilms(buildFilmsSearchBody({ size: 100 }), { signal: ac.signal }),
+          searchCinemas(buildCinemasSearchBody({ page: 1, size: 100 }), { signal: ac.signal }),
+          searchHalls(buildHallsSearchBody({ page: 1, size: 200 }), { signal: ac.signal }),
         ])
+        if (cancelled) return
+        setFilmOptions(
+          (films?.data || []).map((film) => ({
+            value: film.id,
+            label: film.title || film.name || film.id,
+          })),
+        )
+        setCinemaOptions(
+          (cinemas?.data || []).map((cinema) => ({
+            value: cinema.id,
+            label: cinema.name || cinema.code || cinema.id,
+          })),
+        )
+        setHallOptions(
+          (halls?.data || []).map((hall) => ({
+            value: hall.id,
+            label: hall.name || hall.code || hall.id,
+            cinemaId: hall.cinemaId || hall.cinemaResponse?.id || hall.cinema?.id,
+          })),
+        )
       } catch {
         if (!cancelled) {
-          setCinemaOptions([{ value: '', label: 'Tất cả rạp' }])
+          setFilmOptions([])
+          setCinemaOptions([])
+          setHallOptions([])
         }
       }
     })()
+
     return () => {
       cancelled = true
       ac.abort()
@@ -98,18 +157,17 @@ function HallManagement() {
     setLoading(true)
     const ac = new AbortController()
 
-    const body = buildHallsSearchBody({
+    const body = buildShowtimesSearchBody({
       page,
       size: PAGE_SIZE,
       keyword: debouncedKeyword,
       status: statusFilter,
-      cinemaId: cinemaFilter || undefined,
-      sortBy: [{ field: 'TIME_CREATED', direction: 'DESC' }],
+      cinemaId: cinemaFilter,
     })
 
     ;(async () => {
       try {
-        const data = await searchHalls(body, { signal: ac.signal })
+        const data = await searchShowtimes(body, { signal: ac.signal })
         if (cancelled) return
         setRows(data?.data || [])
         setTotalPages(data?.totalPages ?? 0)
@@ -118,7 +176,7 @@ function HallManagement() {
         setHasPrevious(Boolean(data?.hasPrevious))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
-        toast.error(e?.message || 'Không tải được danh sách phòng chiếu')
+        toast.error(e?.message || 'Không tải được danh sách suất chiếu')
         setRows([])
         setTotalPages(0)
         setTotalElements(0)
@@ -135,22 +193,22 @@ function HallManagement() {
     }
   }, [page, debouncedKeyword, statusFilter, cinemaFilter, refreshTick, toast])
 
-  const handleDeleteHall = useCallback(async () => {
-    const hall = pendingDeleteHall
-    if (!hall?.id) return
+  const handleDeleteShowtime = useCallback(async () => {
+    const showtime = pendingDeleteShowtime
+    if (!showtime?.id) return
 
     try {
-      setDeletingId(hall.id)
-      const data = await deleteHall(hall.id)
-      toast.success(data?.message || 'Xóa phòng chiếu thành công')
-      setPendingDeleteHall(null)
+      setDeletingId(showtime.id)
+      const data = await deleteShowtime(showtime.id)
+      toast.success(data?.message || 'Xóa suất chiếu thành công')
+      setPendingDeleteShowtime(null)
       setRefreshTick((n) => n + 1)
     } catch (e) {
-      toast.error(e?.message || 'Xóa phòng chiếu thất bại')
+      toast.error(e?.message || 'Xóa suất chiếu thất bại')
     } finally {
       setDeletingId('')
     }
-  }, [pendingDeleteHall, toast])
+  }, [pendingDeleteShowtime, toast])
 
   return (
     <>
@@ -158,10 +216,10 @@ function HallManagement() {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <Text variant="h1" className="text-3xl font-bold dark:text-slate-100">
-              Quản lý phòng chiếu
+              Quản lý suất chiếu
             </Text>
             <Text variant="small" className="text-slate-500 dark:text-slate-400 mt-1">
-              Danh sách phòng chiếu theo rạp và trạng thái hoạt động
+              Lên lịch phim theo rạp, phòng chiếu và khung giờ
             </Text>
           </div>
           <Button
@@ -171,39 +229,35 @@ function HallManagement() {
             onClick={() => setCreateOpen(true)}
           >
             <Icon name="add" />
-            Tạo phòng mới
+            Tạo suất chiếu
           </Button>
         </header>
 
         <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-1">
+            <div>
               <Input
-                name="hallSearch"
+                name="showtimeSearch"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                placeholder="Tìm tên phòng, ID..."
+                placeholder="Tìm phim, rạp, phòng..."
                 icon="search"
               />
             </div>
-            <div>
-              <CustomSelect
-                name="cinemaFilter"
-                value={cinemaFilter}
-                onChange={(e) => setCinemaFilter(e.target.value)}
-                options={cinemaOptions}
-                placeholder="Tất cả rạp"
-              />
-            </div>
-            <div>
-              <CustomSelect
-                name="statusFilter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                options={MANAGEMENT_STATUS_OPTIONS}
-                placeholder="Tất cả trạng thái"
-              />
-            </div>
+            <CustomSelect
+              name="cinemaFilter"
+              value={cinemaFilter}
+              onChange={(e) => setCinemaFilter(e.target.value)}
+              options={[{ value: '', label: 'Tất cả rạp' }, ...cinemaOptions]}
+              placeholder="Tất cả rạp"
+            />
+            <CustomSelect
+              name="statusFilter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              options={MANAGEMENT_STATUS_OPTIONS}
+              placeholder="Tất cả trạng thái"
+            />
           </div>
         </section>
 
@@ -213,39 +267,42 @@ function HallManagement() {
               <thead>
                 <tr className="bg-slate-50 dark:bg-background-dark/30 border-b border-slate-200 dark:border-primary/20">
                   <th className="px-6 py-4 font-semibold text-sm">ID</th>
-                  <th className="px-6 py-4 font-semibold text-sm">Tên phòng</th>
+                  <th className="px-6 py-4 font-semibold text-sm">Phim</th>
                   <th className="px-6 py-4 font-semibold text-sm">Rạp</th>
-                  <th className="px-6 py-4 font-semibold text-sm">Số ghế</th>
+                  <th className="px-6 py-4 font-semibold text-sm">Phòng</th>
+                  <th className="px-6 py-4 font-semibold text-sm">Bắt đầu</th>
+                  <th className="px-6 py-4 font-semibold text-sm">Kết thúc</th>
                   <th className="px-6 py-4 font-semibold text-sm min-w-[150px]">Trạng thái</th>
                   <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
                 {!loading &&
-                  rows.map((hall) => {
+                  rows.map((showtime) => {
                     const statusLabel =
-                      HALL_STATUS_LABEL_VI[hall.status] || hall.status || '—'
+                      SHOWTIME_STATUS_LABEL_VI[showtime.status] || showtime.status || '—'
                     const badgeClass =
-                      HALL_STATUS_BADGE_CLASS[hall.status] ||
+                      SHOWTIME_STATUS_BADGE_CLASS[showtime.status] ||
                       'bg-slate-500/10 text-slate-500 border-slate-500/20'
                     return (
                       <tr
-                        key={hall.id}
+                        key={showtime.id}
                         className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
-                        onClick={() => setViewingHallId(hall.id)}
+                        onClick={() => setViewingShowtimeId(showtime.id)}
                       >
-                        <td
-                          className="px-6 py-4 font-mono text-xs text-slate-500"
-                          title={hall.id}
-                        >
-                          {formatShortId(hall.id)}
-                        </td>
-                        <td className="px-6 py-4 font-semibold">{hall.name || '—'}</td>
+                        <td className="px-6 py-4 font-semibold">{formatShortId(showtime.id)}</td>
+                        <td className="px-6 py-4">{getFilmName(showtime)}</td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                          {hall.cinemaResponse?.name || hall.cinemaId || '—'}
+                          {getCinemaName(showtime)}
                         </td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                          {seatCount(hall)} ghế
+                          {getHallName(showtime)}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                          {formatDateTime(showtime.startTime || showtime.startDateTime)}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                          {formatDateTime(showtime.endTime || showtime.endDateTime)}
                         </td>
                         <td className="px-6 py-4 min-w-[150px]">
                           <span
@@ -260,7 +317,7 @@ function HallManagement() {
                               variant="ghost"
                               size="sm"
                               className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
-                              onClick={() => setEditingHallId(hall.id)}
+                              onClick={() => setEditingShowtimeId(showtime.id)}
                             >
                               <Icon name="edit" />
                             </Button>
@@ -268,8 +325,8 @@ function HallManagement() {
                               variant="ghost"
                               size="sm"
                               className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                              onClick={() => setPendingDeleteHall(hall)}
-                              disabled={deletingId === hall.id}
+                              onClick={() => setPendingDeleteShowtime(showtime)}
+                              disabled={deletingId === showtime.id}
                             >
                               <Icon name="delete" />
                             </Button>
@@ -285,19 +342,19 @@ function HallManagement() {
           <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {loading && (
               <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-                Đang tải danh sách phòng chiếu...
+                Đang tải danh sách suất chiếu...
               </Text>
             )}
             {!loading && rows.length === 0 && (
               <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-                Không có phòng chiếu phù hợp.
+                Không có suất chiếu phù hợp.
               </Text>
             )}
             {!loading && rows.length > 0 && (
               <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
                 {totalElements > 0
-                  ? `Hiển thị ${rows.length} / ${totalElements} phòng`
-                  : `Đang hiển thị ${rows.length} phòng`}
+                  ? `Hiển thị ${rows.length} / ${totalElements} suất chiếu`
+                  : `Đang hiển thị ${rows.length} suất chiếu`}
               </Text>
             )}
             {!loading && totalPages > 1 && (
@@ -331,9 +388,12 @@ function HallManagement() {
           </div>
         </div>
 
-        <HallModal
+        <ShowtimeModal
           isOpen={createOpen}
           mode="create"
+          filmOptions={filmOptions}
+          cinemaOptions={cinemaOptions}
+          hallOptions={hallOptions}
           onCancel={() => setCreateOpen(false)}
           onSubmitted={() => {
             setCreateOpen(false)
@@ -341,36 +401,42 @@ function HallManagement() {
           }}
         />
 
-        <HallModal
-          isOpen={Boolean(editingHallId)}
+        <ShowtimeModal
+          isOpen={Boolean(editingShowtimeId)}
           mode="edit"
-          hallId={editingHallId}
-          onCancel={() => setEditingHallId(null)}
+          showtimeId={editingShowtimeId}
+          filmOptions={filmOptions}
+          cinemaOptions={cinemaOptions}
+          hallOptions={hallOptions}
+          onCancel={() => setEditingShowtimeId(null)}
           onSubmitted={() => {
-            setEditingHallId(null)
+            setEditingShowtimeId(null)
             setRefreshTick((n) => n + 1)
           }}
         />
 
-        <HallModal
-          isOpen={Boolean(viewingHallId)}
+        <ShowtimeModal
+          isOpen={Boolean(viewingShowtimeId)}
           mode="view"
-          hallId={viewingHallId}
-          onCancel={() => setViewingHallId(null)}
+          showtimeId={viewingShowtimeId}
+          filmOptions={filmOptions}
+          cinemaOptions={cinemaOptions}
+          hallOptions={hallOptions}
+          onCancel={() => setViewingShowtimeId(null)}
         />
       </main>
 
       <ConfirmModal
-        isOpen={Boolean(pendingDeleteHall)}
-        title="Xác nhận xóa phòng chiếu"
-        message={`Bạn có chắc chắn muốn xóa phòng "${pendingDeleteHall?.name || ''}"?`}
-        onConfirm={handleDeleteHall}
-        onCancel={() => setPendingDeleteHall(null)}
-        disableConfirm={deletingId === pendingDeleteHall?.id}
-        closeOnOverlayClick={deletingId !== pendingDeleteHall?.id}
+        isOpen={Boolean(pendingDeleteShowtime)}
+        title="Xác nhận xóa suất chiếu"
+        message={`Bạn có chắc chắn muốn xóa suất chiếu "${getFilmName(pendingDeleteShowtime)}"?`}
+        onConfirm={handleDeleteShowtime}
+        onCancel={() => setPendingDeleteShowtime(null)}
+        disableConfirm={deletingId === pendingDeleteShowtime?.id}
+        closeOnOverlayClick={deletingId !== pendingDeleteShowtime?.id}
       />
     </>
   )
 }
 
-export default HallManagement
+export default ShowtimeManagement

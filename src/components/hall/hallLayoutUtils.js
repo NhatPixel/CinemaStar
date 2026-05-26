@@ -24,6 +24,30 @@ export function cellKey(row, col) {
   return `${row}:${col}`
 }
 
+/** Nhãn ghế kiểu A1 (hàng = chữ, cột = số). */
+export function formatSeatLabel(row, col) {
+  return `${String.fromCharCode(64 + row)}${col}`
+}
+
+export function parseSeatLabel(label) {
+  const match = /^([A-Z])(\d+)$/i.exec(String(label || '').trim())
+  if (!match) return null
+  return {
+    row: match[1].toUpperCase().charCodeAt(0) - 64,
+    col: Number.parseInt(match[2], 10),
+  }
+}
+
+export function seatLabelToCellKey(label) {
+  const parsed = parseSeatLabel(label)
+  return parsed ? cellKey(parsed.row, parsed.col) : null
+}
+
+export function cellKeyToSeatLabel(key) {
+  const { row, col } = parseCellKey(key)
+  return formatSeatLabel(row, col)
+}
+
 export function parseCellKey(key) {
   const [row, col] = key.split(':').map(Number)
   return { row, col }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Button,
   ConfirmModal,
@@ -45,6 +45,7 @@ function rowPoster(film) {
 
 function MovieManagement() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [titleSearch, setTitleSearch] = useState('')
   const [debouncedTitle, setDebouncedTitle] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -229,7 +230,8 @@ function MovieManagement() {
                     return (
                       <tr
                         key={film.id}
-                        className="hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
+                        className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
+                        onClick={() => navigate(`/movies/${film.id}`)}
                       >
                         <td className="px-6 py-4">
                           <div
@@ -257,17 +259,8 @@ function MovieManagement() {
                             {statusLabel}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-center gap-2">
-                            <Link to={`/movies/${film.id}`}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
-                              >
-                                <Icon name="visibility" />
-                              </Button>
-                            </Link>
                             <Link to={`/management/movies/${film.id}/edit`}>
                               <Button
                                 variant="ghost"
