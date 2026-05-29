@@ -1,9 +1,56 @@
 import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/client'
+import { getMyManagedCinemas } from './cinema'
 import { hallPath } from './config/paths'
+
+export { getMyManagedCinemas }
 
 const HALLS_SEARCH_URL = hallPath('search')
 const HALLS_CREATE_URL = hallPath('')
 const hallDetailUrl = (id) => hallPath(id)
+
+/** Map danh sách rạp → options cho CustomSelect */
+export function mapCinemasToSelectOptions(
+  cinemas,
+  { includeAll = false, allLabel = 'Tất cả rạp' } = {},
+) {
+  const items = (Array.isArray(cinemas) ? cinemas : []).map((c) => ({
+    value: c.id,
+    label: c.name || c.code || String(c.id),
+  }))
+  if (includeAll) {
+    return [{ value: '', label: allLabel }, ...items]
+  }
+  return items
+}
+
+/** Tên rạp từ HallResponse (cinemaResponse hoặc cinemaId) */
+export function getHallCinemaLabel(hall) {
+  if (!hall) return '—'
+  return hall.cinemaResponse?.name || hall.cinemaId || '—'
+}
+
+/** Body tạo/cập nhật phòng — BE bắt buộc cinemaId */
+export function buildHallWritePayload({
+  name,
+  status,
+  layoutDefinition,
+  cinemaId,
+  imagePaths = [],
+}) {
+  return {
+    name,
+    status,
+    layoutDefinition,
+    cinemaId,
+    imagePaths: Array.isArray(imagePaths) ? imagePaths : [],
+  }
+}
+
+/** Rạp manager/staff quản lý → options (filter + modal) */
+export async function loadManagedCinemaOptions({ signal, includeAll = true } = {}) {
+  const list = await getMyManagedCinemas({ signal })
+  return mapCinemasToSelectOptions(list, { includeAll })
+}
 
 /**
  * Xây dựng body cho POST /halls/search

@@ -42,7 +42,7 @@ function BookingResult() {
         if (!cancelled) setBooking(data)
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
-        setError(e?.message || 'Không tải được booking')
+        setError(e?.message || 'Không tải được đơn đặt vé')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -74,7 +74,7 @@ function BookingResult() {
       <div className="mx-auto max-w-5xl">
         {loading ? (
           <div className="mb-6 rounded-3xl border border-white/10 bg-[#120a1a] p-6 text-center text-slate-300">
-            Đang tải booking...
+            Đang tải đơn đặt vé...
           </div>
         ) : null}
 
@@ -90,7 +90,7 @@ function BookingResult() {
               <Icon name="check_circle" className="text-5xl" />
             </div>
             <Text variant="h1" className="text-3xl font-black text-white md:text-5xl">
-              {booking ? 'Tạo booking thành công!' : 'Kết quả booking'}
+              {booking ? 'Đặt vé thành công!' : 'Kết quả đặt vé'}
             </Text>
             <p className="mt-3 text-white/80">Mã đặt vé của bạn là</p>
             <p className="mt-2 font-mono text-2xl font-black tracking-[0.28em] md:text-4xl">

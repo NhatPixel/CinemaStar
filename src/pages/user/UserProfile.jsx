@@ -428,7 +428,7 @@ function UserProfile() {
 
             {isCustomerRole ? (
               <section className="rounded-3xl p-8 glass-panel text-center text-sm text-slate-600 dark:text-slate-400">
-                Tài khoản thành viên CinemaStar — xem lịch sử vé và ưu đãi tại quầy hoặc ứng dụng.
+                Tài khoản khách hàng CinemaStar — xem lịch sử vé và ưu đãi tại quầy hoặc ứng dụng.
               </section>
             ) : null}
           </div>

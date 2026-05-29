@@ -19,9 +19,12 @@ import BookingResult from './pages/booking/BookingResult'
 import BookingHistory from './pages/booking/BookingHistory'
 import BookingDetail from './pages/booking/BookingDetail'
 import BookingManagement from './pages/booking/BookingManagement'
+import ProductManagement from './pages/product/ProductManagement'
 import ManagementLayout from './components/layout/ManagementLayout'
 import RequireRole from './components/layout/RequireRole'
 import UserProfile from './pages/user/UserProfile'
+import UserManagement from './pages/user/UserManagement'
+import PricingPolicyManagement from './pages/pricing/PricingPolicyManagement'
 
 function resolveManagementRedirectPath() {
   try {
@@ -87,10 +90,34 @@ function App() {
             }
           />
           <Route
+            path="pricing-policies"
+            element={
+              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+                <PricingPolicyManagement />
+              </RequireRole>
+            }
+          />
+          <Route
             path="bookings"
             element={
               <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
                 <BookingManagement />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="products"
+            element={
+              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+                <ProductManagement />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <RequireRole allowedRoles={['ADMIN', 'MANAGER']} fallback="/management/movies">
+                <UserManagement />
               </RequireRole>
             }
           />

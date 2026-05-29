@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, CustomSelect, Icon, Input, Text, useToast } from '../../components'
-import { getOperatorBookings, updateBookingStatus } from '../../api/booking'
+import { Button, CustomSelect, Input, Text, useToast } from '../../components'
+import {
+  buildBookingsSearchBody,
+  searchOperatorBookings,
+  updateBookingStatus,
+} from '../../api/booking'
 import {
   BOOKING_STATUS_BADGE_CLASS,
   BOOKING_STATUS_LABEL_VI,
@@ -12,13 +16,15 @@ import {
 } from '../../constants/bookingStatusOptions'
 import { formatCurrency } from './bookingData'
 
+const PAGE_SIZE = 12
+
 const FILTER_BOOKING_STATUS_OPTIONS = [
-  { value: 'all', label: 'Tất cả booking' },
+  { value: 'all', label: 'Tất cả trạng thái' },
   ...BOOKING_STATUS_OPTIONS,
 ]
 
 const FILTER_PAYMENT_STATUS_OPTIONS = [
-  { value: 'all', label: 'Tất cả thanh toán' },
+  { value: 'all', label: 'Trạng thái thanh toán' },
   ...PAYMENT_STATUS_OPTIONS,
 ]
 
@@ -50,29 +56,61 @@ function BookingManagement() {
   const navigate = useNavigate()
   const [rows, setRows] = useState([])
   const [keyword, setKeyword] = useState('')
+  const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [bookingStatus, setBookingStatus] = useState('all')
   const [paymentStatus, setPaymentStatus] = useState('all')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [hasNext, setHasNext] = useState(false)
+  const [hasPrevious, setHasPrevious] = useState(false)
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
-    document.title = 'Quản lý booking - CinemaStar'
+    document.title = 'Quản lý đơn đặt vé - CinemaStar'
   }, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedKeyword(keyword.trim()), 400)
+    return () => clearTimeout(t)
+  }, [keyword])
+
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedKeyword, bookingStatus, paymentStatus])
 
   useEffect(() => {
     let cancelled = false
     const ac = new AbortController()
     setLoading(true)
 
+    const body = buildBookingsSearchBody({
+      page,
+      size: PAGE_SIZE,
+      keyword: debouncedKeyword,
+      bookingStatus,
+      paymentStatus,
+    })
+
     ;(async () => {
       try {
-        const data = await getOperatorBookings({ signal: ac.signal })
-        if (!cancelled) setRows(Array.isArray(data) ? data : [])
+        const data = await searchOperatorBookings(body, { signal: ac.signal })
+        if (cancelled) return
+        setRows(data?.data || [])
+        setTotalPages(data?.totalPages ?? 0)
+        setTotalElements(data?.totalElements ?? 0)
+        setHasNext(Boolean(data?.hasNext))
+        setHasPrevious(Boolean(data?.hasPrevious))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
-        toast.error(e?.message || 'Không tải được danh sách booking')
+        toast.error(e?.message || 'Không tải được danh sách đơn đặt vé')
         setRows([])
+        setTotalPages(0)
+        setTotalElements(0)
+        setHasNext(false)
+        setHasPrevious(false)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -82,19 +120,7 @@ function BookingManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [refreshTick, toast])
-
-  const filteredRows = useMemo(() => {
-    const q = keyword.trim().toLowerCase()
-    return rows.filter((booking) => {
-      const matchesBooking = bookingStatus === 'all' || booking.bookingStatus === bookingStatus
-      const matchesPayment = paymentStatus === 'all' || booking.paymentStatus === paymentStatus
-      const text = `${booking.id || ''} ${booking.customerInfo?.fullName || ''} ${
-        booking.customerInfo?.phone || ''
-      } ${seatsText(booking)}`.toLowerCase()
-      return matchesBooking && matchesPayment && (!q || text.includes(q))
-    })
-  }, [bookingStatus, keyword, paymentStatus, rows])
+  }, [page, debouncedKeyword, bookingStatus, paymentStatus, refreshTick, toast])
 
   const handleStatusChange = useCallback(
     async (booking, patch) => {
@@ -112,11 +138,11 @@ function BookingManagement() {
 
       try {
         await updateBookingStatus(booking.id, payload)
-        toast.success('Cập nhật booking thành công')
+        toast.success('Cập nhật đơn đặt vé thành công')
         setRefreshTick((n) => n + 1)
       } catch (e) {
         setRows(previousRows)
-        toast.error(e?.message || 'Cập nhật booking thất bại')
+        toast.error(e?.message || 'Cập nhật đơn đặt vé thất bại')
       } finally {
         setUpdatingId('')
       }
@@ -126,38 +152,24 @@ function BookingManagement() {
 
   return (
     <main className="min-w-0 flex-1 p-6 md:p-8">
-      <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <Text variant="h1" className="text-3xl font-bold dark:text-slate-100">
-            Quản lý booking
-          </Text>
-          <Text variant="small" className="mt-1 text-slate-500 dark:text-slate-400">
-            Theo dõi booking theo rạp được phân quyền và cập nhật trạng thái xử lý.
-          </Text>
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          className="rounded-xl px-5 py-3 font-bold"
-          onClick={() => setRefreshTick((n) => n + 1)}
-          disabled={loading}
-        >
-          <Icon name="refresh" />
-          Tải lại
-        </Button>
+      <header className="mb-8">
+        <Text variant="h1" className="text-3xl font-bold dark:text-slate-100">
+          Quản lý đơn đặt vé
+        </Text>
+        <Text variant="small" className="mt-1 text-slate-500 dark:text-slate-400">
+          Theo dõi đơn đặt vé theo rạp được phân quyền và cập nhật trạng thái xử lý.
+        </Text>
       </header>
 
-      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-primary/20 dark:bg-primary/5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <div className="md:col-span-2">
-            <Input
-              name="bookingSearch"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Tìm mã booking, tên khách, SĐT, ghế..."
-              icon="search"
-            />
-          </div>
+      <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Input
+            name="bookingSearch"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="Tìm mã đơn đặt vé, tên khách, SĐT, phim..."
+            icon="search"
+          />
           <CustomSelect
             name="bookingStatusFilter"
             value={bookingStatus}
@@ -182,7 +194,7 @@ function BookingManagement() {
                 <th className="px-5 py-4 text-sm font-semibold">Khách hàng</th>
                 <th className="px-5 py-4 text-sm font-semibold">Ghế</th>
                 <th className="px-5 py-4 text-sm font-semibold">Tổng tiền</th>
-                <th className="px-5 py-4 text-sm font-semibold min-w-[180px]">Booking</th>
+                <th className="px-5 py-4 text-sm font-semibold min-w-[180px]">Đặt vé</th>
                 <th className="px-5 py-4 text-sm font-semibold min-w-[180px]">Thanh toán</th>
                 <th className="px-5 py-4 text-sm font-semibold">Ngày tạo</th>
               </tr>
@@ -191,19 +203,19 @@ function BookingManagement() {
               {loading ? (
                 <tr>
                   <td className="px-5 py-8 text-center text-slate-500" colSpan={7}>
-                    Đang tải danh sách booking...
+                    Đang tải danh sách đơn đặt vé...
                   </td>
                 </tr>
               ) : null}
-              {!loading && filteredRows.length === 0 ? (
+              {!loading && rows.length === 0 ? (
                 <tr>
                   <td className="px-5 py-8 text-center text-slate-500" colSpan={7}>
-                    Không có booking phù hợp.
+                    Không có đơn đặt vé phù hợp.
                   </td>
                 </tr>
               ) : null}
               {!loading
-                ? filteredRows.map((booking) => (
+                ? rows.map((booking) => (
                     <tr
                       key={booking.id}
                       className="cursor-pointer hover:bg-slate-50 dark:hover:bg-primary/5"
@@ -266,6 +278,44 @@ function BookingManagement() {
                 : null}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-primary/20">
+          {!loading && rows.length > 0 && (
+            <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
+              {totalElements > 0
+                ? `Hiển thị ${rows.length} / ${totalElements} đơn đặt vé`
+                : `Đang hiển thị ${rows.length} đơn đặt vé`}
+            </Text>
+          )}
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
+                disabled={!hasPrevious || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Trang trước
+              </Button>
+              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
+                Trang {page}
+                {totalPages > 0 ? ` / ${totalPages}` : ''}
+              </Text>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
+                disabled={!hasNext || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Trang sau
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </main>

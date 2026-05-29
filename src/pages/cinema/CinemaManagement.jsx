@@ -12,6 +12,7 @@ import {
 import {
   buildCinemasSearchBody,
   deleteCinema,
+  getCinemaManagerLabel,
   searchCinemas,
   updateCinemaStatus,
 } from '../../api/cinema'
@@ -211,6 +212,7 @@ function CinemaManagement() {
               <tr className="bg-slate-50 dark:bg-background-dark/30 border-b border-slate-200 dark:border-primary/20">
                 <th className="px-6 py-4 font-semibold text-sm">Mã rạp</th>
                 <th className="px-6 py-4 font-semibold text-sm">Tên rạp</th>
+                <th className="px-6 py-4 font-semibold text-sm">Quản lý</th>
                 <th className="px-6 py-4 font-semibold text-sm">Địa chỉ</th>
                 <th className="px-6 py-4 font-semibold text-sm">Liên hệ</th>
                 <th className="px-6 py-4 font-semibold text-sm">Giờ mở cửa</th>
@@ -232,6 +234,9 @@ function CinemaManagement() {
                     >
                       <td className="px-6 py-4 font-semibold">{cinema.code || '—'}</td>
                       <td className="px-6 py-4">{cinema.name || '—'}</td>
+                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                        {getCinemaManagerLabel(cinema)}
+                      </td>
                       <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                         {formatLocation(cinema)}
                       </td>

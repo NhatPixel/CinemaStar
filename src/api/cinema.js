@@ -3,6 +3,8 @@ import { cinemaPath } from './config/paths'
 
 const CINEMAS_SEARCH_URL = cinemaPath('search')
 const CINEMAS_CREATE_URL = cinemaPath('')
+/** GET /api/cinemas/me — rạp manager/staff được phân quyền */
+const CINEMAS_ME_URL = cinemaPath('me')
 const cinemaDetailUrl = (id) => cinemaPath(id)
 
 /**
@@ -42,6 +44,29 @@ export function buildCinemasSearchBody({
   }
 }
 
+export function getCinemaManagerLabel(cinema) {
+  if (!cinema) return '—'
+  return cinema.managerName?.trim() || '—'
+}
+
+/** GET /cinemas/me — response cũng có `managerName` */
+export async function getMyManagedCinemas({ signal } = {}) {
+  const { url, options } = buildGet(CINEMAS_ME_URL)
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được danh sách rạp được quản lý',
+    raw: resp,
+  }
+}
+
+/** POST /cinemas/search — mỗi item có `managerId`, `managerName` (BE enrich từ user service) */
 export async function searchCinemas(body, { signal } = {}) {
   const { url, options } = buildPost(CINEMAS_SEARCH_URL, body)
   const resp = await callApi({

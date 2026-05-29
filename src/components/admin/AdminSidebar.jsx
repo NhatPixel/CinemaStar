@@ -33,7 +33,10 @@ function AdminSidebar() {
   const isCinemasActive = location.pathname.startsWith('/management/cinemas')
   const isHallsActive = location.pathname.startsWith('/management/halls')
   const isShowtimesActive = location.pathname.startsWith('/management/showtimes')
+  const isPricingPoliciesActive = location.pathname.startsWith('/management/pricing-policies')
   const isBookingsActive = location.pathname.startsWith('/management/bookings')
+  const isProductsActive = location.pathname.startsWith('/management/products')
+  const isUsersActive = location.pathname.startsWith('/management/users')
 
   const handleLogout = async () => {
     if (loggingOut) return
@@ -83,6 +86,21 @@ function AdminSidebar() {
             </span>
           </Link>
         ) : null}
+        {isAdmin || isManager ? (
+          <Link
+            to="/management/users"
+            className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
+              isUsersActive
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-slate-600 hover:bg-primary/5 hover:text-primary dark:text-slate-300'
+            }`}
+          >
+            <Icon name="group" />
+            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
+              Quản lý người dùng
+            </span>
+          </Link>
+        ) : null}
         {isAdmin ? (
           <Link
             to="/management/cinemas"
@@ -115,6 +133,21 @@ function AdminSidebar() {
         ) : null}
         {isManager ? (
           <Link
+            to="/management/pricing-policies"
+            className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
+              isPricingPoliciesActive
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-slate-600 hover:bg-primary/5 hover:text-primary dark:text-slate-300'
+            }`}
+          >
+            <Icon name="payments" />
+            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
+              Chính sách giá
+            </span>
+          </Link>
+        ) : null}
+        {isManager ? (
+          <Link
             to="/management/showtimes"
             className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
               isShowtimesActive
@@ -139,7 +172,22 @@ function AdminSidebar() {
           >
             <Icon name="receipt_long" />
             <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
-              Quản lý booking
+              Quản lý đơn đặt vé
+            </span>
+          </Link>
+        ) : null}
+        {isManager ? (
+          <Link
+            to="/management/products"
+            className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
+              isProductsActive
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-slate-600 hover:bg-primary/5 hover:text-primary dark:text-slate-300'
+            }`}
+          >
+            <Icon name="fastfood" />
+            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
+              Quản lý sản phẩm
             </span>
           </Link>
         ) : null}

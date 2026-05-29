@@ -1,23 +1,16 @@
-import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/client'
+import { callApi, buildDelete, buildGet, buildPatch, buildPost, buildPut } from './config/client'
 import { showtimePath } from './config/paths'
 
 const SHOWTIMES_SEARCH_URL = showtimePath('search')
 const SHOWTIMES_CREATE_URL = showtimePath('')
 const showtimeDetailUrl = (id) => showtimePath(id)
 
+export { getPricingPolicies } from './pricingPolicy'
+
 /**
  * Xây dựng body cho POST /showtimes/search
- * @param {{
- *   page?: number,
- *   size?: number,
- *   keyword?: string,
- *   status?: string,
- *   filmId?: string,
- *   cinemaId?: string,
- *   hallId?: string,
- *   sortBy?: Array<{ field: string, direction: 'ASC' | 'DESC' }>,
- *   extraFilters?: Array<{ field: string, operator: string, value: unknown }>,
- * }} params
+ * BE ShowTimeField: ID, START_DATE_TIME, END_DATE_TIME, HALL_ID, FILM_ID, PRICING_POLICY_ID, STATUS, ...
+ * Không có CINEMA_ID — lọc rạp qua hallIds + operator IN trên HALL_ID.
  */
 export function buildShowtimesSearchBody({
   page = 1,
@@ -25,8 +18,8 @@ export function buildShowtimesSearchBody({
   keyword,
   status,
   filmId,
-  cinemaId,
   hallId,
+  hallIds,
   sortBy,
   extraFilters,
 } = {}) {
@@ -37,11 +30,10 @@ export function buildShowtimesSearchBody({
   if (filmId) {
     filterBy.push({ field: 'FILM_ID', operator: 'EQ', value: filmId })
   }
-  if (cinemaId) {
-    filterBy.push({ field: 'CINEMA_ID', operator: 'EQ', value: cinemaId })
-  }
   if (hallId) {
     filterBy.push({ field: 'HALL_ID', operator: 'EQ', value: hallId })
+  } else if (Array.isArray(hallIds) && hallIds.length > 0) {
+    filterBy.push({ field: 'HALL_ID', operator: 'IN', value: hallIds })
   }
   if (Array.isArray(extraFilters)) {
     for (const f of extraFilters) {
@@ -74,6 +66,7 @@ export async function searchShowtimes(body, { signal } = {}) {
   }
 }
 
+/** GET /showtimes/{id} */
 export async function getShowtimeById(id, { signal } = {}) {
   const { url, options } = buildGet(showtimeDetailUrl(id))
   const resp = await callApi({
@@ -90,6 +83,50 @@ export async function getShowtimeById(id, { signal } = {}) {
   }
 }
 
+function normalizeApiDateTime(value) {
+  if (!value) return ''
+  const raw = String(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) {
+    return raw.length === 16 ? `${raw}:00` : raw
+  }
+  return raw
+}
+
+/** Body POST /showtimes — tạo batch trong khung startDateTime → endDateTime */
+export function buildCreateShowtimePayload({
+  hallId,
+  filmId,
+  pricingPolicyId,
+  startDateTime,
+  endDateTime,
+  status = 'SCHEDULED',
+}) {
+  return {
+    hallId,
+    filmId,
+    pricingPolicyId,
+    startDateTime: normalizeApiDateTime(startDateTime),
+    endDateTime: normalizeApiDateTime(endDateTime),
+    status,
+  }
+}
+
+/** Body PUT /showtimes/{id} */
+export function buildUpdateShowtimePayload({
+  pricingPolicyId,
+  startDateTime,
+  endDateTime,
+  status,
+}) {
+  return {
+    pricingPolicyId,
+    startDateTime: normalizeApiDateTime(startDateTime),
+    endDateTime: normalizeApiDateTime(endDateTime),
+    status,
+  }
+}
+
+/** POST /showtimes — trả ResultResponse { successResponse: [{ data }] } */
 export async function createShowtime(payload) {
   const { url, options } = buildPost(SHOWTIMES_CREATE_URL, payload)
   const resp = await callApi({ url, options })
@@ -103,6 +140,13 @@ export async function createShowtime(payload) {
   }
 }
 
+export function countCreatedShowtimes(result) {
+  const list = result?.successResponse
+  if (!Array.isArray(list)) return 0
+  return list.filter((item) => item?.data != null).length
+}
+
+/** PUT /showtimes/{id} */
 export async function updateShowtime(id, payload) {
   const { url, options } = buildPut(showtimeDetailUrl(id), payload)
   const resp = await callApi({ url, options })
@@ -116,6 +160,21 @@ export async function updateShowtime(id, payload) {
   }
 }
 
+/** PATCH /showtimes/{id} — chỉ đổi trạng thái */
+export async function patchShowtimeStatus(id, status) {
+  const { url, options } = buildPatch(showtimeDetailUrl(id), { status })
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể cập nhật trạng thái suất chiếu',
+    raw: resp,
+  }
+}
+
+/** DELETE /showtimes/{id} */
 export async function deleteShowtime(id) {
   const { url, options } = buildDelete(showtimeDetailUrl(id))
   const resp = await callApi({ url, options })

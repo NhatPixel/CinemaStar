@@ -126,7 +126,7 @@ function SeatFoodSelection() {
 
   const handleSelectedSeatsChange = (labels) => {
     if (labels.length > MAX_BOOKING_SEATS) {
-      toast.error(`Mỗi booking tối đa ${MAX_BOOKING_SEATS} ghế`)
+      toast.error(`Mỗi lần đặt vé tối đa ${MAX_BOOKING_SEATS} ghế`)
       return
     }
     setSelectedSeats(labels)

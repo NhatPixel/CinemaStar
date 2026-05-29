@@ -49,7 +49,7 @@ function BookingDetail() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    document.title = 'Chi tiết booking - CinemaStar'
+    document.title = 'Chi tiết đơn đặt vé - CinemaStar'
   }, [])
 
   useEffect(() => {
@@ -63,7 +63,7 @@ function BookingDetail() {
         if (!cancelled) setBooking(data)
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
-        toast.error(e?.message || 'Không tải được chi tiết booking')
+        toast.error(e?.message || 'Không tải được chi tiết đơn đặt vé')
         navigate('/bookings')
       } finally {
         if (!cancelled) setLoading(false)
@@ -84,7 +84,7 @@ function BookingDetail() {
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <Text variant="h1" className="text-4xl font-black text-white">
-                Chi tiết booking
+                Chi tiết đơn đặt vé
               </Text>
               <p className="mt-2 font-mono text-xl font-black tracking-[0.24em] text-primary">
                 {shortId(booking?.id || id)}
@@ -101,7 +101,7 @@ function BookingDetail() {
 
         {loading ? (
           <section className="rounded-3xl border border-white/10 bg-[#120a1a] p-8 text-center text-slate-400">
-            Đang tải chi tiết booking...
+            Đang tải chi tiết đơn đặt vé...
           </section>
         ) : null}
 

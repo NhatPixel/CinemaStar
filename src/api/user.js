@@ -6,6 +6,7 @@ export const USER_STORAGE_KEY = 'currentUser'
 const USERS_ME_URL = '/users/me'
 const MANAGERS_SEARCH_URL = userPath('managers/search')
 const STAFFS_SEARCH_URL = userPath('staffs/search')
+const CUSTOMERS_SEARCH_URL = userPath('customers/search')
 
 function persistCurrentUser(data) {
   if (data && typeof data === 'object') {
@@ -93,4 +94,60 @@ export function searchManagers(params, opts) {
 /** POST /users/staffs/search */
 export function searchStaffs(params, opts) {
   return searchUsersByRole(STAFFS_SEARCH_URL, params, opts)
+}
+
+/** POST /users/customers/search */
+export function searchCustomers(params, opts) {
+  return searchUsersByRole(CUSTOMERS_SEARCH_URL, params, opts)
+}
+
+/** GET /users/{id} */
+export async function getUserById(userId, { signal } = {}) {
+  const id = String(userId || '').trim()
+  if (!id) {
+    throw { status: 400, message: 'Thiếu mã người dùng' }
+  }
+  const { url, options } = buildGet(userPath(id))
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được thông tin người dùng',
+    raw: resp,
+  }
+}
+
+export function buildUsersSearchBody({ page = 1, size = 12, keyword = '' } = {}) {
+  return {
+    page,
+    size,
+    keyword: keyword?.trim() || '',
+  }
+}
+
+/**
+ * Tìm kiếm theo vai trò đối tượng quản lý (MANAGER | STAFF | CUSTOMER).
+ * Manager không gọi search MANAGER.
+ */
+const SEARCH_BY_MANAGED_ROLE = {
+  MANAGER: searchManagers,
+  STAFF: searchStaffs,
+  CUSTOMER: searchCustomers,
+}
+
+export function searchManagedUsers(managedRole, params, opts) {
+  const key = String(managedRole || '').trim().toUpperCase()
+  const searchFn = SEARCH_BY_MANAGED_ROLE[key]
+  if (!searchFn) {
+    return Promise.reject({
+      status: 400,
+      message: 'Vai trò quản lý không hợp lệ',
+    })
+  }
+  return searchFn(params, opts)
 }

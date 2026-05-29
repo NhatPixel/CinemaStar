@@ -6,7 +6,12 @@ import Icon from '../Icon'
 import Input from '../Input'
 import Text from '../Text'
 import { useToast } from '../useToast'
-import { createHall, getHallById, updateHall } from '../../api/hall'
+import {
+  buildHallWritePayload,
+  createHall,
+  getHallById,
+  updateHall,
+} from '../../api/hall'
 import {
   HALL_STATUS_LABEL_VI,
   HALL_STATUS_OPTIONS,
@@ -22,6 +27,7 @@ import {
 const EMPTY_FORM = {
   name: '',
   status: 'ACTIVE',
+  cinemaId: '',
 }
 
 function hallToForm(hall) {
@@ -29,7 +35,13 @@ function hallToForm(hall) {
   return {
     name: hall.name || '',
     status: hall.status || 'ACTIVE',
+    cinemaId: hall.cinemaId || hall.cinemaResponse?.id || '',
   }
+}
+
+function defaultCinemaId(cinemaOptions) {
+  if (!Array.isArray(cinemaOptions) || cinemaOptions.length !== 1) return ''
+  return cinemaOptions[0]?.value || ''
 }
 
 function imagePathsFromHall(hall) {
@@ -54,7 +66,7 @@ function countLayoutSeats(layout) {
  * - `mode`: `create` | `edit` | `view`
  * - `hallId`: bắt buộc với `edit` và `view` — GET `/halls/:id`
  */
-function HallModal({ isOpen, mode = 'create', hallId, onCancel, onSubmitted }) {
+function HallModal({ isOpen, mode = 'create', hallId, cinemaOptions = [], onCancel, onSubmitted }) {
   const toast = useToast()
   const isCreate = mode === 'create'
   const isEdit = mode === 'edit'
@@ -73,7 +85,7 @@ function HallModal({ isOpen, mode = 'create', hallId, onCancel, onSubmitted }) {
     if (!isOpen) return undefined
     if (isCreate) {
       setDetail(null)
-      setForm({ ...EMPTY_FORM })
+      setForm({ ...EMPTY_FORM, cinemaId: defaultCinemaId(cinemaOptions) })
       setLayoutDefinition(createEmptyLayoutDefinition(DEFAULT_LAYOUT_ROWS, DEFAULT_LAYOUT_COLS))
       setSubmitting(false)
       return undefined
@@ -105,7 +117,14 @@ function HallModal({ isOpen, mode = 'create', hallId, onCancel, onSubmitted }) {
       cancelled = true
       controller.abort()
     }
-  }, [isOpen, isCreate, hallId, toast, onCancel])
+  }, [isOpen, isCreate, hallId, cinemaOptions, toast, onCancel])
+
+  useEffect(() => {
+    if (!isOpen || !isCreate || readOnly) return
+    const fallbackId = defaultCinemaId(cinemaOptions)
+    if (!fallbackId) return
+    setForm((prev) => (prev.cinemaId ? prev : { ...prev, cinemaId: fallbackId }))
+  }, [isOpen, isCreate, readOnly, cinemaOptions])
 
   const handleChange = (e) => {
     if (readOnly) return
@@ -120,17 +139,21 @@ function HallModal({ isOpen, mode = 'create', hallId, onCancel, onSubmitted }) {
     const name = form.name.trim()
     if (!name) return toast.error('Vui lòng nhập tên phòng')
 
+    const cinemaId = String(form.cinemaId || '').trim()
+    if (!cinemaId) return toast.error('Vui lòng chọn rạp')
+
     const seatCells = countLayoutSeats(layoutDefinition)
     if (seatCells < 1) {
       return toast.error('Vui lòng vẽ ít nhất một ghế trên sơ đồ')
     }
 
-    const payload = {
+    const payload = buildHallWritePayload({
       name,
       status: form.status,
       layoutDefinition,
+      cinemaId,
       imagePaths: imagePathsFromHall(detail),
-    }
+    })
 
     try {
       setSubmitting(true)
@@ -212,38 +235,54 @@ function HallModal({ isOpen, mode = 'create', hallId, onCancel, onSubmitted }) {
           </div>
         ) : (
           <form className="space-y-5" onSubmit={handleSubmit}>
-            <Input
-              label="Tên phòng"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="Phòng chiếu 1"
-              icon="meeting_room"
-              disabled={readOnly}
-              readOnly={readOnly}
-            />
-
-            {isView && detail ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Tên phòng"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="Phòng chiếu 1"
+                icon="meeting_room"
+                disabled={readOnly}
+                readOnly={readOnly}
+              />
+              {readOnly ? (
                 <Input
                   label="Rạp"
                   name="cinemaName"
-                  value={detail.cinemaResponse?.name || detail.cinemaId || '—'}
+                  value={detail?.cinemaResponse?.name || detail?.cinemaId || '—'}
                   onChange={() => {}}
                   icon="theaters"
                   disabled
                   readOnly
                 />
-                <Input
-                  label="Số ghế"
-                  name="seatCount"
-                  value={String(seatTotal)}
-                  onChange={() => {}}
-                  icon="event_seat"
-                  disabled
-                  readOnly
+              ) : (
+                <CustomSelect
+                  label="Rạp"
+                  name="cinemaId"
+                  value={form.cinemaId}
+                  onChange={handleChange}
+                  options={
+                    cinemaOptions.length > 0
+                      ? cinemaOptions
+                      : [{ value: '', label: 'Chưa có rạp được gán' }]
+                  }
+                  disabled={cinemaOptions.length === 0}
+                  placeholder="Chọn rạp"
                 />
-              </div>
+              )}
+            </div>
+
+            {isView && detail ? (
+              <Input
+                label="Số ghế"
+                name="seatCount"
+                value={String(seatTotal)}
+                onChange={() => {}}
+                icon="event_seat"
+                disabled
+                readOnly
+              />
             ) : null}
 
             <CustomSelect

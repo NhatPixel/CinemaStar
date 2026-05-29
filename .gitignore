@@ -1,8 +1,5 @@
 src/seed/
 
-# Backend
-backend/
-
 # Logs
 logs
 *.log

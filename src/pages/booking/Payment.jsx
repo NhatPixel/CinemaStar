@@ -97,10 +97,10 @@ function Payment() {
         context: draft,
         paymentMethod: method,
       })
-      toast.success('Tạo booking thành công')
+      toast.success('Đặt vé thành công')
       navigate(`/booking/result?bookingId=${booking.id}`)
     } catch (e) {
-      toast.error(e?.message || 'Tạo booking thất bại')
+      toast.error(e?.message || 'Đặt vé thất bại')
     } finally {
       setSubmitting(false)
     }
@@ -170,7 +170,7 @@ function Payment() {
               Thông tin khách hàng
             </Text>
             <p className="mt-2 text-sm text-slate-400">
-              Backend booking yêu cầu họ tên, email và số điện thoại để giữ ghế.
+              Hệ thống yêu cầu họ tên, email và số điện thoại để giữ ghế.
             </p>
           </div>
           <div className="mb-8 grid gap-4 md:grid-cols-3">
@@ -207,7 +207,7 @@ function Payment() {
             </div>
             <div className="inline-flex w-fit items-center gap-2 rounded-full bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300">
               <Icon name="timer" className="text-lg" />
-              Giữ ghế sau khi tạo booking
+              Giữ ghế sau khi đặt vé
             </div>
           </div>
 
@@ -300,7 +300,7 @@ function Payment() {
             disabled={submitting || !draft}
             onClick={handleConfirmPayment}
           >
-            {submitting ? 'Đang tạo booking...' : 'Xác nhận thanh toán'}
+            {submitting ? 'Đang đặt vé...' : 'Xác nhận thanh toán'}
             <Icon name="lock" />
           </Button>
         </div>

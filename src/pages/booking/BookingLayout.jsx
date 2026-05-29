@@ -21,7 +21,7 @@ function BookingLayout({ eyebrow, title, subtitle, children, aside }) {
                   Trang chủ
                 </Link>
                 <Icon name="chevron_right" className="text-base" />
-                <span className="text-primary">Booking</span>
+                <span className="text-primary">Đơn đặt vé</span>
               </nav>
 
               <div className="space-y-3">

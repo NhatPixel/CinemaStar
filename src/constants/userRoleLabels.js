@@ -1,9 +1,9 @@
 /** Khớp backend: UserRole { ADMIN, MANAGER, STAFF, CUSTOMER } */
 export const USER_ROLE_LABEL_VI = {
   ADMIN: 'Quản trị viên',
-  MANAGER: 'Quản lý rạp',
+  MANAGER: 'Quản lý',
   STAFF: 'Nhân viên',
-  CUSTOMER: 'Thành viên',
+  CUSTOMER: 'Khách hàng',
 }
 
 /**

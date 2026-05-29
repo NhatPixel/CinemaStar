@@ -8,8 +8,7 @@ import {
   Text,
   useToast,
 } from '../../components'
-import { buildCinemasSearchBody, searchCinemas } from '../../api/cinema'
-import { buildFilmsSearchBody, searchFilms } from '../../api/film'
+import { getMyManagedCinemas } from '../../api/cinema'
 import { buildHallsSearchBody, searchHalls } from '../../api/hall'
 import {
   buildShowtimesSearchBody,
@@ -17,6 +16,11 @@ import {
   searchShowtimes,
 } from '../../api/showtime'
 import ShowtimeModal from '../../components/showtime/ShowtimeModal'
+import {
+  getShowtimeCinemaId,
+  getShowtimeFilm,
+  getShowtimeHall,
+} from '../booking/bookingData'
 import {
   SHOWTIME_STATUS_BADGE_CLASS,
   SHOWTIME_STATUS_LABEL_VI,
@@ -30,12 +34,6 @@ const MANAGEMENT_STATUS_OPTIONS = [
   ...SHOWTIME_STATUS_OPTIONS,
 ]
 
-function formatShortId(id) {
-  if (!id) return '—'
-  const s = String(id)
-  return s.length > 8 ? `${s.slice(0, 8)}…` : s
-}
-
 function formatDateTime(value) {
   if (!value) return '—'
   const d = new Date(value)
@@ -44,34 +42,19 @@ function formatDateTime(value) {
 }
 
 function getFilmName(showtime) {
-  return (
-    showtime?.filmResponse?.title ||
-    showtime?.film?.title ||
-    showtime?.filmTitle ||
-    showtime?.movieTitle ||
-    showtime?.filmId ||
-    '—'
-  )
+  const film = getShowtimeFilm(showtime)
+  return film?.title || film?.name || showtime?.filmId || '—'
 }
 
-function getCinemaName(showtime) {
-  return (
-    showtime?.cinemaResponse?.name ||
-    showtime?.cinema?.name ||
-    showtime?.cinemaName ||
-    showtime?.cinemaId ||
-    '—'
-  )
+function getCinemaName(showtime, cinemaNameById) {
+  const cinemaId = getShowtimeCinemaId(showtime)
+  if (cinemaId && cinemaNameById?.[cinemaId]) return cinemaNameById[cinemaId]
+  return cinemaId || '—'
 }
 
 function getHallName(showtime) {
-  return (
-    showtime?.hallResponse?.name ||
-    showtime?.hall?.name ||
-    showtime?.hallName ||
-    showtime?.hallId ||
-    '—'
-  )
+  const hall = getShowtimeHall(showtime)
+  return hall?.name || showtime?.hallId || '—'
 }
 
 function ShowtimeManagement() {
@@ -80,9 +63,9 @@ function ShowtimeManagement() {
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [cinemaFilter, setCinemaFilter] = useState('')
-  const [filmOptions, setFilmOptions] = useState([])
   const [cinemaOptions, setCinemaOptions] = useState([])
-  const [hallOptions, setHallOptions] = useState([])
+  const [cinemaNameById, setCinemaNameById] = useState({})
+  const [hallIdsForCinemaFilter, setHallIdsForCinemaFilter] = useState(null)
   const [rows, setRows] = useState([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
@@ -112,37 +95,22 @@ function ShowtimeManagement() {
 
     ;(async () => {
       try {
-        const [films, cinemas, halls] = await Promise.all([
-          searchFilms(buildFilmsSearchBody({ size: 100 }), { signal: ac.signal }),
-          searchCinemas(buildCinemasSearchBody({ page: 1, size: 100 }), { signal: ac.signal }),
-          searchHalls(buildHallsSearchBody({ page: 1, size: 200 }), { signal: ac.signal }),
-        ])
+        const list = await getMyManagedCinemas({ signal: ac.signal })
         if (cancelled) return
-        setFilmOptions(
-          (films?.data || []).map((film) => ({
-            value: film.id,
-            label: film.title || film.name || film.id,
-          })),
-        )
-        setCinemaOptions(
-          (cinemas?.data || []).map((cinema) => ({
+        const nameMap = {}
+        const options = (list || []).map((cinema) => {
+          if (cinema?.id) {
+            nameMap[cinema.id] = cinema.name || cinema.code || cinema.id
+          }
+          return {
             value: cinema.id,
             label: cinema.name || cinema.code || cinema.id,
-          })),
-        )
-        setHallOptions(
-          (halls?.data || []).map((hall) => ({
-            value: hall.id,
-            label: hall.name || hall.code || hall.id,
-            cinemaId: hall.cinemaId || hall.cinemaResponse?.id || hall.cinema?.id,
-          })),
-        )
+          }
+        })
+        setCinemaNameById(nameMap)
+        setCinemaOptions(options)
       } catch {
-        if (!cancelled) {
-          setFilmOptions([])
-          setCinemaOptions([])
-          setHallOptions([])
-        }
+        if (!cancelled) setCinemaOptions([])
       }
     })()
 
@@ -153,16 +121,68 @@ function ShowtimeManagement() {
   }, [])
 
   useEffect(() => {
+    if (!cinemaFilter) {
+      setHallIdsForCinemaFilter(null)
+      return undefined
+    }
+    let cancelled = false
+    const ac = new AbortController()
+    ;(async () => {
+      try {
+        const data = await searchHalls(
+          buildHallsSearchBody({
+            page: 1,
+            size: 200,
+            cinemaId: cinemaFilter,
+            status: 'ACTIVE',
+          }),
+          { signal: ac.signal },
+        )
+        if (cancelled) return
+        const ids = (data?.data || []).map((h) => h.id).filter(Boolean)
+        setHallIdsForCinemaFilter(ids)
+      } catch {
+        if (!cancelled) setHallIdsForCinemaFilter([])
+      }
+    })()
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
+  }, [cinemaFilter])
+
+  useEffect(() => {
     let cancelled = false
     setLoading(true)
     const ac = new AbortController()
+
+    if (cinemaFilter && hallIdsForCinemaFilter === null) {
+      setLoading(true)
+      return () => {
+        cancelled = true
+        ac.abort()
+      }
+    }
+
+    if (cinemaFilter && Array.isArray(hallIdsForCinemaFilter) && hallIdsForCinemaFilter.length === 0) {
+      setRows([])
+      setTotalPages(0)
+      setTotalElements(0)
+      setHasNext(false)
+      setHasPrevious(false)
+      setLoading(false)
+      return () => {
+        cancelled = true
+        ac.abort()
+      }
+    }
 
     const body = buildShowtimesSearchBody({
       page,
       size: PAGE_SIZE,
       keyword: debouncedKeyword,
       status: statusFilter,
-      cinemaId: cinemaFilter,
+      hallIds: cinemaFilter ? hallIdsForCinemaFilter : undefined,
     })
 
     ;(async () => {
@@ -191,7 +211,7 @@ function ShowtimeManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [page, debouncedKeyword, statusFilter, cinemaFilter, refreshTick, toast])
+  }, [page, debouncedKeyword, statusFilter, cinemaFilter, hallIdsForCinemaFilter, refreshTick, toast])
 
   const handleDeleteShowtime = useCallback(async () => {
     const showtime = pendingDeleteShowtime
@@ -266,7 +286,6 @@ function ShowtimeManagement() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-background-dark/30 border-b border-slate-200 dark:border-primary/20">
-                  <th className="px-6 py-4 font-semibold text-sm">ID</th>
                   <th className="px-6 py-4 font-semibold text-sm">Phim</th>
                   <th className="px-6 py-4 font-semibold text-sm">Rạp</th>
                   <th className="px-6 py-4 font-semibold text-sm">Phòng</th>
@@ -290,19 +309,18 @@ function ShowtimeManagement() {
                         className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
                         onClick={() => setViewingShowtimeId(showtime.id)}
                       >
-                        <td className="px-6 py-4 font-semibold">{formatShortId(showtime.id)}</td>
                         <td className="px-6 py-4">{getFilmName(showtime)}</td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                          {getCinemaName(showtime)}
+                          {getCinemaName(showtime, cinemaNameById)}
                         </td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                           {getHallName(showtime)}
                         </td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                          {formatDateTime(showtime.startTime || showtime.startDateTime)}
+                          {formatDateTime(showtime.startDateTime || showtime.startTime)}
                         </td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                          {formatDateTime(showtime.endTime || showtime.endDateTime)}
+                          {formatDateTime(showtime.endDateTime || showtime.endTime)}
                         </td>
                         <td className="px-6 py-4 min-w-[150px]">
                           <span
@@ -391,9 +409,7 @@ function ShowtimeManagement() {
         <ShowtimeModal
           isOpen={createOpen}
           mode="create"
-          filmOptions={filmOptions}
-          cinemaOptions={cinemaOptions}
-          hallOptions={hallOptions}
+          cinemaNameById={cinemaNameById}
           onCancel={() => setCreateOpen(false)}
           onSubmitted={() => {
             setCreateOpen(false)
@@ -405,9 +421,7 @@ function ShowtimeManagement() {
           isOpen={Boolean(editingShowtimeId)}
           mode="edit"
           showtimeId={editingShowtimeId}
-          filmOptions={filmOptions}
-          cinemaOptions={cinemaOptions}
-          hallOptions={hallOptions}
+          cinemaNameById={cinemaNameById}
           onCancel={() => setEditingShowtimeId(null)}
           onSubmitted={() => {
             setEditingShowtimeId(null)
@@ -419,9 +433,7 @@ function ShowtimeManagement() {
           isOpen={Boolean(viewingShowtimeId)}
           mode="view"
           showtimeId={viewingShowtimeId}
-          filmOptions={filmOptions}
-          cinemaOptions={cinemaOptions}
-          hallOptions={hallOptions}
+          cinemaNameById={cinemaNameById}
           onCancel={() => setViewingShowtimeId(null)}
         />
       </main>

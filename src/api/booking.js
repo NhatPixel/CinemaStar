@@ -2,11 +2,52 @@ import { callApi, buildGet, buildPatch, buildPost } from './config/client'
 import { bookingPath } from './config/paths'
 
 const BOOKINGS_CREATE_URL = bookingPath('')
-const BOOKINGS_ME_URL = bookingPath('me')
-const BOOKINGS_OPERATOR_URL = bookingPath('cinemas/me')
+const BOOKINGS_ME_SEARCH_URL = bookingPath('me/search')
+const BOOKINGS_OPERATOR_SEARCH_URL = bookingPath('cinemas/me/search')
 const bookingDetailUrl = (id) => bookingPath(id)
 const bookingStatusUrl = (id) => bookingPath(`${id}/status`)
 const bookingCancelUrl = (id) => bookingPath(`${id}/cancel`)
+
+/**
+ * Body cho POST /bookings/me/search và POST /bookings/cinemas/me/search
+ */
+export function buildBookingsSearchBody({
+  page = 1,
+  size = 12,
+  keyword,
+  bookingStatus,
+  paymentStatus,
+  cinemaId,
+  showtimeId,
+  sortBy,
+  extraFilters,
+} = {}) {
+  const filterBy = []
+  if (bookingStatus && bookingStatus !== 'all') {
+    filterBy.push({ field: 'BOOKING_STATUS', operator: 'EQ', value: bookingStatus })
+  }
+  if (paymentStatus && paymentStatus !== 'all') {
+    filterBy.push({ field: 'PAYMENT_STATUS', operator: 'EQ', value: paymentStatus })
+  }
+  if (cinemaId) {
+    filterBy.push({ field: 'CINEMA_ID', operator: 'EQ', value: cinemaId })
+  }
+  if (showtimeId) {
+    filterBy.push({ field: 'SHOWTIME_ID', operator: 'EQ', value: showtimeId })
+  }
+  if (Array.isArray(extraFilters)) {
+    for (const f of extraFilters) {
+      if (f && f.field) filterBy.push(f)
+    }
+  }
+  return {
+    page,
+    size,
+    keyword: keyword?.trim() ?? '',
+    filterBy,
+    sortBy: Array.isArray(sortBy) ? sortBy : [{ field: 'TIME_CREATED', direction: 'DESC' }],
+  }
+}
 
 export async function createBooking(payload) {
   const { url, options } = buildPost(BOOKINGS_CREATE_URL, payload)
@@ -16,7 +57,7 @@ export async function createBooking(payload) {
   }
   throw {
     status: resp?.code || 400,
-    message: resp?.message || 'Không thể tạo booking',
+    message: resp?.message || 'Không thể đặt vé',
     raw: resp,
   }
 }
@@ -32,13 +73,14 @@ export async function getBookingById(id, { signal } = {}) {
   }
   throw {
     status: resp?.code || 400,
-    message: resp?.message || 'Không tải được thông tin booking',
+    message: resp?.message || 'Không tải được thông tin đơn đặt vé',
     raw: resp,
   }
 }
 
-export async function getMyBookings({ signal } = {}) {
-  const { url, options } = buildGet(BOOKINGS_ME_URL)
+/** POST /bookings/me/search */
+export async function searchMyBookings(body, { signal } = {}) {
+  const { url, options } = buildPost(BOOKINGS_ME_SEARCH_URL, body)
   const resp = await callApi({
     url,
     options: { ...options, ...(signal ? { signal } : {}) },
@@ -48,13 +90,14 @@ export async function getMyBookings({ signal } = {}) {
   }
   throw {
     status: resp?.code || 400,
-    message: resp?.message || 'Không tải được lịch sử booking',
+    message: resp?.message || 'Không tải được lịch sử đặt vé',
     raw: resp,
   }
 }
 
-export async function getOperatorBookings({ signal } = {}) {
-  const { url, options } = buildGet(BOOKINGS_OPERATOR_URL)
+/** POST /bookings/cinemas/me/search */
+export async function searchOperatorBookings(body, { signal } = {}) {
+  const { url, options } = buildPost(BOOKINGS_OPERATOR_SEARCH_URL, body)
   const resp = await callApi({
     url,
     options: { ...options, ...(signal ? { signal } : {}) },
@@ -64,7 +107,7 @@ export async function getOperatorBookings({ signal } = {}) {
   }
   throw {
     status: resp?.code || 400,
-    message: resp?.message || 'Không tải được danh sách booking',
+    message: resp?.message || 'Không tải được danh sách đơn đặt vé',
     raw: resp,
   }
 }
@@ -77,7 +120,7 @@ export async function updateBookingStatus(id, payload) {
   }
   throw {
     status: resp?.code || 400,
-    message: resp?.message || 'Không thể cập nhật trạng thái booking',
+    message: resp?.message || 'Không thể cập nhật trạng thái đơn đặt vé',
     raw: resp,
   }
 }
@@ -90,7 +133,7 @@ export async function cancelBooking(id) {
   }
   throw {
     status: resp?.code || 400,
-    message: resp?.message || 'Không thể hủy booking',
+    message: resp?.message || 'Không thể hủy đơn đặt vé',
     raw: resp,
   }
 }

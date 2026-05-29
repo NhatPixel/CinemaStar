@@ -9,8 +9,14 @@ import {
   Text,
   useToast,
 } from '../../components'
-import { buildCinemasSearchBody, searchCinemas } from '../../api/cinema'
-import { buildHallsSearchBody, deleteHall, searchHalls } from '../../api/hall'
+import {
+  buildHallsSearchBody,
+  deleteHall,
+  getHallCinemaLabel,
+  getMyManagedCinemas,
+  mapCinemasToSelectOptions,
+  searchHalls,
+} from '../../api/hall'
 import {
   HALL_STATUS_BADGE_CLASS,
   HALL_STATUS_LABEL_VI,
@@ -24,12 +30,6 @@ const MANAGEMENT_STATUS_OPTIONS = [
   ...HALL_STATUS_OPTIONS,
 ]
 
-function formatShortId(id) {
-  if (!id) return '—'
-  const s = String(id)
-  return s.length > 8 ? `${s.slice(0, 8)}…` : s
-}
-
 function seatCount(hall) {
   const n = hall?.seats?.length
   return Number.isFinite(n) ? n : 0
@@ -42,6 +42,7 @@ function HallManagement() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [cinemaFilter, setCinemaFilter] = useState('')
   const [cinemaOptions, setCinemaOptions] = useState([{ value: '', label: 'Tất cả rạp' }])
+  const [managedCinemaOptions, setManagedCinemaOptions] = useState([])
   const [rows, setRows] = useState([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
@@ -70,28 +71,22 @@ function HallManagement() {
     const ac = new AbortController()
     ;(async () => {
       try {
-        const body = buildCinemasSearchBody({ page: 1, size: 100, keyword: '' })
-        const data = await searchCinemas(body, { signal: ac.signal })
+        const list = await getMyManagedCinemas({ signal: ac.signal })
         if (cancelled) return
-        const list = data?.data || []
-        setCinemaOptions([
-          { value: '', label: 'Tất cả rạp' },
-          ...list.map((c) => ({
-            value: c.id,
-            label: c.name || c.code || c.id,
-          })),
-        ])
-      } catch {
-        if (!cancelled) {
-          setCinemaOptions([{ value: '', label: 'Tất cả rạp' }])
-        }
+        setCinemaOptions(mapCinemasToSelectOptions(list, { includeAll: true }))
+        setManagedCinemaOptions(mapCinemasToSelectOptions(list, { includeAll: false }))
+      } catch (e) {
+        if (cancelled || e?.name === 'AbortError') return
+        toast.error(e?.message || 'Không tải được danh sách rạp')
+        setCinemaOptions([{ value: '', label: 'Tất cả rạp' }])
+        setManagedCinemaOptions([])
       }
     })()
     return () => {
       cancelled = true
       ac.abort()
     }
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     let cancelled = false
@@ -212,7 +207,6 @@ function HallManagement() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-background-dark/30 border-b border-slate-200 dark:border-primary/20">
-                  <th className="px-6 py-4 font-semibold text-sm">ID</th>
                   <th className="px-6 py-4 font-semibold text-sm">Tên phòng</th>
                   <th className="px-6 py-4 font-semibold text-sm">Rạp</th>
                   <th className="px-6 py-4 font-semibold text-sm">Số ghế</th>
@@ -234,15 +228,9 @@ function HallManagement() {
                         className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
                         onClick={() => setViewingHallId(hall.id)}
                       >
-                        <td
-                          className="px-6 py-4 font-mono text-xs text-slate-500"
-                          title={hall.id}
-                        >
-                          {formatShortId(hall.id)}
-                        </td>
                         <td className="px-6 py-4 font-semibold">{hall.name || '—'}</td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                          {hall.cinemaResponse?.name || hall.cinemaId || '—'}
+                          {getHallCinemaLabel(hall)}
                         </td>
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                           {seatCount(hall)} ghế
@@ -334,6 +322,7 @@ function HallManagement() {
         <HallModal
           isOpen={createOpen}
           mode="create"
+          cinemaOptions={managedCinemaOptions}
           onCancel={() => setCreateOpen(false)}
           onSubmitted={() => {
             setCreateOpen(false)
@@ -345,6 +334,7 @@ function HallManagement() {
           isOpen={Boolean(editingHallId)}
           mode="edit"
           hallId={editingHallId}
+          cinemaOptions={managedCinemaOptions}
           onCancel={() => setEditingHallId(null)}
           onSubmitted={() => {
             setEditingHallId(null)
@@ -356,6 +346,7 @@ function HallManagement() {
           isOpen={Boolean(viewingHallId)}
           mode="view"
           hallId={viewingHallId}
+          cinemaOptions={managedCinemaOptions}
           onCancel={() => setViewingHallId(null)}
         />
       </main>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AuthPageShell,
@@ -7,19 +7,11 @@ import {
   Icon,
   Text,
   Checkbox,
-  SelectableCard,
   CustomSelect,
-  SearchableSelect,
   useToast,
   CustomLink,
 } from '../../components'
-import { getBanks } from '../../api/bank'
-import {
-  register,
-  registerStaff,
-  registerManager,
-  toRegisterPayload,
-} from '../../api/auth'
+import { register, toRegisterPayload } from '../../api/auth'
 import { REGISTER_GENDER_OPTIONS } from '../../constants/genderMeta'
 
 function Register() {
@@ -27,40 +19,14 @@ function Register() {
   const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
-    role: 'customer',
     fullName: '',
     phone: '',
     email: '',
     password: '',
-    // Manager-only fields
-    bank: '',
-    bankAccountNumber: '',
-    bankAccountName: '',
-    // Common fields
     dateOfBirth: '',
     gender: '',
     terms: false,
   })
-
-  const [banks, setBanks] = useState([])
-  const [banksError, setBanksError] = useState(null)
-
-  useEffect(() => {
-    const fetchBanks = async () => {
-      try {
-        setBanksError(null)
-        const bankList = await getBanks()
-        setBanks(bankList)
-      } catch (error) {
-        console.error('Error fetching banks:', error)
-        setBanksError(
-          error?.message || 'Không thể kết nối tới dịch vụ ngân hàng'
-        )
-      }
-    }
-
-    fetchBanks()
-  }, [])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -78,15 +44,8 @@ function Register() {
     }
     setSubmitting(true)
     try {
-      const payload = toRegisterPayload(formData)
-      let data
-      if (formData.role === 'manager') {
-        data = await registerManager(payload)
-      } else if (formData.role === 'staff') {
-        data = await registerStaff(payload)
-      } else {
-        data = await register(payload)
-      }
+      const payload = toRegisterPayload({ ...formData, role: 'customer' })
+      const data = await register(payload)
       toast.success(data?.message || 'Đăng ký thành công! Vui lòng nhập mã OTP đã gửi tới email.')
       navigate('/verify-otp', { state: { needPassword: false } })
     } catch (err) {
@@ -113,39 +72,6 @@ function Register() {
         {/* Registration Form Card */}
         <div className="glass-panel rounded-2xl p-8 shadow-2xl border border-white/5">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Role Selection */}
-            <div className="space-y-3">
-              <label className="text-sm font-semibold text-slate-300 uppercase tracking-wider block">
-                Bạn là ai?
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                <SelectableCard
-                  selected={formData.role === 'customer'}
-                  icon="person"
-                  label="Khách hàng"
-                  onClick={() =>
-                    setFormData((prev) => ({ ...prev, role: 'customer' }))
-                  }
-                />
-                <SelectableCard
-                  selected={formData.role === 'staff'}
-                  icon="badge"
-                  label="Nhân viên"
-                  onClick={() =>
-                    setFormData((prev) => ({ ...prev, role: 'staff' }))
-                  }
-                />
-                <SelectableCard
-                  selected={formData.role === 'manager'}
-                  icon="admin_panel_settings"
-                  label="Quản lý"
-                  onClick={() =>
-                    setFormData((prev) => ({ ...prev, role: 'manager' }))
-                  }
-                />
-              </div>
-            </div>
-
             {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
@@ -190,50 +116,6 @@ function Register() {
                 />
               </div>
 
-              {/* Bank information - only for manager role */}
-              {formData.role === 'manager' && (
-                <>
-                  <div className="md:col-span-2">
-                    <SearchableSelect
-                      label="Ngân hàng"
-                      name="bank"
-                      value={formData.bank}
-                      onChange={handleChange}
-                      icon="account_balance"
-                      placeholder="Chọn ngân hàng"
-                      searchPlaceholder="Nhập tên hoặc mã ngân hàng"
-                      options={banks.map((bank) => ({
-                        value: bank.code,
-                        label: `${bank.shortName} (${bank.name})`,
-                      }))}
-                    />
-                    {banksError && (
-                      <p className="mt-2 text-sm text-red-400">
-                        {banksError}
-                      </p>
-                    )}
-                  </div>
-                  <Input
-                    label="Số tài khoản"
-                    name="bankAccountNumber"
-                    type="text"
-                    value={formData.bankAccountNumber}
-                    onChange={handleChange}
-                    placeholder="Nhập số tài khoản"
-                    icon="vignette"
-                  />
-                  <Input
-                    label="Tên tài khoản"
-                    name="bankAccountName"
-                    type="text"
-                    value={formData.bankAccountName}
-                    onChange={handleChange}
-                    placeholder="NGUYEN VAN A"
-                    icon="badge"
-                  />
-                </>
-              )}
-              
               {/* Date of Birth */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300 block ml-1">

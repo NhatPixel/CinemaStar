@@ -1,7 +1,8 @@
 import { callApi, buildGet } from './config/client'
 import { paymentPath } from './config/paths'
 
-const BANKS_URL = paymentPath('banks')
+/** GET /api/payments/vietqr/banks — danh mục ngân hàng VietQR (public). */
+const BANKS_URL = paymentPath('vietqr/banks')
 
 export async function getBanks() {
   const { url, options } = buildGet(BANKS_URL)

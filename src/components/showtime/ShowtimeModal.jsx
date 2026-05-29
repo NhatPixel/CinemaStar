@@ -4,22 +4,33 @@ import Button from '../Button'
 import CustomSelect from '../CustomSelect'
 import Icon from '../Icon'
 import Input from '../Input'
+import SearchableSelect from '../SearchableSelect'
 import Text from '../Text'
 import { useToast } from '../useToast'
 import {
+  buildCreateShowtimePayload,
+  buildUpdateShowtimePayload,
+  countCreatedShowtimes,
   createShowtime,
   getShowtimeById,
   updateShowtime,
 } from '../../api/showtime'
 import {
+  getShowtimeCinemaId,
+  getShowtimeFilm,
+  getShowtimeHall,
+} from '../../pages/booking/bookingData'
+import {
   SHOWTIME_STATUS_LABEL_VI,
   SHOWTIME_STATUS_OPTIONS,
 } from '../../constants/showtimeStatusOptions'
+import { useShowtimeFormOptions } from './useShowtimeFormOptions'
 
 const EMPTY_FORM = {
   filmId: '',
   cinemaId: '',
   hallId: '',
+  pricingPolicyId: '',
   startTime: '',
   endTime: '',
   status: 'SCHEDULED',
@@ -47,44 +58,47 @@ function formatDateTime(value) {
   return d.toLocaleString('vi-VN')
 }
 
-function findLabel(options, value, fallback = '—') {
-  if (!value) return fallback
-  return options.find((opt) => opt.value === value)?.label || value
-}
-
 function showtimeToForm(showtime) {
   if (!showtime) return { ...EMPTY_FORM }
+  const hall = getShowtimeHall(showtime)
+  const film = getShowtimeFilm(showtime)
   return {
-    filmId: showtime.filmId || showtime.film?.id || showtime.filmResponse?.id || '',
-    cinemaId:
-      showtime.cinemaId || showtime.cinema?.id || showtime.cinemaResponse?.id || '',
-    hallId: showtime.hallId || showtime.hall?.id || showtime.hallResponse?.id || '',
-    startTime: toDateInputValue(showtime.startTime || showtime.startDateTime),
-    endTime: toDateInputValue(showtime.endTime || showtime.endDateTime),
+    filmId: showtime.filmId || film?.id || '',
+    cinemaId: getShowtimeCinemaId(showtime) || hall?.cinemaId || '',
+    hallId: showtime.hallId || hall?.id || '',
+    pricingPolicyId: showtime.pricingPolicyId || showtime.pricingPolicy?.id || '',
+    startTime: toDateInputValue(showtime.startDateTime || showtime.startTime),
+    endTime: toDateInputValue(showtime.endDateTime || showtime.endTime),
     status: showtime.status || 'SCHEDULED',
+  }
+}
+
+function readLabelFromDetail(detail, cinemaNameById = {}) {
+  if (!detail) return {}
+  const hall = getShowtimeHall(detail)
+  const film = getShowtimeFilm(detail)
+  const policy = detail.pricingPolicy
+  const cinemaId = getShowtimeCinemaId(detail) || hall?.cinemaId
+  return {
+    filmId: detail.filmId || film?.id,
+    filmLabel: film?.title || film?.name || detail.filmId,
+    cinemaId,
+    cinemaLabel: (cinemaId && cinemaNameById[cinemaId]) || cinemaId,
+    hallId: detail.hallId || hall?.id,
+    hallLabel: hall?.name || detail.hallId,
+    pricingPolicyId: detail.pricingPolicyId || policy?.id,
+    pricingPolicyLabel: policy?.name || detail.pricingPolicyId,
   }
 }
 
 /**
  * Modal tạo / chỉnh sửa / xem suất chiếu.
- * @param {{
- *   isOpen: boolean,
- *   mode?: 'create' | 'edit' | 'view',
- *   showtimeId?: string,
- *   filmOptions?: Array<{ value: string, label: string }>,
- *   cinemaOptions?: Array<{ value: string, label: string }>,
- *   hallOptions?: Array<{ value: string, label: string, cinemaId?: string }>,
- *   onCancel?: () => void,
- *   onSubmitted?: (data: unknown, meta: { isEdit: boolean }) => void,
- * }} props
  */
 function ShowtimeModal({
   isOpen,
   mode = 'create',
   showtimeId,
-  filmOptions = [],
-  cinemaOptions = [],
-  hallOptions = [],
+  cinemaNameById = {},
   onCancel,
   onSubmitted,
 }) {
@@ -93,11 +107,36 @@ function ShowtimeModal({
   const isEdit = mode === 'edit'
   const isView = mode === 'view'
   const readOnly = isView
+  const formEnabled = isOpen && !readOnly
 
   const [detail, setDetail] = useState(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [submitting, setSubmitting] = useState(false)
+
+  const {
+    filmOptions,
+    cinemaOptions,
+    hallOptions,
+    pricingPolicyOptions,
+    pricingLoading,
+    filmLoading,
+    filmLoadingMore,
+    filmHasMore,
+    cinemaLoading,
+    hallLoading,
+    hallLoadingMore,
+    hallHasMore,
+    onFilmSearchChange,
+    onFilmLoadMore,
+    onHallSearchChange,
+    onHallLoadMore,
+    injectSelectedLabels,
+  } = useShowtimeFormOptions({
+    enabled: formEnabled,
+    cinemaId: form.cinemaId,
+    toast,
+  })
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -119,6 +158,7 @@ function ShowtimeModal({
         if (cancelled) return
         setDetail(data)
         setForm(showtimeToForm(data))
+        injectSelectedLabels(readLabelFromDetail(data, cinemaNameById))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         toast.error(e?.message || 'Không tải được thông tin suất chiếu')
@@ -132,11 +172,7 @@ function ShowtimeModal({
       cancelled = true
       controller.abort()
     }
-  }, [isOpen, isCreate, showtimeId, toast, onCancel])
-
-  const filteredHallOptions = form.cinemaId
-    ? hallOptions.filter((opt) => !opt.cinemaId || opt.cinemaId === form.cinemaId)
-    : hallOptions
+  }, [isOpen, isCreate, showtimeId, toast, onCancel, injectSelectedLabels, cinemaNameById])
 
   const handleChange = (e) => {
     if (readOnly) return
@@ -144,7 +180,7 @@ function ShowtimeModal({
     setForm((prev) => ({
       ...prev,
       [name]: value,
-      ...(name === 'cinemaId' ? { hallId: '' } : {}),
+      ...(name === 'cinemaId' ? { hallId: '', pricingPolicyId: '' } : {}),
     }))
   }
 
@@ -152,38 +188,56 @@ function ShowtimeModal({
     e.preventDefault()
     if (readOnly || submitting || loadingDetail) return
 
-    if (!form.filmId) return toast.error('Vui lòng chọn phim')
-    if (!form.hallId) return toast.error('Vui lòng chọn phòng chiếu')
+    if (!form.pricingPolicyId) return toast.error('Vui lòng chọn chính sách giá')
     if (!form.startTime) return toast.error('Vui lòng chọn thời gian bắt đầu')
     if (!form.endTime) return toast.error('Vui lòng chọn thời gian kết thúc')
     if (new Date(form.endTime).getTime() <= new Date(form.startTime).getTime()) {
       return toast.error('Thời gian kết thúc phải sau thời gian bắt đầu')
     }
 
-    const selectedHall = hallOptions.find((opt) => opt.value === form.hallId)
-    const payload = {
-      filmId: form.filmId,
-      cinemaId: form.cinemaId || selectedHall?.cinemaId || undefined,
-      hallId: form.hallId,
-      startTime: toApiDateTime(form.startTime),
-      endTime: toApiDateTime(form.endTime),
-      status: form.status,
+    if (isCreate) {
+      if (!form.filmId) return toast.error('Vui lòng chọn phim')
+      if (!form.cinemaId) return toast.error('Vui lòng chọn rạp')
+      if (!form.hallId) return toast.error('Vui lòng chọn phòng chiếu')
     }
+
+    const startDateTime = toApiDateTime(form.startTime)
+    const endDateTime = toApiDateTime(form.endTime)
 
     try {
       setSubmitting(true)
       let data
       if (isEdit) {
-        data = await updateShowtime(showtimeId, payload)
+        data = await updateShowtime(
+          showtimeId,
+          buildUpdateShowtimePayload({
+            pricingPolicyId: form.pricingPolicyId,
+            startDateTime,
+            endDateTime,
+            status: form.status,
+          }),
+        )
         toast.success(
           typeof data?.message === 'string'
             ? data.message
             : 'Cập nhật suất chiếu thành công',
         )
       } else {
-        data = await createShowtime(payload)
+        data = await createShowtime(
+          buildCreateShowtimePayload({
+            hallId: form.hallId,
+            filmId: form.filmId,
+            pricingPolicyId: form.pricingPolicyId,
+            startDateTime,
+            endDateTime,
+            status: form.status,
+          }),
+        )
+        const createdCount = countCreatedShowtimes(data)
         toast.success(
-          typeof data?.message === 'string' ? data.message : 'Tạo suất chiếu thành công',
+          createdCount > 0
+            ? `Đã tạo ${createdCount} suất chiếu trong khung giờ đã chọn`
+            : 'Tạo suất chiếu thành công',
         )
       }
       onSubmitted?.(data, { isEdit })
@@ -197,6 +251,8 @@ function ShowtimeModal({
     }
   }
 
+  const labels = readLabelFromDetail(detail, cinemaNameById)
+
   const title = isView
     ? 'Chi tiết suất chiếu'
     : isEdit
@@ -204,7 +260,9 @@ function ShowtimeModal({
       : 'Tạo suất chiếu mới'
   const subtitle = isView
     ? 'Thông tin suất chiếu từ hệ thống.'
-    : 'Chọn phim, phòng chiếu và khung giờ chiếu.'
+    : isEdit
+      ? 'Cập nhật chính sách giá, khung giờ và trạng thái (phim/phòng không đổi).'
+      : 'Chọn phim, rạp, phòng, chính sách giá và khung giờ (hệ thống tạo nhiều suất trong khung).'
 
   if (!isOpen || typeof document === 'undefined') return null
 
@@ -251,7 +309,7 @@ function ShowtimeModal({
                 <Input
                   label="Phim"
                   name="filmName"
-                  value={findLabel(filmOptions, form.filmId)}
+                  value={labels.filmLabel || '—'}
                   onChange={() => {}}
                   icon="movie"
                   disabled
@@ -261,7 +319,7 @@ function ShowtimeModal({
                   <Input
                     label="Rạp"
                     name="cinemaName"
-                    value={findLabel(cinemaOptions, form.cinemaId)}
+                    value={labels.cinemaLabel || '—'}
                     onChange={() => {}}
                     icon="festival"
                     disabled
@@ -270,7 +328,39 @@ function ShowtimeModal({
                   <Input
                     label="Phòng chiếu"
                     name="hallName"
-                    value={findLabel(hallOptions, form.hallId)}
+                    value={labels.hallLabel || '—'}
+                    onChange={() => {}}
+                    icon="meeting_room"
+                    disabled
+                    readOnly
+                  />
+                </div>
+              </>
+            ) : isEdit ? (
+              <>
+                <Input
+                  label="Phim"
+                  name="filmName"
+                  value={labels.filmLabel || '—'}
+                  onChange={() => {}}
+                  icon="movie"
+                  disabled
+                  readOnly
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Rạp (ID)"
+                    name="cinemaName"
+                    value={labels.cinemaLabel || '—'}
+                    onChange={() => {}}
+                    icon="festival"
+                    disabled
+                    readOnly
+                  />
+                  <Input
+                    label="Phòng chiếu"
+                    name="hallName"
+                    value={labels.hallLabel || '—'}
                     onChange={() => {}}
                     icon="meeting_room"
                     disabled
@@ -280,38 +370,96 @@ function ShowtimeModal({
               </>
             ) : (
               <>
-                <CustomSelect
+                <SearchableSelect
                   label="Phim"
                   name="filmId"
                   value={form.filmId}
                   onChange={handleChange}
                   options={filmOptions}
-                  placeholder="Chọn phim"
+                  placeholder={filmLoading ? 'Đang tải phim...' : 'Chọn phim đang chiếu'}
+                  searchPlaceholder="Tìm theo tên phim..."
+                  icon="movie"
+                  serverSearch
+                  onSearchChange={onFilmSearchChange}
+                  onLoadMore={onFilmLoadMore}
+                  hasMore={filmHasMore}
+                  loading={filmLoading}
+                  loadingMore={filmLoadingMore}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <CustomSelect
+                  <SearchableSelect
                     label="Rạp"
                     name="cinemaId"
                     value={form.cinemaId}
                     onChange={handleChange}
                     options={cinemaOptions}
-                    placeholder="Chọn rạp"
+                    placeholder={cinemaLoading ? 'Đang tải rạp...' : 'Chọn rạp'}
+                    searchPlaceholder="Tìm theo tên rạp..."
+                    icon="festival"
+                    loading={cinemaLoading}
                   />
-                  <CustomSelect
+                  <SearchableSelect
                     label="Phòng chiếu"
                     name="hallId"
                     value={form.hallId}
                     onChange={handleChange}
-                    options={filteredHallOptions}
-                    placeholder="Chọn phòng"
+                    options={hallOptions}
+                    placeholder={
+                      !form.cinemaId
+                        ? 'Chọn rạp trước'
+                        : hallLoading
+                          ? 'Đang tải phòng...'
+                          : 'Chọn phòng hoạt động'
+                    }
+                    searchPlaceholder="Tìm theo tên phòng..."
+                    icon="meeting_room"
+                    disabled={!form.cinemaId}
+                    serverSearch
+                    onSearchChange={onHallSearchChange}
+                    onLoadMore={onHallLoadMore}
+                    hasMore={hallHasMore}
+                    loading={hallLoading}
+                    loadingMore={hallLoadingMore}
                   />
                 </div>
               </>
             )}
 
+            {!readOnly ? (
+              <CustomSelect
+                label="Chính sách giá"
+                name="pricingPolicyId"
+                value={form.pricingPolicyId}
+                onChange={handleChange}
+                options={
+                  pricingPolicyOptions.length > 0
+                    ? pricingPolicyOptions
+                    : [{ value: '', label: 'Chưa có chính sách giá' }]
+                }
+                placeholder={
+                  !form.cinemaId
+                    ? 'Chọn rạp trước'
+                    : pricingLoading
+                      ? 'Đang tải...'
+                      : 'Chọn chính sách giá'
+                }
+                disabled={!form.cinemaId || pricingLoading}
+              />
+            ) : (
+              <Input
+                label="Chính sách giá"
+                name="pricingPolicyView"
+                value={labels.pricingPolicyLabel || '—'}
+                onChange={() => {}}
+                icon="payments"
+                disabled
+                readOnly
+              />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
-                label="Bắt đầu"
+                label={isCreate ? 'Khung giờ — bắt đầu' : 'Bắt đầu'}
                 name="startTime"
                 type={readOnly ? 'text' : 'datetime-local'}
                 value={readOnly ? formatDateTime(form.startTime) : form.startTime}
@@ -321,7 +469,7 @@ function ShowtimeModal({
                 readOnly={readOnly}
               />
               <Input
-                label="Kết thúc"
+                label={isCreate ? 'Khung giờ — kết thúc' : 'Kết thúc'}
                 name="endTime"
                 type={readOnly ? 'text' : 'datetime-local'}
                 value={readOnly ? formatDateTime(form.endTime) : form.endTime}
