@@ -129,8 +129,9 @@ function VerifyOtp() {
               Xác nhận <span className="text-[#7311d4]">OTP</span>
             </Text>
             <Text variant="small" className="mt-2 text-center text-slate-400">
-              Nhập mã {OTP_LEN} số đã gửi tới email và mật khẩu đã đăng ký. Gửi lại mã sau mỗi{' '}
-              {RESEND_INTERVAL_SEC}s.
+              {needPassword
+                ? `Nhập mã ${OTP_LEN} số đã gửi tới email và mật khẩu mới. Gửi lại mã sau mỗi ${RESEND_INTERVAL_SEC}s.`
+                : `Nhập mã ${OTP_LEN} số đã gửi tới email để hoàn tất đăng ký. Gửi lại mã sau mỗi ${RESEND_INTERVAL_SEC}s.`}
             </Text>
           </div>
 
@@ -159,16 +160,18 @@ function VerifyOtp() {
               </div>
             </div>
 
-            <Input
-              label="Mật khẩu"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              icon="lock"
-              showPasswordToggle
-            />
+            {needPassword ? (
+              <Input
+                label="Mật khẩu mới"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                icon="lock"
+                showPasswordToggle
+              />
+            ) : null}
 
             <Button type="submit" fullWidth disabled={submitting}>
               {submitting ? 'Đang xác nhận...' : 'Xác nhận'}

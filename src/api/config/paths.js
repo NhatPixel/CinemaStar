@@ -12,6 +12,7 @@ export const CINEMAS_PREFIX = '/cinemas'
 export const HALLS_PREFIX = '/halls'
 export const SHOWTIMES_PREFIX = '/showtimes'
 export const PAYMENTS_PREFIX = '/payments'
+export const PROMOTIONS_PREFIX = '/promotions'
 export const BOOKINGS_PREFIX = '/bookings'
 
 export function authPath(segment) {
@@ -40,6 +41,10 @@ export function showtimePath(segment) {
 
 export function paymentPath(segment) {
   return pathUnderPrefix(PAYMENTS_PREFIX, segment)
+}
+
+export function promotionPath(segment) {
+  return pathUnderPrefix(PROMOTIONS_PREFIX, segment)
 }
 
 export function bookingPath(segment) {

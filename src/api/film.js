@@ -10,6 +10,7 @@ export function buildFilmsSearchBody({
   size = 12,
   title,
   status,
+  statusIn,
   country,
   language,
 }) {
@@ -18,7 +19,9 @@ export function buildFilmsSearchBody({
   if (t) {
     filterBy.push({ field: 'TITLE', operator: 'LIKE', value: t })
   }
-  if (status && status !== 'all') {
+  if (Array.isArray(statusIn) && statusIn.length > 0) {
+    filterBy.push({ field: 'STATUS', operator: 'IN', value: statusIn })
+  } else if (status && status !== 'all') {
     filterBy.push({ field: 'STATUS', operator: 'EQ', value: status })
   }
   const c = country?.trim()

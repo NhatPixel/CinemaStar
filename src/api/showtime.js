@@ -83,17 +83,44 @@ export async function getShowtimeById(id, { signal } = {}) {
   }
 }
 
-/** GET /showtimes/films/{filmId}/active — public, luồng đặt vé customer */
-export async function getActiveShowtimesByFilmId(filmId, { page = 1, size = 60, signal } = {}) {
+/** GET /showtimes/{id}/seat-map — layout ghế + trạng thái + giá khi đặt vé */
+export async function getShowtimeSeatMap(id, { signal } = {}) {
+  const { url, options } = buildGet(`${showtimeDetailUrl(id)}/seat-map`)
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được sơ đồ ghế',
+    raw: resp,
+  }
+}
+
+/** Body POST /showtimes/films/{filmId}/search — date bắt buộc (yyyy-MM-dd), cinemaId tùy chọn */
+export function buildShowtimesByFilmSearchBody({ page = 1, size = 50, date, cinemaId } = {}) {
+  const body = {
+    page,
+    size,
+    date: String(date || '').trim(),
+  }
+  if (cinemaId) body.cinemaId = cinemaId
+  return body
+}
+
+/** POST /showtimes/films/{filmId}/search — đặt vé: lọc theo ngày và rạp */
+export async function searchShowtimesByFilmId(filmId, body, { signal } = {}) {
   const id = String(filmId || '').trim()
   if (!id) {
     throw { status: 400, message: 'Thiếu mã phim' }
   }
-  const query = new URLSearchParams({
-    page: String(page),
-    size: String(size),
-  })
-  const { url, options } = buildGet(`${showtimePath(`films/${id}/active`)}?${query}`)
+  if (!body?.date) {
+    throw { status: 400, message: 'Thiếu ngày chiếu' }
+  }
+  const { url, options } = buildPost(showtimePath(`films/${id}/search`), body)
   const resp = await callApi({
     url,
     options: { ...options, ...(signal ? { signal } : {}) },

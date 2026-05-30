@@ -5,11 +5,18 @@ import CustomSelect from '../CustomSelect'
 import Icon from '../Icon'
 import Input from '../Input'
 import SearchableSelect from '../SearchableSelect'
+import SearchableMultiSelect from '../SearchableMultiSelect'
 import Text from '../Text'
 import { useToast } from '../useToast'
 import OpenStreetMapForm from '../openStreetMap/OpenStreetMapForm'
-import { createCinema, getCinemaById, updateCinema } from '../../api/cinema'
-import { searchManagers } from '../../api/user'
+import {
+  createCinema,
+  getCinemaById,
+  resolveCinemaIdByCode,
+  syncCinemaStaffAssignments,
+  updateCinema,
+} from '../../api/cinema'
+import { searchManagers, searchStaffs } from '../../api/user'
 import { CINEMA_STATUS_LABEL_VI, CINEMA_STATUS_OPTIONS } from '../../constants/cinemaStatusOptions'
 
 const EMPTY_FORM = {
@@ -23,9 +30,47 @@ const EMPTY_FORM = {
   closeTime: '22:00',
   status: 'ACTIVE',
   managerId: '',
+  staffIds: [],
 }
 
-const MAX_MANAGER_PAGES = 50
+const MAX_USER_PAGES = 50
+
+function mapUserToOption(user) {
+  if (!user?.id) return null
+  return {
+    value: user.id,
+    label: user.email
+      ? `${user.name || 'Chưa rõ tên'} — ${user.email}`
+      : user.name || user.id,
+  }
+}
+
+function mapStaffToOption(user) {
+  if (!user?.id) return null
+  const name = user.name || 'Chưa rõ tên'
+  return {
+    value: user.id,
+    tagLabel: name,
+    label: user.email ? `${name} — ${user.email}` : name,
+  }
+}
+
+function normalizeStaffIds(value) {
+  if (!Array.isArray(value)) return []
+  return value.map(String).filter(Boolean)
+}
+
+async function loadAllBySearch(searchFn, signal) {
+  const all = []
+  const size = 100
+  for (let page = 1; page <= MAX_USER_PAGES; page += 1) {
+    const res = await searchFn({ page, size, keyword: '' }, { signal })
+    const list = Array.isArray(res?.data) ? res.data : []
+    all.push(...list)
+    if (!res?.hasNext) break
+  }
+  return all
+}
 
 function formToInitial(cinema) {
   if (!cinema) return { ...EMPTY_FORM }
@@ -42,6 +87,7 @@ function formToInitial(cinema) {
     closeTime: String(cinema.closeTime || '22:00').slice(0, 5),
     status: cinema.status || 'ACTIVE',
     managerId: cinema.managerId || '',
+    staffIds: normalizeStaffIds(cinema.staffIds),
   }
 }
 
@@ -86,12 +132,16 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
   const [submitting, setSubmitting] = useState(false)
   const [managers, setManagers] = useState([])
   const [managersLoading, setManagersLoading] = useState(false)
+  const [staffs, setStaffs] = useState([])
+  const [staffsLoading, setStaffsLoading] = useState(false)
+  const [initialStaffIds, setInitialStaffIds] = useState([])
 
   useEffect(() => {
     if (!isOpen) return undefined
     if (isCreate) {
       setDetail(null)
       setForm({ ...EMPTY_FORM })
+      setInitialStaffIds([])
       setSubmitting(false)
       return undefined
     }
@@ -105,6 +155,8 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
         const data = await getCinemaById(cinemaId, { signal: controller.signal })
         if (cancelled) return
         setDetail(data)
+        const staffIds = normalizeStaffIds(data?.staffIds)
+        setInitialStaffIds(staffIds)
         setForm(formToInitial(data))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
@@ -137,20 +189,10 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
     const controller = new AbortController()
     let cancelled = false
     setManagersLoading(true)
-  ;(async () => {
+    ;(async () => {
       try {
-        const all = []
-        const size = 100
-        for (let page = 1; page <= MAX_MANAGER_PAGES; page += 1) {
-          const res = await searchManagers(
-            { page, size, keyword: '' },
-            { signal: controller.signal },
-          )
-          const list = Array.isArray(res?.data) ? res.data : []
-          all.push(...list)
-          if (!res?.hasNext) break
-        }
-        if (!cancelled) setManagers(all)
+        const managerList = await loadAllBySearch(searchManagers, controller.signal)
+        if (!cancelled) setManagers(managerList)
       } catch (e) {
         if (!cancelled && !controller.signal.aborted) {
           toast.error(e?.message || 'Không tải được danh sách quản lý')
@@ -165,23 +207,100 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
     }
   }, [isOpen, isView, toast])
 
-  const managerOptions = useMemo(
-    () =>
-      managers.map((m) => ({
-        value: m.id,
-        label: m.email
-          ? `${m.name || 'Chưa rõ tên'} — ${m.email}`
-          : m.name || m.id,
-      })),
-    [managers],
-  )
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const controller = new AbortController()
+    let cancelled = false
+    setStaffsLoading(true)
+    ;(async () => {
+      try {
+        const staffList = await loadAllBySearch(searchStaffs, controller.signal)
+        if (!cancelled) setStaffs(staffList)
+      } catch (e) {
+        if (!cancelled && !controller.signal.aborted) {
+          toast.error(e?.message || 'Không tải được danh sách nhân viên')
+        }
+      } finally {
+        if (!cancelled) setStaffsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [isOpen, toast])
 
-  const staffCount = Array.isArray(detail?.staffIds) ? detail.staffIds.length : 0
+  const managerOptions = useMemo(() => {
+    const optionMap = new Map()
+    managers.forEach((manager) => {
+      const option = mapUserToOption(manager)
+      if (option) optionMap.set(String(option.value), option)
+    })
+    const managerId = String(form.managerId || detail?.managerId || '').trim()
+    if (managerId && !optionMap.has(managerId)) {
+      optionMap.set(managerId, {
+        value: managerId,
+        label: detail?.managerName || managerId,
+      })
+    }
+    return [...optionMap.values()]
+  }, [managers, form.managerId, detail?.managerId, detail?.managerName])
+
+  const staffOptions = useMemo(() => {
+    const managerId = String(form.managerId || '').trim()
+    const optionMap = new Map()
+    staffs.forEach((staff) => {
+      if (managerId && String(staff.id) === managerId) return
+      const option = mapStaffToOption(staff)
+      if (option) optionMap.set(String(option.value), option)
+    })
+    normalizeStaffIds(form.staffIds).forEach((staffId) => {
+      if (optionMap.has(staffId)) return
+      optionMap.set(staffId, { value: staffId, label: staffId })
+    })
+    normalizeStaffIds(detail?.staffIds).forEach((staffId) => {
+      if (optionMap.has(staffId)) return
+      optionMap.set(staffId, { value: staffId, label: staffId })
+    })
+    return [...optionMap.values()]
+  }, [staffs, form.staffIds, form.managerId, detail?.staffIds])
+
+  useEffect(() => {
+    if (!form.managerId) return
+    setForm((prev) => {
+      const nextStaffIds = normalizeStaffIds(prev.staffIds).filter(
+        (id) => String(id) !== String(form.managerId),
+      )
+      if (nextStaffIds.length === normalizeStaffIds(prev.staffIds).length) return prev
+      return { ...prev, staffIds: nextStaffIds }
+    })
+  }, [form.managerId])
+
+  const viewStaffLabels = useMemo(
+    () =>
+      normalizeStaffIds(detail?.staffIds)
+        .map(
+          (staffId) =>
+            staffOptions.find((opt) => String(opt.value) === staffId)?.tagLabel ||
+            staffOptions.find((opt) => String(opt.value) === staffId)?.label ||
+            staffId,
+        )
+        .filter(Boolean),
+    [detail?.staffIds, staffOptions],
+  )
 
   const handleChange = (e) => {
     if (readOnly) return
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleStaffChange = (e) => {
+    if (readOnly) return
+    setForm((prev) => ({
+      ...prev,
+      staffIds: normalizeStaffIds(e.target.value),
+    }))
   }
 
   const handleMapChange = (lat, lng) => {
@@ -237,6 +356,7 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
       let data
       if (isEdit) {
         data = await updateCinema(cinemaId, basePayload)
+        await syncCinemaStaffAssignments(cinemaId, initialStaffIds, form.staffIds)
         toast.success(
           typeof data?.message === 'string'
             ? data.message
@@ -248,6 +368,13 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
           code,
           status: form.status,
         })
+        if (form.staffIds.length > 0) {
+          const newCinemaId = await resolveCinemaIdByCode(code)
+          if (!newCinemaId) {
+            throw { message: 'Tạo rạp thành công nhưng không thể gán nhân viên (không tìm thấy mã rạp)' }
+          }
+          await syncCinemaStaffAssignments(newCinemaId, [], form.staffIds)
+        }
         toast.success(
           typeof data?.message === 'string' ? data.message : 'Tạo rạp thành công',
         )
@@ -265,9 +392,9 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
   const title = isView ? 'Chi tiết rạp' : isEdit ? 'Chỉnh sửa rạp' : 'Tạo rạp mới'
   const subtitle = isView
     ? 'Thông tin chi tiết rạp từ hệ thống.'
-    : isEdit
-      ? 'Cập nhật thông tin rạp, quản lý phụ trách hoặc vị trí trên bản đồ.'
-      : 'Nhập thông tin rạp, chọn quản lý phụ trách và vị trí trên bản đồ.'
+      : isEdit
+      ? 'Cập nhật thông tin rạp, quản lý phụ trách, nhân viên hoặc vị trí trên bản đồ.'
+      : 'Nhập thông tin rạp, chọn quản lý phụ trách, nhân viên và vị trí trên bản đồ.'
 
   if (!isOpen || typeof document === 'undefined') return null
 
@@ -411,9 +538,9 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
                   readOnly
                 />
                 <Input
-                  label="Số nhân viên"
-                  name="staffCount"
-                  value={staffCount > 0 ? String(staffCount) : '0'}
+                  label="Nhân viên"
+                  name="staffNames"
+                  value={viewStaffLabels.length ? viewStaffLabels.join(', ') : '—'}
                   onChange={() => {}}
                   icon="groups"
                   disabled
@@ -484,18 +611,34 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
             </div>
 
             {!isView ? (
-              <SearchableSelect
-                label="Quản lý phụ trách"
-                name="managerId"
-                value={form.managerId}
-                onChange={handleChange}
-                options={managerOptions}
-                placeholder={
-                  managersLoading ? 'Đang tải danh sách...' : 'Chọn quản lý phụ trách'
-                }
-                searchPlaceholder="Tìm theo tên hoặc email..."
-                icon="badge"
-              />
+              <>
+                <SearchableSelect
+                  label="Quản lý phụ trách"
+                  name="managerId"
+                  value={form.managerId}
+                  onChange={handleChange}
+                  options={managerOptions}
+                  placeholder={
+                    managersLoading ? 'Đang tải danh sách...' : 'Chọn quản lý phụ trách'
+                  }
+                  searchPlaceholder="Tìm theo tên hoặc email..."
+                  icon="badge"
+                  loading={managersLoading}
+                />
+                <SearchableMultiSelect
+                  label="Nhân viên"
+                  name="staffIds"
+                  values={form.staffIds}
+                  onChange={handleStaffChange}
+                  options={staffOptions}
+                  placeholder={
+                    staffsLoading ? 'Đang tải danh sách...' : 'Chọn nhân viên phụ trách rạp'
+                  }
+                  searchPlaceholder="Tìm theo tên hoặc email..."
+                  icon="groups"
+                  loading={staffsLoading}
+                />
+              </>
             ) : null}
 
             <div className="pt-2 flex justify-end gap-3">

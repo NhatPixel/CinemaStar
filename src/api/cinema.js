@@ -1,11 +1,15 @@
 import { callApi, buildDelete, buildGet, buildPatch, buildPost, buildPut } from './config/client'
 import { cinemaPath } from './config/paths'
+import { readCurrentUserRole } from '../constants/userRoleLabels'
 
 const CINEMAS_SEARCH_URL = cinemaPath('search')
 const CINEMAS_CREATE_URL = cinemaPath('')
 /** GET /api/cinemas/me — rạp manager/staff được phân quyền */
 const CINEMAS_ME_URL = cinemaPath('me')
 const cinemaDetailUrl = (id) => cinemaPath(id)
+
+const MAX_CINEMA_SEARCH_PAGES = 50
+const DEFAULT_CINEMA_PAGE_SIZE = 12
 
 /**
  * Xây dựng body cho POST /cinemas/search
@@ -20,7 +24,7 @@ const cinemaDetailUrl = (id) => cinemaPath(id)
  */
 export function buildCinemasSearchBody({
   page = 1,
-  size = 12,
+  size = DEFAULT_CINEMA_PAGE_SIZE,
   keyword,
   status,
   sortBy,
@@ -64,6 +68,51 @@ export async function getMyManagedCinemas({ signal } = {}) {
     message: resp?.message || 'Không tải được danh sách rạp được quản lý',
     raw: resp,
   }
+}
+
+/** Admin: lấy toàn bộ rạp qua POST /cinemas/search (phân trang). */
+export async function searchAllCinemas({
+  signal,
+  keyword,
+  status,
+  size = DEFAULT_CINEMA_PAGE_SIZE,
+  extraFilters,
+} = {}) {
+  const all = []
+  for (let page = 1; page <= MAX_CINEMA_SEARCH_PAGES; page += 1) {
+    const data = await searchCinemas(
+      buildCinemasSearchBody({
+        page,
+        size,
+        keyword,
+        status,
+        extraFilters,
+      }),
+      { signal },
+    )
+    all.push(...(data?.data || []))
+    if (!data?.hasNext) break
+  }
+  return all
+}
+
+/**
+ * Rạp theo quyền quản lý (filter/modal/form):
+ * - ADMIN → POST /cinemas/search
+ * - MANAGER/STAFF → GET /cinemas/me
+ */
+export async function getManagementCinemas({
+  signal,
+  keyword,
+  status,
+  size,
+  extraFilters,
+} = {}) {
+  const role = readCurrentUserRole()
+  if (role === 'ADMIN') {
+    return searchAllCinemas({ signal, keyword, status, size, extraFilters })
+  }
+  return getMyManagedCinemas({ signal })
 }
 
 /** POST /cinemas/search — mỗi item có `managerId`, `managerName` (BE enrich từ user service) */
@@ -151,5 +200,85 @@ export async function deleteCinema(id) {
     status: resp?.code || 400,
     message: resp?.message || 'Không thể xóa rạp',
     raw: resp,
+  }
+}
+
+/** POST /cinemas/{id}/staffs */
+export async function assignCinemaStaff(cinemaId, staffId) {
+  const { url, options } = buildPost(cinemaDetailUrl(`${cinemaId}/staffs`), { staffId })
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể gán nhân viên vào rạp',
+    raw: resp,
+  }
+}
+
+/** PUT /cinemas/{id}/staffs */
+export async function updateCinemaStaffAssignment(cinemaId, staffId) {
+  const { url, options } = buildPut(cinemaDetailUrl(`${cinemaId}/staffs`), { staffId })
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể cập nhật nhân viên rạp',
+    raw: resp,
+  }
+}
+
+/** DELETE /cinemas/{id}/staffs/{staffId} */
+export async function unassignCinemaStaff(cinemaId, staffId) {
+  const { url, options } = buildDelete(cinemaDetailUrl(`${cinemaId}/staffs/${staffId}`))
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể gỡ nhân viên khỏi rạp',
+    raw: resp,
+  }
+}
+
+/** Tìm rạp vừa tạo theo mã (BE create không trả id). */
+export async function resolveCinemaIdByCode(code, { signal } = {}) {
+  const normalized = String(code || '').trim()
+  if (!normalized) return null
+  const data = await searchCinemas(
+    buildCinemasSearchBody({
+      page: 1,
+      size: 1,
+      extraFilters: [{ field: 'CODE', operator: 'EQ', value: normalized }],
+    }),
+    { signal },
+  )
+  return data?.data?.[0]?.id || null
+}
+
+/** Đồng bộ danh sách nhân viên gán vào rạp sau create/update. */
+export async function syncCinemaStaffAssignments(cinemaId, previousIds = [], nextIds = []) {
+  const id = String(cinemaId || '').trim()
+  if (!id) return
+
+  const prev = new Set((previousIds || []).map(String))
+  const next = new Set((nextIds || []).map(String))
+  const toAdd = [...next].filter((staffId) => !prev.has(staffId))
+  const toRemove = [...prev].filter((staffId) => !next.has(staffId))
+
+  for (const staffId of toRemove) {
+    await unassignCinemaStaff(id, staffId)
+  }
+
+  for (const staffId of toAdd) {
+    try {
+      await assignCinemaStaff(id, staffId)
+    } catch {
+      await updateCinemaStaffAssignment(id, staffId)
+    }
   }
 }

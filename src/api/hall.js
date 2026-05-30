@@ -1,8 +1,8 @@
 import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/client'
-import { getMyManagedCinemas } from './cinema'
+import { getManagementCinemas } from './cinema'
 import { hallPath } from './config/paths'
 
-export { getMyManagedCinemas }
+export { getManagementCinemas }
 
 const HALLS_SEARCH_URL = hallPath('search')
 const HALLS_CREATE_URL = hallPath('')
@@ -48,7 +48,7 @@ export function buildHallWritePayload({
 
 /** Rạp manager/staff quản lý → options (filter + modal) */
 export async function loadManagedCinemaOptions({ signal, includeAll = true } = {}) {
-  const list = await getMyManagedCinemas({ signal })
+  const list = await getManagementCinemas({ signal })
   return mapCinemasToSelectOptions(list, { includeAll })
 }
 

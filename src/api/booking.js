@@ -3,8 +3,10 @@ import { bookingPath } from './config/paths'
 
 const BOOKINGS_CREATE_URL = bookingPath('')
 const BOOKINGS_ME_SEARCH_URL = bookingPath('me/search')
+const BOOKINGS_ME_ACTIVE_URL = bookingPath('me/active')
 const BOOKINGS_OPERATOR_SEARCH_URL = bookingPath('cinemas/me/search')
 const bookingDetailUrl = (id) => bookingPath(id)
+const bookingCheckoutContextUrl = (id) => bookingPath(`${id}/checkout-context`)
 const bookingStatusUrl = (id) => bookingPath(`${id}/status`)
 const bookingCancelUrl = (id) => bookingPath(`${id}/cancel`)
 
@@ -74,6 +76,49 @@ export async function getBookingById(id, { signal } = {}) {
   throw {
     status: resp?.code || 400,
     message: resp?.message || 'Không tải được thông tin đơn đặt vé',
+    raw: resp,
+  }
+}
+
+/** GET /bookings/me/active?showtimeId=&cinemaId= */
+export async function getMyActiveBooking({ showtimeId, cinemaId } = {}, { signal } = {}) {
+  const params = new URLSearchParams()
+  if (showtimeId) params.set('showtimeId', String(showtimeId))
+  if (cinemaId) params.set('cinemaId', String(cinemaId))
+  const query = params.toString()
+  const path = query ? `${BOOKINGS_ME_ACTIVE_URL}?${query}` : BOOKINGS_ME_ACTIVE_URL
+  const { url, options } = buildGet(path)
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data ?? null
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được đơn đặt vé đang giữ',
+    raw: resp,
+  }
+}
+
+/** GET /bookings/{id}/checkout-context */
+export async function getCheckoutContext(id, { signal } = {}) {
+  const bookingId = String(id || '').trim()
+  if (!bookingId) {
+    throw { status: 400, message: 'Thiếu mã đơn đặt vé' }
+  }
+  const { url, options } = buildGet(bookingCheckoutContextUrl(bookingId))
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được thông tin thanh toán',
     raw: resp,
   }
 }

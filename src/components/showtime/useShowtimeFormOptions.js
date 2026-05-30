@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getMyManagedCinemas } from '../../api/cinema'
+import { getManagementCinemas } from '../../api/cinema'
 import { mapCinemasToSelectOptions } from '../../api/hall'
 import { buildFilmsSearchBody, searchFilms } from '../../api/film'
 import { buildHallsSearchBody, searchHalls } from '../../api/hall'
@@ -43,7 +43,7 @@ function mergeOption(options, value, label) {
 }
 
 /**
- * Load phim (NOW_SHOWING), rạp (getMyManagedCinemas), phòng (ACTIVE) cho form suất chiếu.
+ * Load phim (NOW_SHOWING), rạp (getManagementCinemas), phòng (ACTIVE) cho form suất chiếu.
  */
 export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
   const [filmOptions, setFilmOptions] = useState([])
@@ -108,7 +108,7 @@ export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
   const fetchCinemas = useCallback(async () => {
     setCinemaLoading(true)
     try {
-      const list = await getMyManagedCinemas()
+      const list = await getManagementCinemas()
       setCinemaOptions(mapCinemasToSelectOptions(list, { includeAll: false }))
     } catch (e) {
       toast?.error?.(e?.message || 'Không tải được danh sách rạp')

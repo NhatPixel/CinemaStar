@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Button,
+  ConfirmModal,
   CustomSelect,
   Icon,
   Input,
@@ -8,12 +9,13 @@ import {
   UserModal,
   useToast,
 } from '../../components'
-import { buildUsersSearchBody, searchManagedUsers } from '../../api/user'
+import { buildUsersSearchBody, deleteManagedUser, searchManagedUsers } from '../../api/user'
 import { formatGenderLabel } from '../../constants/genderMeta'
 import { USER_ROLE_LABEL_VI, readCurrentUserRole } from '../../constants/userRoleLabels'
 import {
   MANAGED_USER_ROLES,
   canCreateManagedUser,
+  canWriteManagedUser,
   getDefaultManagedRole,
   getManagedRoleFilterOptions,
   needsBankFieldsForRole,
@@ -102,11 +104,14 @@ function UserManagement() {
   const [hasPrevious, setHasPrevious] = useState(false)
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
-  const [viewingUserId, setViewingUserId] = useState(null)
+  const [editingUserId, setEditingUserId] = useState(null)
+  const [pendingDeleteUser, setPendingDeleteUser] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
 
   const columns = useMemo(() => getTableColumns(managedRole), [managedRole])
   const canCreate = canCreateManagedUser(viewerRole, managedRole)
+  const canWrite = canWriteManagedUser(viewerRole, managedRole)
   const showRoleFilter = shouldShowManagedRoleFilter(viewerRole)
   const managedRoleLabel = USER_ROLE_LABEL_VI[managedRole] || managedRole
 
@@ -174,7 +179,22 @@ function UserManagement() {
     })
   }, [rows, debouncedKeyword])
 
-  const colSpan = columns.length + 1
+  const handleDeleteUser = async () => {
+    if (!pendingDeleteUser?.id || deletingId) return
+    try {
+      setDeletingId(pendingDeleteUser.id)
+      const data = await deleteManagedUser(managedRole, pendingDeleteUser.id)
+      toast.success(data?.message || `Đã xóa ${managedRoleLabel.toLowerCase()}`)
+      setPendingDeleteUser(null)
+      setRefreshTick((n) => n + 1)
+    } catch (e) {
+      toast.error(e?.message || 'Không thể xóa người dùng')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const colSpan = columns.length + (canWrite ? 1 : 0)
 
   if (roleFilterOptions.length === 0) {
     return (
@@ -248,7 +268,9 @@ function UserManagement() {
                       {col.label}
                     </th>
                   ))}
-                  <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  {canWrite ? (
+                    <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
@@ -268,11 +290,7 @@ function UserManagement() {
                 ) : null}
                 {!loading
                   ? displayRows.map((user) => (
-                      <tr
-                        key={user.id}
-                        className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
-                        onClick={() => setViewingUserId(user.id)}
-                      >
+                      <tr key={user.id}>
                         {columns.map((col) => (
                           <td
                             key={col.key}
@@ -283,17 +301,31 @@ function UserManagement() {
                             {renderCell(user, col.key)}
                           </td>
                         ))}
-                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-2 text-primary hover:bg-primary/10 rounded-lg"
-                            title="Xem chi tiết"
-                            onClick={() => setViewingUserId(user.id)}
-                          >
-                            <Icon name="visibility" />
-                          </Button>
-                        </td>
+                        {canWrite ? (
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex justify-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
+                                title="Chỉnh sửa"
+                                onClick={() => setEditingUserId(user.id)}
+                              >
+                                <Icon name="edit" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
+                                title="Xóa"
+                                onClick={() => setPendingDeleteUser(user)}
+                                disabled={deletingId === user.id}
+                              >
+                                <Icon name="delete" />
+                              </Button>
+                            </div>
+                          </td>
+                        ) : null}
                       </tr>
                     ))
                   : null}
@@ -350,13 +382,27 @@ function UserManagement() {
         />
 
         <UserModal
-          isOpen={Boolean(viewingUserId)}
-          mode="view"
+          isOpen={Boolean(editingUserId)}
+          mode="edit"
           managedRole={managedRole}
-          userId={viewingUserId}
-          onCancel={() => setViewingUserId(null)}
+          userId={editingUserId}
+          onCancel={() => setEditingUserId(null)}
+          onSubmitted={() => {
+            setEditingUserId(null)
+            setRefreshTick((n) => n + 1)
+          }}
         />
       </main>
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDeleteUser)}
+        title={`Xác nhận xóa ${managedRoleLabel.toLowerCase()}`}
+        message={`Bạn có chắc chắn muốn xóa "${pendingDeleteUser?.name || pendingDeleteUser?.email || ''}"?`}
+        onConfirm={handleDeleteUser}
+        onCancel={() => setPendingDeleteUser(null)}
+        disableConfirm={deletingId === pendingDeleteUser?.id}
+        closeOnOverlayClick={deletingId !== pendingDeleteUser?.id}
+      />
     </>
   )
 }

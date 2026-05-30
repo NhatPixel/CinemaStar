@@ -9,7 +9,7 @@ import {
   Text,
   useToast,
 } from '../../components'
-import { getMyManagedCinemas } from '../../api/cinema'
+import { getManagementCinemas } from '../../api/cinema'
 import { deletePricingPolicy, searchPricingPolicies, buildPricingPoliciesSearchBody } from '../../api/pricingPolicy'
 import { mapCinemasToSelectOptions } from '../../api/hall'
 import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
@@ -58,7 +58,7 @@ function PricingPolicyManagement() {
     const ac = new AbortController()
     ;(async () => {
       try {
-        const list = await getMyManagedCinemas({ signal: ac.signal })
+        const list = await getManagementCinemas({ signal: ac.signal })
         if (cancelled) return
         const nameMap = {}
         for (const c of list || []) {

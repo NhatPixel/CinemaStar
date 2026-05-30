@@ -12,17 +12,17 @@ import {
 } from '../../components'
 import { buildFilmsSearchBody, searchFilms } from '../../api/film'
 import { AGE_RATING_META } from '../../constants/ageRatingMeta'
-import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
+import {
+  MOVIE_LIST_PUBLIC_STATUSES,
+  MOVIE_LIST_STATUS_OPTIONS,
+} from '../../constants/movieStatusOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
 
 const PAGE_SIZE = 12
-const LIST_STATUS_OPTIONS = [{ value: 'all', label: 'Tất cả' }, ...MOVIE_STATUS_OPTIONS]
 
 const STATUS_META = {
   COMING_SOON: { label: 'Sắp chiếu', color: 'bg-slate-600' },
   NOW_SHOWING: { label: 'Đang chiếu', color: 'bg-primary' },
-  ENDED: { label: 'Ngừng chiếu', color: 'bg-slate-700' },
-  ARCHIVED: { label: 'Lưu trữ', color: 'bg-slate-800' },
 }
 
 function formatAgeRating(rating) {
@@ -37,7 +37,7 @@ function mapFilmToCardProps(film) {
     label: film.status || '',
     color: 'bg-slate-600',
   }
-  const muted = film.status === 'ENDED' || film.status === 'ARCHIVED'
+  const muted = false
   const overlayVariant = film.status === 'COMING_SOON' ? 'remind' : 'buy'
   const sub = [film.country, film.language].filter(Boolean).join(' - ')
   return {
@@ -76,6 +76,21 @@ function MovieList() {
     return () => clearTimeout(t)
   }, [titleSearch])
 
+  const buildSearchBody = useCallback(
+    (extra = {}) => {
+      const status = filters.status
+      return buildFilmsSearchBody({
+        size: PAGE_SIZE,
+        title: debouncedTitle,
+        ...(status === 'all'
+          ? { statusIn: MOVIE_LIST_PUBLIC_STATUSES }
+          : { status }),
+        ...extra,
+      })
+    },
+    [debouncedTitle, filters.status],
+  )
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -87,11 +102,7 @@ function MovieList() {
     const ac = new AbortController()
     abortRef.current = ac
 
-    const body = buildFilmsSearchBody({
-      size: PAGE_SIZE,
-      title: debouncedTitle,
-      status: filters.status,
-    })
+    const body = buildSearchBody()
 
     ;(async () => {
       try {
@@ -113,18 +124,13 @@ function MovieList() {
       cancelled = true
       ac.abort()
     }
-  }, [debouncedTitle, filters.status])
+  }, [debouncedTitle, filters.status, buildSearchBody, toast])
 
   const loadMore = useCallback(async () => {
     if (!nextCursor || !hasNext || loadingMore || loading) return
     setLoadingMore(true)
     try {
-      const body = buildFilmsSearchBody({
-        cursor: nextCursor,
-        size: PAGE_SIZE,
-        title: debouncedTitle,
-        status: filters.status,
-      })
+      const body = buildSearchBody({ cursor: nextCursor })
       const data = await searchFilms(body)
       setItems((prev) => [...prev, ...(data?.data || [])])
       setNextCursor(data?.nextCursor ?? null)
@@ -134,14 +140,7 @@ function MovieList() {
     } finally {
       setLoadingMore(false)
     }
-  }, [
-    nextCursor,
-    hasNext,
-    loadingMore,
-    loading,
-    debouncedTitle,
-    filters.status,
-  ])
+  }, [nextCursor, hasNext, loadingMore, loading, buildSearchBody, toast])
 
   loadMoreRef.current = loadMore
 
@@ -214,7 +213,7 @@ function MovieList() {
                 name="status"
                 value={filters.status}
                 onChange={handleFilterChange}
-                options={LIST_STATUS_OPTIONS}
+                options={MOVIE_LIST_STATUS_OPTIONS}
                 placeholder="Chọn trạng thái"
               />
             </div>

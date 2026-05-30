@@ -1,4 +1,4 @@
-import { callApi, buildGet, buildPost, buildPut } from './config/client'
+import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/client'
 import { userPath } from './config/paths'
 
 export const USER_STORAGE_KEY = 'currentUser'
@@ -150,4 +150,52 @@ export function searchManagedUsers(managedRole, params, opts) {
     })
   }
   return searchFn(params, opts)
+}
+
+const MANAGED_ROLE_SEGMENTS = {
+  MANAGER: 'managers',
+  STAFF: 'staffs',
+  CUSTOMER: 'customers',
+}
+
+function resolveManagedRoleSegment(managedRole) {
+  const key = String(managedRole || '').trim().toUpperCase()
+  const segment = MANAGED_ROLE_SEGMENTS[key]
+  if (!segment) {
+    throw { status: 400, message: 'Vai trò quản lý không hợp lệ' }
+  }
+  return segment
+}
+
+async function mutateManagedUserById(method, managedRole, userId, payload) {
+  const segment = resolveManagedRoleSegment(managedRole)
+  const id = String(userId || '').trim()
+  if (!id) {
+    throw { status: 400, message: 'Thiếu mã người dùng' }
+  }
+
+  const path = userPath(`${segment}/${id}`)
+  const { url, options } =
+    method === 'DELETE' ? buildDelete(path) : buildPut(path, payload)
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp?.data ?? resp
+  }
+  throw {
+    status: resp?.code || 400,
+    message:
+      resp?.message ||
+      (method === 'DELETE' ? 'Không thể xóa người dùng' : 'Không thể cập nhật người dùng'),
+    raw: resp,
+  }
+}
+
+/** PUT /users/managers|staffs|customers/{id} */
+export function updateManagedUserProfile(managedRole, userId, payload) {
+  return mutateManagedUserById('PUT', managedRole, userId, payload)
+}
+
+/** DELETE /users/managers|staffs|customers/{id} */
+export function deleteManagedUser(managedRole, userId) {
+  return mutateManagedUserById('DELETE', managedRole, userId)
 }

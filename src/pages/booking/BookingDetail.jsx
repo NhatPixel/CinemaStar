@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AppFooter, AppHeader, Button, Icon, Text, useToast } from '../../components'
-import { getBookingById } from '../../api/booking'
+import { getBookingById, getCheckoutContext, cancelBooking } from '../../api/booking'
 import {
   BOOKING_STATUS_BADGE_CLASS,
   BOOKING_STATUS_LABEL_VI,
@@ -9,7 +9,19 @@ import {
   PAYMENT_STATUS_LABEL_VI,
 } from '../../constants/bookingStatusOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
-import { formatCurrency, getBookingPayableAmount, getBookingPromotionDiscount, getBookingPromotionLabel } from './bookingData'
+import PaymentMoMoQr from './PaymentMoMoQr'
+import {
+  BOOKING_RESULT_STORAGE_KEY,
+  canCancelBooking,
+  formatCurrency,
+  getBookingPayableAmount,
+  getBookingPromotionDiscount,
+  getBookingPromotionLabel,
+  getPaymentQrCodeUrl,
+  mergePaymentSession,
+  readAuthRole,
+  readJsonStorage,
+} from './bookingData'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -46,7 +58,9 @@ function BookingDetail() {
   const navigate = useNavigate()
   const toast = useToast()
   const [booking, setBooking] = useState(null)
+  const [checkoutContext, setCheckoutContext] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     document.title = 'Chi tiết đơn đặt vé - CinemaStar'
@@ -59,8 +73,14 @@ function BookingDetail() {
 
     ;(async () => {
       try {
-        const data = await getBookingById(id, { signal: ac.signal })
-        if (!cancelled) setBooking(data)
+        const [data, ctx] = await Promise.all([
+          getBookingById(id, { signal: ac.signal }),
+          getCheckoutContext(id, { signal: ac.signal }).catch(() => null),
+        ])
+        if (!cancelled) {
+          setBooking(data)
+          setCheckoutContext(ctx)
+        }
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         toast.error(e?.message || 'Không tải được chi tiết đơn đặt vé')
@@ -76,6 +96,32 @@ function BookingDetail() {
     }
   }, [id, navigate, toast])
 
+  const handleCancel = async () => {
+    if (!booking?.id || cancelling) return
+    if (!window.confirm('Bạn có chắc muốn hủy đơn đặt vé này?')) return
+    try {
+      setCancelling(true)
+      await cancelBooking(booking.id)
+      toast.success('Đã hủy đơn đặt vé')
+      navigate('/bookings')
+    } catch (e) {
+      toast.error(e?.message || 'Không thể hủy đơn đặt vé')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const cachedResult = readJsonStorage(BOOKING_RESULT_STORAGE_KEY)
+  const paymentSession = mergePaymentSession(
+    checkoutContext?.paymentSession,
+    cachedResult?.booking?.id === booking?.id ? cachedResult?.paymentSession : null,
+  )
+  const qrCodeUrl = getPaymentQrCodeUrl(paymentSession)
+  const awaitingPayment =
+    booking?.paymentStatus !== 'PAID' && checkoutContext?.canPay !== false && Boolean(qrCodeUrl)
+  const showCancel =
+    readAuthRole() === 'CUSTOMER' && canCancelBooking(booking) && booking?.paymentStatus !== 'PAID'
+
   return (
     <div className={PAGE_SHELL}>
       <AppHeader />
@@ -90,12 +136,32 @@ function BookingDetail() {
                 {shortId(booking?.id || id)}
               </p>
             </div>
-            <Link to="/bookings">
-              <Button variant="secondary" className="rounded-full px-5">
-                <Icon name="arrow_back" />
-                Lịch sử
-              </Button>
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              {canPay ? (
+                <a href={payUrl} target="_blank" rel="noreferrer">
+                  <Button className="rounded-full px-5">
+                    <Icon name="payments" />
+                    Thanh toán
+                  </Button>
+                </a>
+              ) : null}
+              {showCancel ? (
+                <Button
+                  variant="secondary"
+                  className="rounded-full px-5"
+                  disabled={cancelling}
+                  onClick={handleCancel}
+                >
+                  {cancelling ? 'Đang hủy...' : 'Hủy đơn'}
+                </Button>
+              ) : null}
+              <Link to="/bookings">
+                <Button variant="secondary" className="rounded-full px-5">
+                  <Icon name="arrow_back" />
+                  Lịch sử
+                </Button>
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -180,7 +246,15 @@ function BookingDetail() {
                 </div>
               </div>
 
-              <aside className="rounded-3xl border border-primary/20 bg-[#120a1a] p-6 shadow-xl shadow-primary/10">
+              <aside className="space-y-6">
+                {awaitingPayment ? (
+                  <PaymentMoMoQr
+                    qrCodeUrl={qrCodeUrl}
+                    amount={getBookingPayableAmount(booking)}
+                    compact
+                  />
+                ) : null}
+                <div className="rounded-3xl border border-primary/20 bg-[#120a1a] p-6 shadow-xl shadow-primary/10">
                 <Text variant="h2" className="mb-5 text-2xl font-black text-white">
                   Tổng quan
                 </Text>
@@ -228,6 +302,7 @@ function BookingDetail() {
                     <span>Tổng</span>
                     <span className="text-primary">{formatCurrency(getBookingPayableAmount(booking))}</span>
                   </div>
+                </div>
                 </div>
               </aside>
             </section>

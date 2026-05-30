@@ -9,7 +9,8 @@ import {
   Text,
   useToast,
 } from '../../components'
-import { getMyManagedCinemas } from '../../api/cinema'
+import ProductThumbnail from '../../components/product/ProductThumbnail'
+import { getManagementCinemas } from '../../api/cinema'
 import { mapCinemasToSelectOptions } from '../../api/hall'
 import {
   buildProductsSearchBody,
@@ -71,7 +72,7 @@ function ProductManagement() {
     const ac = new AbortController()
     ;(async () => {
       try {
-        const list = await getMyManagedCinemas({ signal: ac.signal })
+        const list = await getManagementCinemas({ signal: ac.signal })
         if (cancelled) return
         const nameMap = {}
         for (const c of list || []) {
@@ -224,6 +225,7 @@ function ProductManagement() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-background-dark/30 border-b border-slate-200 dark:border-primary/20">
+                  <th className="px-6 py-4 font-semibold text-sm w-16">Ảnh</th>
                   <th className="px-6 py-4 font-semibold text-sm">Tên</th>
                   <th className="px-6 py-4 font-semibold text-sm">Rạp</th>
                   <th className="px-6 py-4 font-semibold text-sm">Loại</th>
@@ -237,14 +239,14 @@ function ProductManagement() {
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
                 {loading ? (
                   <tr>
-                    <td colSpan={readOnly ? 5 : 6} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={readOnly ? 6 : 7} className="px-6 py-8 text-center text-slate-500">
                       Đang tải danh sách sản phẩm...
                     </td>
                   </tr>
                 ) : null}
                 {!loading && displayRows.length === 0 ? (
                   <tr>
-                    <td colSpan={readOnly ? 5 : 6} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={readOnly ? 6 : 7} className="px-6 py-8 text-center text-slate-500">
                       Không có sản phẩm phù hợp.
                     </td>
                   </tr>
@@ -260,6 +262,15 @@ function ProductManagement() {
                           className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors"
                           onClick={() => setViewingProductId(product.id)}
                         >
+                          <td className="px-6 py-4">
+                            <ProductThumbnail
+                              imageUrl={product.imageUrl}
+                              alt={product.name || 'Sản phẩm'}
+                              type={product.type}
+                              className="h-12 w-12 shrink-0 rounded-lg border border-slate-200 bg-slate-100 object-cover dark:border-primary/20 dark:bg-slate-900/50"
+                              iconClassName="text-xl text-slate-400"
+                            />
+                          </td>
                           <td className="px-6 py-4 font-semibold">{product.name || '—'}</td>
                           <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                             {getCinemaName(product)}

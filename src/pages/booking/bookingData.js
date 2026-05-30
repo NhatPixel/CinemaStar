@@ -22,11 +22,35 @@ export const MOVIE_FALLBACK = {
   format: '2D Phụ đề',
 }
 
-export const PAYMENT_METHODS = [
-  { id: 'vietqr', label: 'VietQR', description: 'Quét mã QR qua ứng dụng ngân hàng', icon: 'qr_code_2' },
-  { id: 'card', label: 'Thẻ nội địa', description: 'ATM/Napas và Internet Banking', icon: 'credit_card' },
-  { id: 'wallet', label: 'Ví điện tử', description: 'Thanh toán nhanh qua ví liên kết', icon: 'account_balance_wallet' },
-]
+/** Phương thức thanh toán mặc định (hiển thị). */
+export const MOMO_PAYMENT_METHOD = {
+  id: 'MOMO',
+  code: 'MOMO',
+  label: 'MoMo',
+  description: 'Thanh toán qua ví MoMo',
+  icon: 'account_balance_wallet',
+}
+
+export function formatPaymentMethodLabel(code) {
+  const normalized = String(code || '').trim().toUpperCase()
+  if (!normalized || normalized.startsWith('MOMO')) return MOMO_PAYMENT_METHOD.label
+  return String(code).trim() || MOMO_PAYMENT_METHOD.label
+}
+
+export function getPaymentQrCodeUrl(session) {
+  return String(session?.qrCodeUrl || session?.qrCode || '').trim()
+}
+
+/** Giữ qrCodeUrl từ phiên tạo khi checkout-context không trả lại field này. */
+export function mergePaymentSession(next, prev) {
+  if (!next) return prev || null
+  if (!prev) return next
+  return {
+    ...next,
+    qrCodeUrl: getPaymentQrCodeUrl(next) || getPaymentQrCodeUrl(prev),
+    payUrl: next.payUrl || prev.payUrl,
+  }
+}
 
 export function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', {
@@ -61,6 +85,27 @@ export function getBookingPromotionLabel(booking) {
   return code || name || ''
 }
 
+export function canCancelBooking(booking) {
+  if (!booking) return false
+  if (booking.bookingStatus === 'CONFIRMED' && booking.paymentStatus === 'PAID') return false
+  return booking.bookingStatus === 'PENDING' || booking.bookingStatus === 'RESERVED'
+}
+
+export function readAuthUser() {
+  try {
+    const raw = localStorage.getItem('currentUser')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export function readAuthRole() {
+  return String(readAuthUser()?.role || '')
+    .trim()
+    .toUpperCase()
+}
+
 export function readJsonStorage(key) {
   try {
     const raw = sessionStorage.getItem(key)
@@ -88,7 +133,22 @@ export function getShowtimeHall(showtime) {
 
 export function getShowtimeCinema(showtime) {
   const hall = getShowtimeHall(showtime)
-  return showtime?.cinema || showtime?.cinemaResponse || hall?.cinemaResponse || hall?.cinema || null
+  const cinema = showtime?.cinema || showtime?.cinemaResponse || hall?.cinemaResponse || hall?.cinema || null
+  const cinemaId =
+    showtime?.cinemaId || cinema?.id || hall?.cinemaId || hall?.cinemaResponse?.id || ''
+  const cinemaName =
+    cinema?.name || hall?.cinemaName || showtime?.cinemaName || showtime?.cinema?.name || ''
+  if (cinemaId && cinemaName && !cinema?.name) {
+    return { ...cinema, id: cinemaId, name: cinemaName }
+  }
+  return cinema
+}
+
+export function getShowtimeCinemaName(showtime) {
+  const cinema = getShowtimeCinema(showtime)
+  if (cinema?.name) return String(cinema.name).trim()
+  const hall = getShowtimeHall(showtime)
+  return String(hall?.cinemaName || showtime?.cinemaName || '').trim()
 }
 
 export function getShowtimeCinemaId(showtime) {
@@ -99,6 +159,21 @@ export function getShowtimeCinemaId(showtime) {
     getShowtimeHall(showtime)?.cinemaResponse?.id ||
     ''
   )
+}
+
+/** Map id → tên rạp từ GET /films/{id} khi BE trả cinemas / showingCinemas. */
+export function buildCinemaNameLookupFromFilm(film) {
+  const lookup = {}
+  const sources = [film?.cinemas, film?.showingCinemas, film?.cinemaList]
+  for (const list of sources) {
+    if (!Array.isArray(list)) continue
+    for (const item of list) {
+      const id = item?.id || item?.cinemaId
+      const name = item?.name || item?.cinemaName
+      if (id && name) lookup[id] = String(name).trim()
+    }
+  }
+  return lookup
 }
 
 export function getShowtimeHallId(showtime) {
@@ -137,9 +212,109 @@ export function formatShowtimeTime(value) {
   })
 }
 
+const VI_WEEKDAY_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+
+export function toApiLocalDateString(date) {
+  const d = date instanceof Date ? date : new Date(date)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** 7 ngày từ hôm nay (local), kèm thứ. */
+export function buildBookingDateOptions(dayCount = 7) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const options = []
+  for (let i = 0; i < dayCount; i += 1) {
+    const date = new Date(today)
+    date.setDate(today.getDate() + i)
+    options.push({
+      value: toApiLocalDateString(date),
+      weekday: VI_WEEKDAY_SHORT[date.getDay()],
+      dayLabel: `${date.getDate()}/${date.getMonth() + 1}`,
+      isToday: i === 0,
+    })
+  }
+  return options
+}
+
+export function extractCinemasFromShowtimes(showtimes, nameById = {}) {
+  const map = new Map()
+  for (const showtime of showtimes || []) {
+    const id = getShowtimeCinemaId(showtime)
+    if (!id || map.has(id)) continue
+    const cinema = getShowtimeCinema(showtime)
+    const name = getShowtimeCinemaName(showtime) || nameById[id] || cinema?.name || 'Rạp chiếu'
+    map.set(id, {
+      id,
+      name,
+      address: cinema?.address || '',
+    })
+  }
+  return Array.from(map.values())
+}
+
 export function buildLayoutFromHall(hall) {
   const seats = Array.isArray(hall?.seats) ? hall.seats : []
   return seatsToLayoutDefinition(seats, 8, 10)
+}
+
+function isSeatMapSeatCell(cell) {
+  return cell?.kind === 'SEAT' || (cell?.seatType && cell?.seatCode)
+}
+
+export function getSeatsFromSeatMap(seatMap) {
+  if (!Array.isArray(seatMap?.cells)) return []
+  return seatMap.cells.filter(isSeatMapSeatCell).map((cell) => ({
+    row: cell.row,
+    col: cell.col,
+    seatType: cell.seatType,
+    seatCode: cell.seatCode,
+    state: cell.state,
+    price: cell.price,
+  }))
+}
+
+export function buildLayoutFromSeatMap(seatMap) {
+  const seats = getSeatsFromSeatMap(seatMap)
+  const layout = seatsToLayoutDefinition(
+    seats,
+    seatMap?.totalRows || 8,
+    seatMap?.totalCols || 10,
+  )
+  if (seatMap?.screenPosition) {
+    layout.screenPosition = seatMap.screenPosition
+  }
+  return layout
+}
+
+export function getReservedSeatLabelsFromSeatMap(seatMap) {
+  return getSeatsFromSeatMap(seatMap)
+    .filter((seat) => seat.state && seat.state !== 'AVAILABLE')
+    .map((seat) => formatSeatLabel(seat.row, seat.col))
+}
+
+export function findSeatInSeatMap(seatMap, label) {
+  return findSeatByLabel(getSeatsFromSeatMap(seatMap), label)
+}
+
+/** Giá 1 ô khi đặt vé — COUPLE: couplePrice là giá cả cặp, mỗi ô = một nửa. */
+export function getBookingSeatUnitPrice(amount, seatType) {
+  const value = Number(amount || 0)
+  if (String(seatType || '').toUpperCase() === SEAT_TYPE.COUPLE && value > 0) {
+    return Math.round(value / 2)
+  }
+  return value
+}
+
+export function resolveSeatPriceFromSeatMap(seatMap, label, pricingPolicy) {
+  const seat = findSeatInSeatMap(seatMap, label)
+  if (seat?.price != null && seat.price !== '') {
+    return getBookingSeatUnitPrice(seat.price, seat.seatType)
+  }
+  return resolveSeatPrice(pricingPolicy, seat?.seatType)
 }
 
 export function seatLabelFromSeat(seat) {
@@ -161,18 +336,24 @@ export function resolveSeatPrice(pricingPolicy, seatType) {
     return Number(pricingPolicy?.vipPrice || pricingPolicy?.standardPrice || 110000)
   }
   if (normalizedType === SEAT_TYPE.COUPLE) {
-    return Number(pricingPolicy?.couplePrice || pricingPolicy?.vipPrice || pricingPolicy?.standardPrice || 110000)
+    const pairPrice = Number(
+      pricingPolicy?.couplePrice || pricingPolicy?.vipPrice || pricingPolicy?.standardPrice || 110000,
+    )
+    return getBookingSeatUnitPrice(pairPrice, SEAT_TYPE.COUPLE)
   }
   return Number(pricingPolicy?.standardPrice || 110000)
 }
 
 export function normalizeProductToCombo(product) {
+  const type = product.type || ''
   return {
     id: product.id,
     name: product.name || 'Combo',
     description: product.description || 'Sản phẩm tại rạp',
     price: Number(product.price || 0),
-    icon: product.type === 'DRINK' ? 'local_cafe' : product.type === 'FOOD' ? 'fastfood' : 'local_movies',
+    imageUrl: String(product.imageUrl || '').trim(),
+    type,
+    icon: type === 'DRINK' ? 'local_cafe' : type === 'FOOD' ? 'fastfood' : 'local_movies',
     quantity: 0,
     raw: product,
   }

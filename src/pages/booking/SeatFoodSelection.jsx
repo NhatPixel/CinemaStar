@@ -1,27 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, HallLayoutForm, Icon, Text, useToast } from '../../components'
-import { getHallById } from '../../api/hall'
+import ProductThumbnail from '../../components/product/ProductThumbnail'
 import { buildProductsSearchBody, searchProductsByCinema } from '../../api/product'
-import { getShowtimeById } from '../../api/showtime'
+import { getShowtimeById, getShowtimeSeatMap } from '../../api/showtime'
 import BookingLayout from './BookingLayout'
 import {
   BOOKING_DRAFT_STORAGE_KEY,
   MAX_BOOKING_SEATS,
   MOVIE_FALLBACK,
-  buildLayoutFromHall,
-  findSeatByLabel,
+  buildLayoutFromSeatMap,
+  findSeatInSeatMap,
   formatCurrency,
   formatShowtimeDate,
   formatShowtimeTime,
   getFilmPoster,
   getFilmTitle,
+  getReservedSeatLabelsFromSeatMap,
   getShowtimeCinema,
   getShowtimeCinemaId,
   getShowtimeHall,
-  getShowtimeHallId,
   normalizeProductToCombo,
-  resolveSeatPrice,
+  resolveSeatPriceFromSeatMap,
   writeJsonStorage,
 } from './bookingData'
 
@@ -32,7 +32,7 @@ function SeatFoodSelection() {
   const showtimeId = searchParams.get('showtimeId')
   const filmId = searchParams.get('filmId')
   const [showtime, setShowtime] = useState(null)
-  const [hall, setHall] = useState(null)
+  const [seatMap, setSeatMap] = useState(null)
   const [selectedSeats, setSelectedSeats] = useState([])
   const [combos, setCombos] = useState([])
   const [loading, setLoading] = useState(Boolean(showtimeId))
@@ -57,23 +57,23 @@ function SeatFoodSelection() {
 
     ;(async () => {
       try {
-        const detail = await getShowtimeById(showtimeId, { signal: ac.signal })
-        if (cancelled) return
-
-        const hallId = getShowtimeHallId(detail)
-        const cinemaId = getShowtimeCinemaId(detail)
-        const [hallDetail, productPage] = await Promise.all([
-          hallId ? getHallById(hallId, { signal: ac.signal }) : Promise.resolve(getShowtimeHall(detail)),
-          cinemaId
-            ? searchProductsByCinema(cinemaId, buildProductsSearchBody({ size: 30 }), {
-                signal: ac.signal,
-              }).catch(() => ({ data: [] }))
-            : Promise.resolve({ data: [] }),
+        const [detail, seatMapDetail] = await Promise.all([
+          getShowtimeById(showtimeId, { signal: ac.signal }),
+          getShowtimeSeatMap(showtimeId, { signal: ac.signal }),
         ])
+
+        const cinemaId = getShowtimeCinemaId(detail)
+        const productPage = cinemaId
+          ? await searchProductsByCinema(
+              cinemaId,
+              buildProductsSearchBody({ size: 30, status: 'ACTIVE' }),
+              { signal: ac.signal },
+            ).catch(() => ({ data: [] }))
+          : { data: [] }
 
         if (cancelled) return
         setShowtime(detail)
-        setHall(hallDetail || getShowtimeHall(detail))
+        setSeatMap(seatMapDetail)
         setCombos((productPage?.data || []).map(normalizeProductToCombo))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
@@ -89,23 +89,24 @@ function SeatFoodSelection() {
     }
   }, [showtimeId])
 
-  const cinema = getShowtimeCinema(showtime) || hall?.cinemaResponse || hall?.cinema
+  const hall = getShowtimeHall(showtime)
+  const cinema = getShowtimeCinema(showtime)
   const pricingPolicy = showtime?.pricingPolicy || {}
-  const layout = useMemo(() => buildLayoutFromHall(hall), [hall])
-  const seats = hall?.seats || getShowtimeHall(showtime)?.seats || []
+  const layout = useMemo(() => buildLayoutFromSeatMap(seatMap), [seatMap])
+  const reservedSeats = useMemo(() => getReservedSeatLabelsFromSeatMap(seatMap), [seatMap])
   const selectedSeatDetails = useMemo(
     () =>
       selectedSeats.map((label) => {
-        const seat = findSeatByLabel(seats, label)
+        const seat = findSeatInSeatMap(seatMap, label)
         const seatType = seat?.seatType || 'STANDARD'
         return {
           label,
           seat,
           seatType,
-          price: resolveSeatPrice(pricingPolicy, seatType),
+          price: resolveSeatPriceFromSeatMap(seatMap, label, pricingPolicy),
         }
       }),
-    [pricingPolicy, seats, selectedSeats],
+    [pricingPolicy, seatMap, selectedSeats],
   )
 
   const foodTotal = useMemo(
@@ -253,10 +254,10 @@ function SeatFoodSelection() {
 
         <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
           <HallLayoutForm
-            mode="picker"
+            mode="booking"
             value={layout}
             selectedSeats={selectedSeats}
-            reservedSeats={[]}
+            reservedSeats={reservedSeats}
             onSelectedSeatsChange={handleSelectedSeatsChange}
           />
         </section>
@@ -278,32 +279,42 @@ function SeatFoodSelection() {
             </div>
           ) : null}
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid items-stretch gap-4 md:grid-cols-3">
             {combos.map((combo) => (
-              <article key={combo.name} className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <div className="mb-5 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Icon name={combo.icon} className="text-3xl" />
-                </div>
+              <article
+                key={combo.id || combo.name}
+                className="flex h-full min-h-[220px] flex-col rounded-2xl border border-white/10 bg-white/5 p-5"
+              >
+                <ProductThumbnail
+                  imageUrl={combo.imageUrl}
+                  alt={combo.name}
+                  type={combo.type}
+                  fallbackIcon={combo.icon}
+                  className="mb-5 aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 bg-black/30 object-cover"
+                  iconClassName="text-5xl text-primary"
+                />
                 <h3 className="text-lg font-black text-white">{combo.name}</h3>
-                <p className="mt-2 min-h-12 text-sm leading-6 text-slate-400">{combo.description}</p>
+                <p className="mt-2 flex-1 text-sm leading-6 text-slate-400">{combo.description}</p>
                 <p className="mt-4 text-lg font-black text-primary">{formatCurrency(combo.price)}</p>
 
-                <div className="mt-5 flex items-center justify-between rounded-full bg-black/20 p-1">
-                  <button
-                    type="button"
-                    onClick={() => updateComboQuantity(combo.name, -1)}
-                    className="flex size-9 items-center justify-center rounded-full text-slate-300 hover:bg-white/10"
-                  >
-                    <Icon name="remove" className="text-lg" />
-                  </button>
-                  <span className="font-black text-white">{combo.quantity}</span>
-                  <button
-                    type="button"
-                    onClick={() => updateComboQuantity(combo.name, 1)}
-                    className="flex size-9 items-center justify-center rounded-full bg-primary text-white"
-                  >
-                    <Icon name="add" className="text-lg" />
-                  </button>
+                <div className="mt-auto pt-5">
+                  <div className="flex items-center justify-between rounded-full bg-black/20 p-1">
+                    <button
+                      type="button"
+                      onClick={() => updateComboQuantity(combo.name, -1)}
+                      className="flex size-9 items-center justify-center rounded-full text-slate-300 hover:bg-white/10"
+                    >
+                      <Icon name="remove" className="text-lg" />
+                    </button>
+                    <span className="font-black text-white">{combo.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateComboQuantity(combo.name, 1)}
+                      className="flex size-9 items-center justify-center rounded-full bg-primary text-white"
+                    >
+                      <Icon name="add" className="text-lg" />
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}

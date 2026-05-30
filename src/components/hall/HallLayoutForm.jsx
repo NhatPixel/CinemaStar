@@ -48,7 +48,7 @@ function labelsToKeySet(labels) {
 /**
  * Sơ đồ ghế phòng chiếu.
  * @param {{
- *   mode?: 'editor' | 'view' | 'picker',
+ *   mode?: 'editor' | 'view' | 'picker' | 'booking', // booking = picker (luồng đặt vé)
  *   readOnly?: boolean,
  *   value?: object,
  *   onChange?: (layout) => void,
@@ -68,8 +68,9 @@ function HallLayoutForm({
   onSelectedSeatsChange,
   className = '',
 }) {
-  const isPicker = mode === 'picker'
   const isEditor = mode === 'editor'
+  const isBooking = mode === 'booking'
+  const isPicker = mode === 'picker' || isBooking
   const readOnly = mode === 'view' || readOnlyProp || isPicker
 
   const [layoutInit] = useState(() => createLayoutState(value))
@@ -365,10 +366,11 @@ function HallLayoutForm({
                 seatType === SEAT_TYPE.COUPLE ? resolveCoupleSide(coupleGrid, row, col) : null
               const paintedClass = seatType ? SEAT_TYPE_CELL_CLASS[seatType] || '' : ''
               const canPaint = isEditor && isHover && hoverPreview.canPaint
-              const coupleJoinClass =
-                seatType === SEAT_TYPE.COUPLE && coupleSide
-                  ? COUPLE_CELL_JOIN_CLASS[coupleSide] || ''
-                  : ''
+              const showCoupleJoin =
+                seatType === SEAT_TYPE.COUPLE && coupleSide && (isEditor || isBooking)
+              const coupleJoinClass = showCoupleJoin
+                ? COUPLE_CELL_JOIN_CLASS[coupleSide] || ''
+                : ''
               const isReserved = isPicker && reservedKeySet.has(key)
               const isSelected = isPicker && selectedKeySet.has(key)
               const seatLabel = formatSeatLabel(row, col)
@@ -418,7 +420,7 @@ function HallLayoutForm({
                         : isEditor
                           ? 'border-dashed border-slate-300 dark:border-slate-600 bg-white/80 dark:bg-slate-900/40 text-slate-400'
                           : 'border-transparent bg-transparent text-transparent',
-                    !isPicker ? coupleJoinClass : '',
+                    coupleJoinClass,
                     canPaint && hoverMergeSide
                       ? COUPLE_HOVER_RING_JOIN_CLASS[hoverMergeSide]
                       : '',

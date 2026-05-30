@@ -26,6 +26,7 @@ import RequireRole from './components/layout/RequireRole'
 import UserProfile from './pages/user/UserProfile'
 import UserManagement from './pages/user/UserManagement'
 import PricingPolicyManagement from './pages/pricing/PricingPolicyManagement'
+import PromotionManagement from './pages/promotion/PromotionManagement'
 
 function resolveManagementRedirectPath() {
   try {
@@ -42,8 +43,7 @@ function resolveManagementRedirectPath() {
 }
 
 function resolveRootRedirectPath() {
-  const hasCurrentUser = Boolean(localStorage.getItem('currentUser'))
-  return hasCurrentUser ? '/movies' : '/login'
+  return '/movies'
 }
 
 function App() {
@@ -115,6 +115,17 @@ function App() {
                 fallback="/management/movies"
               >
                 <PricingPolicyManagement />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="promotions"
+            element={
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}
+                fallback="/management/movies"
+              >
+                <PromotionManagement />
               </RequireRole>
             }
           />

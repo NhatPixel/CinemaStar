@@ -9,7 +9,7 @@ import Text from '../Text'
 import { useToast } from '../useToast'
 import { getBanks } from '../../api/bank'
 import { registerManager, registerStaff } from '../../api/auth'
-import { getUserById } from '../../api/user'
+import { getUserById, updateManagedUserProfile } from '../../api/user'
 import { Gender, formatGenderLabel } from '../../constants/genderMeta'
 import { USER_ROLE_LABEL_VI } from '../../constants/userRoleLabels'
 import {
@@ -73,6 +73,22 @@ function buildRegisterPayload(form, managedRole) {
   return payload
 }
 
+function buildUpdatePayload(form, managedRole) {
+  const payload = {
+    name: form.name.trim(),
+    email: form.email.trim(),
+    dob: form.dob,
+    gender: form.gender,
+    phone: form.phone.trim(),
+  }
+  if (needsBankFieldsForRole(managedRole)) {
+    payload.bankCode = form.bankCode?.trim() || undefined
+    payload.accountNumber = form.accountNumber?.trim() || undefined
+    payload.accountName = form.accountName?.trim() || undefined
+  }
+  return payload
+}
+
 function UserModal({
   isOpen,
   mode = 'create',
@@ -83,6 +99,7 @@ function UserModal({
 }) {
   const toast = useToast()
   const isCreate = mode === 'create'
+  const isEdit = mode === 'edit'
   const isView = mode === 'view'
   const readOnly = isView
   const showBank = needsBankFieldsForRole(managedRole)
@@ -160,24 +177,43 @@ function UserModal({
     if (!form.email.trim()) return toast.error('Vui lòng nhập email')
     if (!form.phone.trim()) return toast.error('Vui lòng nhập số điện thoại')
     if (!form.dob) return toast.error('Vui lòng chọn ngày sinh')
-    if (!form.password || form.password.length < 8) {
-      return toast.error('Mật khẩu phải từ 8 ký tự')
+
+    if (isCreate) {
+      if (!form.password || form.password.length < 8) {
+        return toast.error('Mật khẩu phải từ 8 ký tự')
+      }
+
+      const payload = buildRegisterPayload(form, managedRole)
+
+      try {
+        setSubmitting(true)
+        let data
+        if (managedRole === MANAGED_USER_ROLES.MANAGER) {
+          data = await registerManager(payload)
+        } else {
+          data = await registerStaff(payload)
+        }
+        toast.success(data?.message || `Tạo ${roleLabel.toLowerCase()} thành công`)
+        onSubmitted?.(data)
+      } catch (err) {
+        toast.error(err?.message || 'Tạo tài khoản thất bại')
+      } finally {
+        setSubmitting(false)
+      }
+      return
     }
 
-    const payload = buildRegisterPayload(form, managedRole)
+    if (!isEdit || !userId) return
+
+    const payload = buildUpdatePayload(form, managedRole)
 
     try {
       setSubmitting(true)
-      let data
-      if (managedRole === MANAGED_USER_ROLES.MANAGER) {
-        data = await registerManager(payload)
-      } else {
-        data = await registerStaff(payload)
-      }
-      toast.success(data?.message || `Tạo ${roleLabel.toLowerCase()} thành công`)
+      const data = await updateManagedUserProfile(managedRole, userId, payload)
+      toast.success(data?.message || `Cập nhật ${roleLabel.toLowerCase()} thành công`)
       onSubmitted?.(data)
     } catch (err) {
-      toast.error(err?.message || 'Tạo tài khoản thất bại')
+      toast.error(err?.message || 'Cập nhật thất bại')
     } finally {
       setSubmitting(false)
     }
@@ -185,7 +221,9 @@ function UserModal({
 
   const title = isView
     ? `Chi tiết ${roleLabel.toLowerCase()}`
-    : `Tạo ${roleLabel.toLowerCase()} mới`
+    : isEdit
+      ? `Chỉnh sửa ${roleLabel.toLowerCase()}`
+      : `Tạo ${roleLabel.toLowerCase()} mới`
 
   const bankOptions = banks.map((bank) => ({
     value: bank.code,
@@ -225,7 +263,7 @@ function UserModal({
           <p className="text-sm text-slate-500 mb-4">Đang tải thông tin...</p>
         ) : (
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {isView && detail?.id ? (
+            {(isView || isEdit) && detail?.id ? (
               <Input
                 label="Mã người dùng"
                 name="userIdView"
@@ -300,16 +338,7 @@ function UserModal({
                   className="w-full rounded-lg border border-slate-200 dark:border-primary/20 bg-white dark:bg-slate-900/50 px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
                 />
               </div>
-              {readOnly ? (
-                <Input
-                  label="Giới tính"
-                  name="genderView"
-                  value={formatGenderLabel(form.gender)}
-                  onChange={() => {}}
-                  disabled
-                  readOnly
-                />
-              ) : (
+              {!readOnly ? (
                 <CustomSelect
                   label="Giới tính"
                   name="gender"
@@ -318,21 +347,21 @@ function UserModal({
                   options={GENDER_OPTIONS}
                   icon="wc"
                 />
+              ) : (
+                <Input
+                  label="Giới tính"
+                  name="genderView"
+                  value={formatGenderLabel(form.gender)}
+                  onChange={() => {}}
+                  disabled
+                  readOnly
+                />
               )}
             </div>
 
             {showBank ? (
               <>
-                {readOnly ? (
-                  <Input
-                    label="Mã ngân hàng"
-                    name="bankCodeView"
-                    value={form.bankCode || '—'}
-                    onChange={() => {}}
-                    disabled
-                    readOnly
-                  />
-                ) : (
+              {!readOnly ? (
                   <SearchableSelect
                     label="Ngân hàng"
                     name="bankCode"
@@ -342,6 +371,15 @@ function UserModal({
                     placeholder="Chọn ngân hàng"
                     searchPlaceholder="Tìm ngân hàng"
                     options={bankOptions}
+                  />
+                ) : (
+                  <Input
+                    label="Mã ngân hàng"
+                    name="bankCodeView"
+                    value={form.bankCode || '—'}
+                    onChange={() => {}}
+                    disabled
+                    readOnly
                   />
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -375,7 +413,13 @@ function UserModal({
               </Button>
               {!readOnly ? (
                 <Button type="submit" variant="primary" disabled={submitting || loadingDetail}>
-                  {submitting ? 'Đang tạo...' : 'Tạo tài khoản'}
+                  {submitting
+                    ? isEdit
+                      ? 'Đang lưu...'
+                      : 'Đang tạo...'
+                    : isEdit
+                      ? 'Lưu thay đổi'
+                      : 'Tạo tài khoản'}
                 </Button>
               ) : null}
             </div>

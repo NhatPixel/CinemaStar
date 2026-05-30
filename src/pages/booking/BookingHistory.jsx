@@ -4,7 +4,6 @@ import { AppFooter, AppHeader, Button, CustomSelect, Input, Text, useToast } fro
 import {
   buildBookingsSearchBody,
   searchMyBookings,
-  searchOperatorBookings,
 } from '../../api/booking'
 import {
   BOOKING_STATUS_BADGE_CLASS,
@@ -86,7 +85,14 @@ function BookingHistory() {
     setLoading(true)
 
     const role = readRole()
-    const useOperatorSearch = role === 'ADMIN' || role === 'MANAGER' || role === 'STAFF'
+    if (role !== 'CUSTOMER') {
+      if (!cancelled) {
+        setRows([])
+        setLoading(false)
+      }
+      return
+    }
+
     const body = buildBookingsSearchBody({
       page,
       size: PAGE_SIZE,
@@ -96,9 +102,7 @@ function BookingHistory() {
 
     ;(async () => {
       try {
-        const data = useOperatorSearch
-          ? await searchOperatorBookings(body, { signal: ac.signal })
-          : await searchMyBookings(body, { signal: ac.signal })
+        const data = await searchMyBookings(body, { signal: ac.signal })
         if (cancelled) return
         setRows(data?.data || [])
         setTotalPages(data?.totalPages ?? 0)
@@ -173,14 +177,21 @@ function BookingHistory() {
                     </td>
                   </tr>
                 ) : null}
-                {!loading && rows.length === 0 ? (
+                {!loading && readRole() !== 'CUSTOMER' ? (
+                  <tr>
+                    <td className="px-5 py-8 text-center text-slate-400" colSpan={6}>
+                      Chỉ tài khoản khách hàng mới xem được lịch sử đặt vé cá nhân.
+                    </td>
+                  </tr>
+                ) : null}
+                {!loading && readRole() === 'CUSTOMER' && rows.length === 0 ? (
                   <tr>
                     <td className="px-5 py-8 text-center text-slate-400" colSpan={6}>
                       Chưa có đơn đặt vé phù hợp.
                     </td>
                   </tr>
                 ) : null}
-                {!loading
+                {!loading && readRole() === 'CUSTOMER'
                   ? rows.map((booking) => (
                       <tr
                         key={booking.id}

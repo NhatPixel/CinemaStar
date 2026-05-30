@@ -8,7 +8,7 @@ import {
   Text,
   useToast,
 } from '../../components'
-import { getMyManagedCinemas } from '../../api/cinema'
+import { getManagementCinemas } from '../../api/cinema'
 import { buildHallsSearchBody, searchHalls } from '../../api/hall'
 import {
   buildShowtimesSearchBody,
@@ -97,7 +97,7 @@ function ShowtimeManagement() {
 
     ;(async () => {
       try {
-        const list = await getMyManagedCinemas({ signal: ac.signal })
+        const list = await getManagementCinemas({ signal: ac.signal })
         if (cancelled) return
         const nameMap = {}
         const options = (list || []).map((cinema) => {

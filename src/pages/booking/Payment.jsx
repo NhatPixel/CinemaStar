@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createBooking } from '../../api/booking'
+import { createPaymentSession } from '../../api/payment'
 import { Button, Icon, Input, Text, useToast } from '../../components'
 import BookingLayout from './BookingLayout'
 import {
   BOOKING_DRAFT_STORAGE_KEY,
   BOOKING_RESULT_STORAGE_KEY,
+  MOMO_PAYMENT_METHOD,
   MOVIE_FALLBACK,
-  PAYMENT_METHODS,
   formatCurrency,
-  formatShowtimeDate,
   formatShowtimeTime,
   getFilmPoster,
   getFilmTitle,
+  readAuthRole,
   readJsonStorage,
+  removeJsonStorage,
   writeJsonStorage,
 } from './bookingData'
 
@@ -36,7 +38,6 @@ function Payment() {
   const [searchParams] = useSearchParams()
   const toast = useToast()
   const filmId = searchParams.get('filmId')
-  const [method, setMethod] = useState('vietqr')
   const [draft, setDraft] = useState(() => readJsonStorage(BOOKING_DRAFT_STORAGE_KEY))
   const [customerInfo, setCustomerInfo] = useState(() => getCurrentUserDefaults())
   const [submitting, setSubmitting] = useState(false)
@@ -53,11 +54,9 @@ function Payment() {
   const hall = draft?.hall
   const cinema = draft?.cinema
   const selectedSeats = draft?.selectedSeats || []
-  const combos = draft?.combos || []
   const totals = draft?.totals || { ticketTotal: 0, foodTotal: 0, total: 0 }
   const filmTitle = showtime ? getFilmTitle(showtime) : MOVIE_FALLBACK.title
   const poster = showtime ? getFilmPoster(showtime) : MOVIE_FALLBACK.poster
-  const showtimeDate = formatShowtimeDate(showtime?.startDateTime)
   const showtimeTime = formatShowtimeTime(showtime?.startDateTime)
 
   const updateCustomerInfo = (field, value) => {
@@ -65,6 +64,11 @@ function Payment() {
   }
 
   const handleConfirmPayment = async () => {
+    if (readAuthRole() !== 'CUSTOMER') {
+      toast.error('Vui lòng đăng nhập tài khoản khách hàng để đặt vé')
+      navigate('/login', { state: { from: '/booking/payment' } })
+      return
+    }
     if (!draft?.showtime?.id) {
       toast.error('Vui lòng chọn suất chiếu trước khi thanh toán')
       navigate('/booking/showtimes')
@@ -85,18 +89,22 @@ function Payment() {
 
     setSubmitting(true)
     try {
+      const cinemaId = draft.cinema?.id || draft.showtime?.cinemaId || draft.hall?.cinemaId
       const booking = await createBooking({
         showtimeId: draft.showtime.id,
-        cinemaId: draft.cinema?.id || draft.showtime?.cinemaId || draft.hall?.cinemaId,
+        cinemaId,
         customerInfo: { fullName, email, phone },
         seatItems: draft.seatItems,
         productItems: draft.productItems || [],
       })
+      const paymentSession = await createPaymentSession({ bookingId: booking.id })
       writeJsonStorage(BOOKING_RESULT_STORAGE_KEY, {
         booking,
+        paymentSession,
         context: draft,
-        paymentMethod: method,
+        paymentMethod: MOMO_PAYMENT_METHOD.code,
       })
+      removeJsonStorage(BOOKING_DRAFT_STORAGE_KEY)
       toast.success('Đặt vé thành công')
       navigate(`/booking/result?bookingId=${booking.id}`)
     } catch (e) {
@@ -203,7 +211,9 @@ function Payment() {
               <Text variant="h2" className="text-2xl font-black text-white">
                 Phương thức thanh toán
               </Text>
-              <p className="mt-2 text-sm text-slate-400">Chọn hình thức phù hợp để tiếp tục.</p>
+              <p className="mt-2 text-sm text-slate-400">
+                Thanh toán qua {MOMO_PAYMENT_METHOD.label}.
+              </p>
             </div>
             <div className="inline-flex w-fit items-center gap-2 rounded-full bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300">
               <Icon name="timer" className="text-lg" />
@@ -211,75 +221,37 @@ function Payment() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {PAYMENT_METHODS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setMethod(item.id)}
-                className={`rounded-2xl border p-5 text-left transition ${
-                  method === item.id
-                    ? 'border-primary bg-primary/15 shadow-lg shadow-primary/10'
-                    : 'border-white/10 bg-white/5 hover:border-primary/40'
-                }`}
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <Icon name={item.icon} className="text-3xl" />
-                  </span>
-                  {method === item.id ? <Icon name="check_circle" className="text-primary" /> : null}
-                </div>
-                <h3 className="text-lg font-black text-white">{item.label}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-400">{item.description}</p>
-              </button>
-            ))}
+          <div className="flex items-start gap-4 rounded-2xl border border-primary/30 bg-primary/10 p-5">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/20 text-primary">
+              <Icon name={MOMO_PAYMENT_METHOD.icon} className="text-3xl" />
+            </span>
+            <div>
+              <h3 className="text-lg font-black text-white">{MOMO_PAYMENT_METHOD.label}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-400">{MOMO_PAYMENT_METHOD.description}</p>
+            </div>
           </div>
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-[#120a1a] p-5 md:p-8">
-          {method === 'vietqr' ? (
-            <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <div className="rounded-3xl bg-white p-5">
-                <div className="grid aspect-square place-items-center rounded-2xl bg-[linear-gradient(135deg,#111827_25%,transparent_25%),linear-gradient(225deg,#111827_25%,transparent_25%),linear-gradient(45deg,#111827_25%,transparent_25%),linear-gradient(315deg,#111827_25%,#fff_25%)] bg-[length:28px_28px] bg-[position:14px_0,14px_0,0_0,0_0]">
-                  <div className="rounded-xl bg-white px-4 py-2 text-sm font-black text-primary">
-                    CinemaStar
-                  </div>
-                </div>
+          <div className="space-y-5">
+            <Text variant="h2" className="text-2xl font-black text-white">
+              {MOMO_PAYMENT_METHOD.label}
+            </Text>
+            <p className="text-slate-400">
+              Sau khi xác nhận, hệ thống tạo phiên thanh toán và chuyển bạn tới trang kết quả để hoàn tất
+              giao dịch.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-white/5 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-primary">Phương thức</p>
+                <p className="mt-2 font-bold text-white">{MOMO_PAYMENT_METHOD.label}</p>
               </div>
-
-              <div className="space-y-5">
-                <Text variant="h2" className="text-2xl font-black text-white">
-                  Quét mã QR để thanh toán
-                </Text>
-                <p className="text-slate-400">
-                  Mở ứng dụng ngân hàng, chọn quét mã QR và kiểm tra đúng nội dung chuyển khoản trước khi xác nhận.
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-white/5 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-primary">Ngân hàng</p>
-                    <p className="mt-2 font-bold text-white">CinemaStar Bank</p>
-                  </div>
-                  <div className="rounded-2xl bg-white/5 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-primary">Số tiền</p>
-                    <p className="mt-2 font-bold text-white">{formatCurrency(totals.total)}</p>
-                  </div>
-                  <div className="rounded-2xl bg-white/5 p-4 sm:col-span-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-primary">Nội dung</p>
-                    <p className="mt-2 font-mono text-sm font-bold text-white">
-                      CINESTAR {selectedSeats.join('').replace(/\s/g, '') || 'BOOKING'}
-                    </p>
-                  </div>
-                </div>
+              <div className="rounded-2xl bg-white/5 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-primary">Số tiền</p>
+                <p className="mt-2 font-bold text-white">{formatCurrency(totals.total)}</p>
               </div>
             </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Tên chủ thẻ" placeholder="NGUYEN VAN A" icon="person" />
-              <Input label="Số thẻ" placeholder="9704 0000 0000 0000" icon="credit_card" />
-              <Input label="Ngày hết hạn" placeholder="MM/YY" icon="event" />
-              <Input label="CVV" placeholder="***" icon="lock" />
-            </div>
-          )}
+          </div>
         </section>
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">

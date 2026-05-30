@@ -13,7 +13,7 @@ import {
   buildHallsSearchBody,
   deleteHall,
   getHallCinemaLabel,
-  getMyManagedCinemas,
+  getManagementCinemas,
   mapCinemasToSelectOptions,
   searchHalls,
 } from '../../api/hall'
@@ -73,7 +73,7 @@ function HallManagement() {
     const ac = new AbortController()
     ;(async () => {
       try {
-        const list = await getMyManagedCinemas({ signal: ac.signal })
+        const list = await getManagementCinemas({ signal: ac.signal })
         if (cancelled) return
         setCinemaOptions(mapCinemasToSelectOptions(list, { includeAll: true }))
         setManagedCinemaOptions(mapCinemasToSelectOptions(list, { includeAll: false }))

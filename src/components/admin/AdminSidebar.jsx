@@ -36,6 +36,7 @@ function AdminSidebar() {
   const isHallsActive = location.pathname.startsWith('/management/halls')
   const isShowtimesActive = location.pathname.startsWith('/management/showtimes')
   const isPricingPoliciesActive = location.pathname.startsWith('/management/pricing-policies')
+  const isPromotionsActive = location.pathname.startsWith('/management/promotions')
   const isBookingsActive = location.pathname.startsWith('/management/bookings')
   const isProductsActive = location.pathname.startsWith('/management/products')
   const isUsersActive = location.pathname.startsWith('/management/users')
@@ -145,6 +146,21 @@ function AdminSidebar() {
             <Icon name="payments" />
             <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
               Chính sách giá
+            </span>
+          </Link>
+        ) : null}
+        {showOperations ? (
+          <Link
+            to="/management/promotions"
+            className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
+              isPromotionsActive
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-slate-600 hover:bg-primary/5 hover:text-primary dark:text-slate-300'
+            }`}
+          >
+            <Icon name="sell" />
+            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
+              Mã giảm giá
             </span>
           </Link>
         ) : null}

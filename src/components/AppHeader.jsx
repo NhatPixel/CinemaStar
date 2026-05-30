@@ -63,7 +63,7 @@ function AppHeader({ showLoginButton = true }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center gap-12">
-            <Link className="flex items-center gap-3 text-primary" to="/">
+            <Link className="flex items-center gap-3 text-primary" to="/movies">
               <Icon name="movie_filter" className="text-4xl font-bold" />
               <Text
                 variant="h2"
