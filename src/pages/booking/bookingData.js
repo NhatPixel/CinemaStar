@@ -37,18 +37,17 @@ export function formatPaymentMethodLabel(code) {
   return String(code).trim() || MOMO_PAYMENT_METHOD.label
 }
 
-export function getPaymentQrCodeUrl(session) {
-  return String(session?.qrCodeUrl || session?.qrCode || '').trim()
+export function getPaymentPayUrl(session) {
+  return String(session?.payUrl || '').trim()
 }
 
-/** Giữ qrCodeUrl từ phiên tạo khi checkout-context không trả lại field này. */
+/** Giữ payUrl từ phiên tạo khi checkout-context không trả lại field này. */
 export function mergePaymentSession(next, prev) {
   if (!next) return prev || null
   if (!prev) return next
   return {
     ...next,
-    qrCodeUrl: getPaymentQrCodeUrl(next) || getPaymentQrCodeUrl(prev),
-    payUrl: next.payUrl || prev.payUrl,
+    payUrl: getPaymentPayUrl(next) || getPaymentPayUrl(prev),
   }
 }
 

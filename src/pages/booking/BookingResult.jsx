@@ -13,7 +13,7 @@ import {
   formatPaymentMethodLabel,
   getBookingPromotionDiscount,
   getBookingPromotionLabel,
-  getPaymentQrCodeUrl,
+  getPaymentPayUrl,
   mergePaymentSession,
   readJsonStorage,
 } from './bookingData'
@@ -114,9 +114,9 @@ function BookingResult() {
   const bookingCode = booking?.id ? String(booking.id).slice(0, 8).toUpperCase() : 'BOOKING'
   const showtimeDate = formatShowtimeDate(booking?.showtimeStartDateTime)
   const showtimeTime = formatShowtimeTime(booking?.showtimeStartDateTime)
-  const qrCodeUrl = getPaymentQrCodeUrl(paymentSession)
-  const awaitingPayment =
-    booking?.paymentStatus !== 'PAID' && checkoutContext?.canPay !== false && Boolean(qrCodeUrl)
+  const payUrl = getPaymentPayUrl(paymentSession)
+  const canPayOnline =
+    booking?.paymentStatus !== 'PAID' && checkoutContext?.canPay !== false && Boolean(payUrl)
 
   return (
     <BookingLayout
@@ -213,28 +213,40 @@ function BookingResult() {
 
             </div>
 
-            <aside className="rounded-3xl border border-white/10 bg-white p-5 text-slate-950">
-              <div className="grid aspect-square place-items-center rounded-2xl bg-[linear-gradient(90deg,#111827_10%,transparent_10%),linear-gradient(#111827_10%,transparent_10%)] bg-[length:18px_18px] p-3">
-                {awaitingPayment ? (
-                  <img
-                    src={qrCodeUrl}
-                    alt="Mã QR thanh toán"
-                    className="max-h-full max-w-full rounded-xl bg-white object-contain p-2 shadow"
-                  />
-                ) : (
-                  <div className="rounded-xl bg-white px-4 py-2 text-sm font-black text-primary shadow">
+            <aside className="flex flex-col justify-center rounded-3xl border border-white/10 bg-white/5 p-5">
+              {canPayOnline ? (
+                <>
+                  <p className="text-sm text-slate-300">
+                    Hoàn tất thanh toán MoMo trong thời gian giữ ghế. Trang tự cập nhật khi thanh
+                    toán xong.
+                  </p>
+                  <a
+                    href={payUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-5 block"
+                  >
+                    <Button fullWidth className="rounded-full">
+                      <Icon name="payments" />
+                      Thanh toán MoMo · {formatCurrency(payableAmount)}
+                    </Button>
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className="text-center text-xs font-bold uppercase tracking-wider text-primary">
+                    Mã đặt vé
+                  </p>
+                  <p className="mt-2 text-center font-mono text-2xl font-black text-white">
                     {bookingCode}
-                  </div>
-                )}
-              </div>
-              <p className="mt-5 text-center text-sm font-semibold text-slate-700">
-                Quét mã này tại quầy để nhận vé hoặc vào phòng chiếu.
-              </p>
-              {awaitingPayment ? (
-                <p className="mt-2 text-center text-xs text-slate-500">
-                  {formatCurrency(payableAmount)} · MoMo · Trang tự cập nhật khi thanh toán xong
-                </p>
-              ) : null}
+                  </p>
+                  <p className="mt-4 text-center text-sm text-slate-400">
+                    {booking?.paymentStatus === 'PAID'
+                      ? 'Đã thanh toán. Xuất trình mã khi vào rạp.'
+                      : 'Vé sẽ được xác nhận sau khi thanh toán.'}
+                  </p>
+                </>
+              )}
             </aside>
           </div>
         </section>

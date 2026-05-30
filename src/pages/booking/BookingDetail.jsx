@@ -9,7 +9,6 @@ import {
   PAYMENT_STATUS_LABEL_VI,
 } from '../../constants/bookingStatusOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
-import PaymentMoMoQr from './PaymentMoMoQr'
 import {
   BOOKING_RESULT_STORAGE_KEY,
   canCancelBooking,
@@ -17,7 +16,7 @@ import {
   getBookingPayableAmount,
   getBookingPromotionDiscount,
   getBookingPromotionLabel,
-  getPaymentQrCodeUrl,
+  getPaymentPayUrl,
   mergePaymentSession,
   readAuthRole,
   readJsonStorage,
@@ -116,9 +115,9 @@ function BookingDetail() {
     checkoutContext?.paymentSession,
     cachedResult?.booking?.id === booking?.id ? cachedResult?.paymentSession : null,
   )
-  const qrCodeUrl = getPaymentQrCodeUrl(paymentSession)
-  const awaitingPayment =
-    booking?.paymentStatus !== 'PAID' && checkoutContext?.canPay !== false && Boolean(qrCodeUrl)
+  const payUrl = getPaymentPayUrl(paymentSession)
+  const canPay =
+    booking?.paymentStatus !== 'PAID' && checkoutContext?.canPay !== false && Boolean(payUrl)
   const showCancel =
     readAuthRole() === 'CUSTOMER' && canCancelBooking(booking) && booking?.paymentStatus !== 'PAID'
 
@@ -247,13 +246,6 @@ function BookingDetail() {
               </div>
 
               <aside className="space-y-6">
-                {awaitingPayment ? (
-                  <PaymentMoMoQr
-                    qrCodeUrl={qrCodeUrl}
-                    amount={getBookingPayableAmount(booking)}
-                    compact
-                  />
-                ) : null}
                 <div className="rounded-3xl border border-primary/20 bg-[#120a1a] p-6 shadow-xl shadow-primary/10">
                 <Text variant="h2" className="mb-5 text-2xl font-black text-white">
                   Tổng quan
