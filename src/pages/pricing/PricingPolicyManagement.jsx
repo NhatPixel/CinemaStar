@@ -10,9 +10,12 @@ import {
   useToast,
 } from '../../components'
 import { getMyManagedCinemas } from '../../api/cinema'
-import { deletePricingPolicy, getPricingPolicies } from '../../api/pricingPolicy'
+import { deletePricingPolicy, searchPricingPolicies, buildPricingPoliciesSearchBody } from '../../api/pricingPolicy'
 import { mapCinemasToSelectOptions } from '../../api/hall'
+import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
 import { formatCurrency } from '../booking/bookingData'
+
+const PAGE_SIZE = 100
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -29,6 +32,7 @@ function formatDateTime(value) {
 
 function PricingPolicyManagement() {
   const toast = useToast()
+  const readOnly = isManagementOperationsReadOnly()
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [cinemaFilter, setCinemaFilter] = useState('')
@@ -81,11 +85,18 @@ function PricingPolicyManagement() {
     setLoading(true)
     const ac = new AbortController()
 
+    const body = buildPricingPoliciesSearchBody({
+      page: 1,
+      size: PAGE_SIZE,
+      keyword: debouncedKeyword,
+      cinemaId: cinemaFilter,
+    })
+
     ;(async () => {
       try {
-        const list = await getPricingPolicies({ signal: ac.signal })
+        const data = await searchPricingPolicies(body, { signal: ac.signal })
         if (cancelled) return
-        setRows(list || [])
+        setRows(data?.data || [])
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         toast.error(e?.message || 'Không tải được chính sách giá')
@@ -99,17 +110,9 @@ function PricingPolicyManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [refreshTick, toast])
+  }, [debouncedKeyword, cinemaFilter, refreshTick, toast])
 
-  const displayRows = useMemo(() => {
-    const q = debouncedKeyword.toLowerCase()
-    return rows.filter((policy) => {
-      if (cinemaFilter && String(policy.cinemaId) !== String(cinemaFilter)) return false
-      if (!q) return true
-      const text = `${policy.name || ''} ${cinemaNameById[policy.cinemaId] || ''}`.toLowerCase()
-      return text.includes(q)
-    })
-  }, [rows, debouncedKeyword, cinemaFilter, cinemaNameById])
+  const displayRows = rows
 
   const handleDeletePolicy = useCallback(async () => {
     const policy = pendingDeletePolicy
@@ -139,16 +142,18 @@ function PricingPolicyManagement() {
               Bảng giá ghế Standard, VIP, Couple theo từng rạp
             </Text>
           </div>
-          <Button
-            type="button"
-            variant="primary"
-            className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
-            onClick={() => setCreateOpen(true)}
-            disabled={modalCinemaOptions.length === 0}
-          >
-            <Icon name="add" />
-            Tạo chính sách giá
-          </Button>
+          {!readOnly ? (
+            <Button
+              type="button"
+              variant="primary"
+              className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
+              onClick={() => setCreateOpen(true)}
+              disabled={modalCinemaOptions.length === 0}
+            >
+              <Icon name="add" />
+              Tạo chính sách giá
+            </Button>
+          ) : null}
         </header>
 
         <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
@@ -181,20 +186,22 @@ function PricingPolicyManagement() {
                   <th className="px-6 py-4 font-semibold text-sm">VIP</th>
                   <th className="px-6 py-4 font-semibold text-sm">Couple</th>
                   <th className="px-6 py-4 font-semibold text-sm">Ngày tạo</th>
-                  <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  {!readOnly ? (
+                    <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={readOnly ? 6 : 7} className="px-6 py-8 text-center text-slate-500">
                       Đang tải danh sách...
                     </td>
                   </tr>
                 ) : null}
                 {!loading && displayRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={readOnly ? 6 : 7} className="px-6 py-8 text-center text-slate-500">
                       Không có chính sách giá phù hợp.
                     </td>
                   </tr>
@@ -222,27 +229,29 @@ function PricingPolicyManagement() {
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">
                           {formatDateTime(policy.timeCreated)}
                         </td>
-                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
-                              onClick={() => setEditingPolicyId(policy.id)}
-                            >
-                              <Icon name="edit" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
-                              onClick={() => setPendingDeletePolicy(policy)}
-                              disabled={deletingId === policy.id}
-                            >
-                              <Icon name="delete" />
-                            </Button>
-                          </div>
-                        </td>
+                        {!readOnly ? (
+                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
+                                onClick={() => setEditingPolicyId(policy.id)}
+                              >
+                                <Icon name="edit" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
+                                onClick={() => setPendingDeletePolicy(policy)}
+                                disabled={deletingId === policy.id}
+                              >
+                                <Icon name="delete" />
+                              </Button>
+                            </div>
+                          </td>
+                        ) : null}
                       </tr>
                     ))
                   : null}
@@ -253,7 +262,7 @@ function PricingPolicyManagement() {
           {!loading && displayRows.length > 0 && (
             <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20">
               <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-                Hiển thị {displayRows.length} / {rows.length} chính sách giá
+                Hiển thị {displayRows.length} chính sách giá
               </Text>
             </div>
           )}

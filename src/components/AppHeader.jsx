@@ -35,10 +35,11 @@ function AppHeader({ showLoginButton = true }) {
   const shouldShowLoginButton = showLoginButton && !hasCurrentUser
   const currentUserName = String(currentUser?.name || '').trim()
   const roles = readRolesFromStorage()
-  const canAccessManagement = roles.includes('ADMIN') || roles.includes('MANAGER')
+  const canAccessManagement =
+    roles.includes('ADMIN') || roles.includes('MANAGER') || roles.includes('STAFF')
   const managementPath = roles.includes('ADMIN')
     ? '/management/movies'
-    : roles.includes('MANAGER')
+    : roles.includes('MANAGER') || roles.includes('STAFF')
       ? '/management/halls'
       : '/'
 

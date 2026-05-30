@@ -9,7 +9,7 @@ import {
   PAYMENT_STATUS_LABEL_VI,
 } from '../../constants/bookingStatusOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
-import { formatCurrency } from './bookingData'
+import { formatCurrency, getBookingPayableAmount, getBookingPromotionDiscount, getBookingPromotionLabel } from './bookingData'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -209,9 +209,24 @@ function BookingDetail() {
                     <span>Đồ ăn</span>
                     <span>{formatCurrency(Number(booking.productSubtotal || 0))}</span>
                   </div>
+                  {getBookingPromotionDiscount(booking) > 0 ? (
+                    <>
+                      <div className="flex justify-between text-slate-300">
+                        <span>Tạm tính</span>
+                        <span>{formatCurrency(Number(booking.finalAmount || 0))}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-400">
+                        <span>
+                          Giảm giá
+                          {getBookingPromotionLabel(booking) ? ` (${getBookingPromotionLabel(booking)})` : ''}
+                        </span>
+                        <span>-{formatCurrency(getBookingPromotionDiscount(booking))}</span>
+                      </div>
+                    </>
+                  ) : null}
                   <div className="flex justify-between border-t border-white/10 pt-4 text-lg font-black text-white">
                     <span>Tổng</span>
-                    <span className="text-primary">{formatCurrency(Number(booking.finalAmount || 0))}</span>
+                    <span className="text-primary">{formatCurrency(getBookingPayableAmount(booking))}</span>
                   </div>
                 </div>
               </aside>

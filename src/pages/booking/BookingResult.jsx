@@ -7,6 +7,9 @@ import {
   BOOKING_RESULT_STORAGE_KEY,
   MOVIE_FALLBACK,
   formatCurrency,
+  getBookingPayableAmount,
+  getBookingPromotionDiscount,
+  getBookingPromotionLabel,
   formatShowtimeDate,
   formatShowtimeTime,
   getFilmPoster,
@@ -60,7 +63,9 @@ function BookingResult() {
   const filmTitle = showtime ? getFilmTitle(showtime) : MOVIE_FALLBACK.title
   const poster = showtime ? getFilmPoster(showtime) : MOVIE_FALLBACK.poster
   const seats = booking?.seatItems?.map((item) => item.seatCode) || context?.selectedSeats || []
-  const finalAmount = Number(booking?.finalAmount || context?.totals?.total || 0)
+  const payableAmount = getBookingPayableAmount(booking) || Number(context?.totals?.total || 0)
+  const promotionDiscount = getBookingPromotionDiscount(booking)
+  const promotionLabel = getBookingPromotionLabel(booking)
   const bookingCode = booking?.id ? booking.id.slice(0, 8).toUpperCase() : 'BOOKING'
   const showtimeDate = formatShowtimeDate(showtime?.startDateTime)
   const showtimeTime = formatShowtimeTime(showtime?.startDateTime)
@@ -154,8 +159,15 @@ function BookingResult() {
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
                   <p className="text-xs font-bold uppercase tracking-wider text-primary">Tổng tiền</p>
-                  <p className="mt-2 text-xl font-black text-white">{formatCurrency(finalAmount)}</p>
-                  <p className="mt-1 text-sm text-slate-400">Đã gồm combo</p>
+                  <p className="mt-2 text-xl font-black text-white">{formatCurrency(payableAmount)}</p>
+                  {promotionDiscount > 0 ? (
+                    <p className="mt-1 text-sm text-emerald-400">
+                      Đã giảm {formatCurrency(promotionDiscount)}
+                      {promotionLabel ? ` · ${promotionLabel}` : ''}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-slate-400">Đã gồm combo</p>
+                  )}
                 </div>
               </div>
             </div>

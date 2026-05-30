@@ -17,6 +17,7 @@ import {
   getDefaultManagedRole,
   getManagedRoleFilterOptions,
   needsBankFieldsForRole,
+  shouldShowManagedRoleFilter,
 } from '../../constants/userManagementOptions'
 
 const PAGE_SIZE = 12
@@ -106,6 +107,7 @@ function UserManagement() {
 
   const columns = useMemo(() => getTableColumns(managedRole), [managedRole])
   const canCreate = canCreateManagedUser(viewerRole, managedRole)
+  const showRoleFilter = shouldShowManagedRoleFilter(viewerRole)
   const managedRoleLabel = USER_ROLE_LABEL_VI[managedRole] || managedRole
 
   useEffect(() => {
@@ -194,7 +196,9 @@ function UserManagement() {
               Quản lý người dùng
             </Text>
             <Text variant="small" className="text-slate-500 dark:text-slate-400 mt-1">
-              Danh sách {managedRoleLabel.toLowerCase()} — chọn vai trò để đổi bảng và thao tác
+              {showRoleFilter
+                ? `Danh sách ${managedRoleLabel.toLowerCase()} — chọn vai trò để đổi bảng và thao tác`
+                : `Danh sách ${managedRoleLabel.toLowerCase()}`}
             </Text>
           </div>
           {canCreate ? (
@@ -211,7 +215,11 @@ function UserManagement() {
         </header>
 
         <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            className={
+              showRoleFilter ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 gap-4'
+            }
+          >
             <Input
               name="userSearch"
               value={keyword}
@@ -219,12 +227,14 @@ function UserManagement() {
               placeholder="Tìm theo tên, email, số điện thoại..."
               icon="search"
             />
-            <CustomSelect
-              name="managedRoleFilter"
-              value={managedRole}
-              onChange={(e) => setManagedRole(e.target.value)}
-              options={roleFilterOptions}
-            />
+            {showRoleFilter ? (
+              <CustomSelect
+                name="managedRoleFilter"
+                value={managedRole}
+                onChange={(e) => setManagedRole(e.target.value)}
+                options={roleFilterOptions}
+              />
+            ) : null}
           </div>
         </section>
 
@@ -308,7 +318,7 @@ function UserManagement() {
                   disabled={!hasPrevious || loading}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  Trang trước
+                  {'<'}
                 </Button>
                 <Text variant="small" className="text-sm text-slate-500">
                   Trang {page}
@@ -321,7 +331,7 @@ function UserManagement() {
                   disabled={!hasNext || loading}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Trang sau
+                  {'>'}
                 </Button>
               </div>
             )}

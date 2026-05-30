@@ -36,6 +36,31 @@ export function formatCurrency(value) {
   }).format(Number(value || 0))
 }
 
+/** Tổng gốc trước khuyến mãi (BE: finalAmount). */
+export function getBookingGrossAmount(booking) {
+  return Number(booking?.finalAmount || 0)
+}
+
+/** Số tiền giảm từ khuyến mãi. */
+export function getBookingPromotionDiscount(booking) {
+  return Number(booking?.promotionDiscountAmount || 0)
+}
+
+/** Số tiền khách phải trả (BE: payableAmount, fallback finalAmount). */
+export function getBookingPayableAmount(booking) {
+  if (!booking) return 0
+  const payable = booking.payableAmount
+  if (payable != null && payable !== '') return Number(payable)
+  return getBookingGrossAmount(booking)
+}
+
+export function getBookingPromotionLabel(booking) {
+  const code = booking?.promotionCode?.trim()
+  const name = booking?.promotionName?.trim()
+  if (code && name) return `${code} — ${name}`
+  return code || name || ''
+}
+
 export function readJsonStorage(key) {
   try {
     const raw = sessionStorage.getItem(key)

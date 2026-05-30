@@ -23,10 +23,20 @@ export function getManagedRoleFilterOptions(viewerRole) {
       { value: MANAGED_USER_ROLES.CUSTOMER, label: USER_ROLE_LABEL_VI.CUSTOMER },
     ]
   }
+  if (role === 'STAFF') {
+    return [{ value: MANAGED_USER_ROLES.CUSTOMER, label: USER_ROLE_LABEL_VI.CUSTOMER }]
+  }
   return []
 }
 
+/** Staff chỉ xem khách — không hiện dropdown đổi vai trò. */
+export function shouldShowManagedRoleFilter(viewerRole) {
+  return String(viewerRole || '').trim().toUpperCase() !== 'STAFF'
+}
+
 export function getDefaultManagedRole(viewerRole) {
+  const role = String(viewerRole || '').trim().toUpperCase()
+  if (role === 'STAFF') return MANAGED_USER_ROLES.CUSTOMER
   const options = getManagedRoleFilterOptions(viewerRole)
   return options[0]?.value || MANAGED_USER_ROLES.STAFF
 }

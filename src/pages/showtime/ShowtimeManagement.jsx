@@ -26,6 +26,7 @@ import {
   SHOWTIME_STATUS_LABEL_VI,
   SHOWTIME_STATUS_OPTIONS,
 } from '../../constants/showtimeStatusOptions'
+import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
 
 const PAGE_SIZE = 12
 
@@ -59,6 +60,7 @@ function getHallName(showtime) {
 
 function ShowtimeManagement() {
   const toast = useToast()
+  const readOnly = isManagementOperationsReadOnly()
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -242,15 +244,17 @@ function ShowtimeManagement() {
               Lên lịch phim theo rạp, phòng chiếu và khung giờ
             </Text>
           </div>
-          <Button
-            type="button"
-            variant="primary"
-            className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Icon name="add" />
-            Tạo suất chiếu
-          </Button>
+          {!readOnly ? (
+            <Button
+              type="button"
+              variant="primary"
+              className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Icon name="add" />
+              Tạo suất chiếu
+            </Button>
+          ) : null}
         </header>
 
         <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
@@ -292,7 +296,9 @@ function ShowtimeManagement() {
                   <th className="px-6 py-4 font-semibold text-sm">Bắt đầu</th>
                   <th className="px-6 py-4 font-semibold text-sm">Kết thúc</th>
                   <th className="px-6 py-4 font-semibold text-sm min-w-[150px]">Trạng thái</th>
-                  <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  {!readOnly ? (
+                    <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
@@ -329,27 +335,29 @@ function ShowtimeManagement() {
                             {statusLabel}
                           </span>
                         </td>
-                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
-                              onClick={() => setEditingShowtimeId(showtime.id)}
-                            >
-                              <Icon name="edit" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                              onClick={() => setPendingDeleteShowtime(showtime)}
-                              disabled={deletingId === showtime.id}
-                            >
-                              <Icon name="delete" />
-                            </Button>
-                          </div>
-                        </td>
+                        {!readOnly ? (
+                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
+                                onClick={() => setEditingShowtimeId(showtime.id)}
+                              >
+                                <Icon name="edit" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                onClick={() => setPendingDeleteShowtime(showtime)}
+                                disabled={deletingId === showtime.id}
+                              >
+                                <Icon name="delete" />
+                              </Button>
+                            </div>
+                          </td>
+                        ) : null}
                       </tr>
                     )
                   })}
@@ -385,7 +393,7 @@ function ShowtimeManagement() {
                   disabled={!hasPrevious || loading}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  Trang trước
+                  {'<'}
                 </Button>
                 <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
                   Trang {page}
@@ -399,7 +407,7 @@ function ShowtimeManagement() {
                   disabled={!hasNext || loading}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Trang sau
+                  {'>'}
                 </Button>
               </div>
             )}

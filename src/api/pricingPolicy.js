@@ -2,16 +2,40 @@ import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/cl
 import { showtimePath } from './config/paths'
 
 const PRICING_POLICIES_URL = showtimePath('pricing-policies')
+const PRICING_POLICIES_SEARCH_URL = showtimePath('pricing-policies/search')
 const pricingPolicyDetailUrl = (id) => showtimePath(`pricing-policies/${id}`)
 
-/** GET /showtimes/pricing-policies */
-export async function getPricingPolicies({ signal } = {}) {
-  const { url, options } = buildGet(PRICING_POLICIES_URL)
+/**
+ * Body POST /showtimes/pricing-policies/search
+ * BE PricingPolicyField: ID, NAME, CINEMA_ID, ...
+ */
+export function buildPricingPoliciesSearchBody({
+  page = 1,
+  size = 100,
+  keyword,
+  cinemaId,
+} = {}) {
+  const filterBy = []
+  if (cinemaId) {
+    filterBy.push({ field: 'CINEMA_ID', operator: 'EQ', value: cinemaId })
+  }
+  return {
+    page,
+    size,
+    keyword: keyword?.trim() ?? '',
+    filterBy,
+    sortBy: [],
+  }
+}
+
+/** POST /showtimes/pricing-policies/search */
+export async function searchPricingPolicies(body, { signal } = {}) {
+  const { url, options } = buildPost(PRICING_POLICIES_SEARCH_URL, body)
   const resp = await callApi({
     url,
     options: { ...options, ...(signal ? { signal } : {}) },
   })
-  if (resp?.success && Array.isArray(resp.data)) {
+  if (resp?.success) {
     return resp.data
   }
   throw {
@@ -19,6 +43,15 @@ export async function getPricingPolicies({ signal } = {}) {
     message: resp?.message || 'Không tải được chính sách giá',
     raw: resp,
   }
+}
+
+/** Lấy toàn bộ policy visible (helper cho select/modal). */
+export async function getPricingPolicies({ cinemaId, signal } = {}) {
+  const data = await searchPricingPolicies(
+    buildPricingPoliciesSearchBody({ page: 1, size: 200, cinemaId }),
+    { signal },
+  )
+  return data?.data || []
 }
 
 /** GET /showtimes/pricing-policies/{id} */

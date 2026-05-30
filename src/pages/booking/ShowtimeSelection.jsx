@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { getFilmById } from '../../api/film'
 import { Button, CustomSelect, Icon, Text, useToast } from '../../components'
-import { buildShowtimesSearchBody, searchShowtimes } from '../../api/showtime'
+import { getActiveShowtimesByFilmId } from '../../api/showtime'
 import BookingLayout from './BookingLayout'
 import {
   BOOKING_MOVIE_STORAGE_KEY,
@@ -62,15 +62,7 @@ function ShowtimeSelection() {
       try {
         const [film, data] = await Promise.all([
           getFilmById(selectedFilmId, { signal: ac.signal }),
-          searchShowtimes(
-            buildShowtimesSearchBody({
-              page: 1,
-              size: 60,
-              status: 'SCHEDULED',
-              filmId: selectedFilmId,
-            }),
-            { signal: ac.signal },
-          ),
+          getActiveShowtimesByFilmId(selectedFilmId, { page: 1, size: 60, signal: ac.signal }),
         ])
         if (cancelled) return
         setSelectedMovie(film || null)

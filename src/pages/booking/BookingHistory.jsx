@@ -14,7 +14,7 @@ import {
   PAYMENT_STATUS_LABEL_VI,
 } from '../../constants/bookingStatusOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
-import { formatCurrency } from './bookingData'
+import { formatCurrency, getBookingPayableAmount } from './bookingData'
 
 const PAGE_SIZE = 12
 
@@ -190,7 +190,7 @@ function BookingHistory() {
                         <td className="px-5 py-4 font-mono font-bold text-white">{shortId(booking.id)}</td>
                         <td className="px-5 py-4">{seatsText(booking)}</td>
                         <td className="px-5 py-4 font-bold text-primary">
-                          {formatCurrency(Number(booking.finalAmount || 0))}
+                          {formatCurrency(getBookingPayableAmount(booking))}
                         </td>
                         <td className="px-5 py-4">
                           <span
@@ -235,7 +235,7 @@ function BookingHistory() {
                     disabled={!hasPrevious || loading}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
-                    Trang trước
+                    {'<'}
                   </Button>
                   <Text variant="small" className="text-sm text-slate-400">
                     Trang {page}
@@ -249,7 +249,7 @@ function BookingHistory() {
                     disabled={!hasNext || loading}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    Trang sau
+                    {'>'}
                   </Button>
                 </div>
               )}

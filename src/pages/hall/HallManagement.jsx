@@ -22,6 +22,7 @@ import {
   HALL_STATUS_LABEL_VI,
   HALL_STATUS_OPTIONS,
 } from '../../constants/hallStatusOptions'
+import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
 
 const PAGE_SIZE = 12
 
@@ -37,6 +38,7 @@ function seatCount(hall) {
 
 function HallManagement() {
   const toast = useToast()
+  const readOnly = isManagementOperationsReadOnly()
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -159,15 +161,17 @@ function HallManagement() {
               Danh sách phòng chiếu theo rạp và trạng thái hoạt động
             </Text>
           </div>
-          <Button
-            type="button"
-            variant="primary"
-            className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Icon name="add" />
-            Tạo phòng mới
-          </Button>
+          {!readOnly ? (
+            <Button
+              type="button"
+              variant="primary"
+              className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Icon name="add" />
+              Tạo phòng mới
+            </Button>
+          ) : null}
         </header>
 
         <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
@@ -211,7 +215,9 @@ function HallManagement() {
                   <th className="px-6 py-4 font-semibold text-sm">Rạp</th>
                   <th className="px-6 py-4 font-semibold text-sm">Số ghế</th>
                   <th className="px-6 py-4 font-semibold text-sm min-w-[150px]">Trạng thái</th>
-                  <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  {!readOnly ? (
+                    <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
@@ -242,27 +248,29 @@ function HallManagement() {
                             {statusLabel}
                           </span>
                         </td>
-                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
-                              onClick={() => setEditingHallId(hall.id)}
-                            >
-                              <Icon name="edit" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                              onClick={() => setPendingDeleteHall(hall)}
-                              disabled={deletingId === hall.id}
-                            >
-                              <Icon name="delete" />
-                            </Button>
-                          </div>
-                        </td>
+                        {!readOnly ? (
+                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
+                                onClick={() => setEditingHallId(hall.id)}
+                              >
+                                <Icon name="edit" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                onClick={() => setPendingDeleteHall(hall)}
+                                disabled={deletingId === hall.id}
+                              >
+                                <Icon name="delete" />
+                              </Button>
+                            </div>
+                          </td>
+                        ) : null}
                       </tr>
                     )
                   })}
@@ -298,7 +306,7 @@ function HallManagement() {
                   disabled={!hasPrevious || loading}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  Trang trước
+                  {'<'}
                 </Button>
                 <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
                   Trang {page}
@@ -312,7 +320,7 @@ function HallManagement() {
                   disabled={!hasNext || loading}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Trang sau
+                  {'>'}
                 </Button>
               </div>
             )}

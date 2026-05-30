@@ -5,7 +5,7 @@ const SHOWTIMES_SEARCH_URL = showtimePath('search')
 const SHOWTIMES_CREATE_URL = showtimePath('')
 const showtimeDetailUrl = (id) => showtimePath(id)
 
-export { getPricingPolicies } from './pricingPolicy'
+export { getPricingPolicies, searchPricingPolicies, buildPricingPoliciesSearchBody } from './pricingPolicy'
 
 /**
  * Xây dựng body cho POST /showtimes/search
@@ -79,6 +79,31 @@ export async function getShowtimeById(id, { signal } = {}) {
   throw {
     status: resp?.code || 400,
     message: resp?.message || 'Không tải được thông tin suất chiếu',
+    raw: resp,
+  }
+}
+
+/** GET /showtimes/films/{filmId}/active — public, luồng đặt vé customer */
+export async function getActiveShowtimesByFilmId(filmId, { page = 1, size = 60, signal } = {}) {
+  const id = String(filmId || '').trim()
+  if (!id) {
+    throw { status: 400, message: 'Thiếu mã phim' }
+  }
+  const query = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+  })
+  const { url, options } = buildGet(`${showtimePath(`films/${id}/active`)}?${query}`)
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được suất chiếu',
     raw: resp,
   }
 }

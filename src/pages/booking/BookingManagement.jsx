@@ -14,7 +14,8 @@ import {
   PAYMENT_STATUS_LABEL_VI,
   PAYMENT_STATUS_OPTIONS,
 } from '../../constants/bookingStatusOptions'
-import { formatCurrency } from './bookingData'
+import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
+import { formatCurrency, getBookingPayableAmount } from './bookingData'
 
 const PAGE_SIZE = 12
 
@@ -54,6 +55,7 @@ function seatsText(booking) {
 function BookingManagement() {
   const toast = useToast()
   const navigate = useNavigate()
+  const readOnly = isManagementOperationsReadOnly()
   const [rows, setRows] = useState([])
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
@@ -157,7 +159,9 @@ function BookingManagement() {
           Quản lý đơn đặt vé
         </Text>
         <Text variant="small" className="mt-1 text-slate-500 dark:text-slate-400">
-          Theo dõi đơn đặt vé theo rạp được phân quyền và cập nhật trạng thái xử lý.
+          {readOnly
+            ? 'Theo dõi đơn đặt vé theo rạp được phân quyền (chỉ xem).'
+            : 'Theo dõi đơn đặt vé theo rạp được phân quyền và cập nhật trạng thái xử lý.'}
         </Text>
       </header>
 
@@ -228,17 +232,17 @@ function BookingManagement() {
                       </td>
                       <td className="px-5 py-4 text-sm">{seatsText(booking)}</td>
                       <td className="px-5 py-4 font-bold text-primary">
-                        {formatCurrency(Number(booking.finalAmount || 0))}
+                        {formatCurrency(getBookingPayableAmount(booking))}
                       </td>
                       <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="space-y-2">
-                          <span
-                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
-                              BOOKING_STATUS_BADGE_CLASS[booking.bookingStatus] || ''
-                            }`}
-                          >
-                            {BOOKING_STATUS_LABEL_VI[booking.bookingStatus] || booking.bookingStatus}
-                          </span>
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
+                            BOOKING_STATUS_BADGE_CLASS[booking.bookingStatus] || ''
+                          }`}
+                        >
+                          {BOOKING_STATUS_LABEL_VI[booking.bookingStatus] || booking.bookingStatus}
+                        </span>
+                        {!readOnly ? (
                           <CustomSelect
                             name={`bookingStatus-${booking.id}`}
                             value={booking.bookingStatus || ''}
@@ -247,18 +251,19 @@ function BookingManagement() {
                             }
                             options={BOOKING_STATUS_OPTIONS.filter((opt) => opt.value !== 'EXPIRED')}
                             disabled={updatingId === booking.id}
+                            className="mt-2"
                           />
-                        </div>
+                        ) : null}
                       </td>
                       <td className="px-5 py-4">
-                        <div className="space-y-2">
-                          <span
-                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
-                              PAYMENT_STATUS_BADGE_CLASS[booking.paymentStatus] || ''
-                            }`}
-                          >
-                            {PAYMENT_STATUS_LABEL_VI[booking.paymentStatus] || booking.paymentStatus}
-                          </span>
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
+                            PAYMENT_STATUS_BADGE_CLASS[booking.paymentStatus] || ''
+                          }`}
+                        >
+                          {PAYMENT_STATUS_LABEL_VI[booking.paymentStatus] || booking.paymentStatus}
+                        </span>
+                        {!readOnly ? (
                           <CustomSelect
                             name={`paymentStatus-${booking.id}`}
                             value={booking.paymentStatus || ''}
@@ -267,8 +272,9 @@ function BookingManagement() {
                             }
                             options={PAYMENT_STATUS_OPTIONS}
                             disabled={updatingId === booking.id}
+                            className="mt-2"
                           />
-                        </div>
+                        ) : null}
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-500">
                         {formatDateTime(booking.timeCreated)}
@@ -298,7 +304,7 @@ function BookingManagement() {
                 disabled={!hasPrevious || loading}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                Trang trước
+                {'<'}
               </Button>
               <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
                 Trang {page}
@@ -312,7 +318,7 @@ function BookingManagement() {
                 disabled={!hasNext || loading}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Trang sau
+                {'>'}
               </Button>
             </div>
           )}

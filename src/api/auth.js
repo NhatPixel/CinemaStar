@@ -1,5 +1,6 @@
 import { callApi, callApiWithResponse, buildPost } from './config/client'
 import { authPath } from './config/paths'
+import { BASE_URL } from './config/transport'
 import {
   AUTH_COOKIE_STORAGE_KEY,
   getStoredAuthCookie,
@@ -15,6 +16,12 @@ export { refreshAccessToken } from './config/transport'
 
 const LoginURL = authPath('login')
 const LOGOUT_URL = authPath('logout')
+const GOOGLE_AUTHORIZE_URL = `${BASE_URL}${authPath('google/authorize')}`
+
+/** Redirect sang BE xử lý Google OAuth (GET /auth/google/authorize). */
+export function redirectToGoogleLogin() {
+  window.location.href = GOOGLE_AUTHORIZE_URL
+}
 
 export async function login(email, password) {
   const { url, options } = buildPost(LoginURL, { email, password })

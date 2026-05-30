@@ -3,6 +3,7 @@ import { ToastProvider } from './components'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import VerifyOtp from './pages/auth/VerifyOtp'
+import AuthCallback from './pages/auth/AuthCallback'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import MovieList from './pages/movie/MovieList'
 import MovieDetail from './pages/movie/MovieDetail'
@@ -33,7 +34,7 @@ function resolveManagementRedirectPath() {
     const user = JSON.parse(raw)
     const role = String(user?.role || '').trim().toUpperCase()
     if (role === 'ADMIN') return '/management/movies'
-    if (role === 'MANAGER') return '/management/halls'
+    if (role === 'MANAGER' || role === 'STAFF') return '/management/halls'
     return '/'
   } catch {
     return '/'
@@ -57,6 +58,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/movies" element={<MovieList />} />
         <Route path="/movies/:id" element={<MovieDetail />} />
         <Route path="/profile" element={<UserProfile />} />
@@ -72,11 +74,24 @@ function App() {
           <Route path="movies" element={<MovieManagement />} />
           <Route path="movies/create" element={<MovieCreate />} />
           <Route path="movies/:id/edit" element={<MovieEdit />} />
-          <Route path="cinemas" element={<CinemaManagement />} />
+          <Route
+            path="cinemas"
+            element={
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER']}
+                fallback="/management/halls"
+              >
+                <CinemaManagement />
+              </RequireRole>
+            }
+          />
           <Route
             path="halls"
             element={
-              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}
+                fallback="/management/movies"
+              >
                 <HallManagement />
               </RequireRole>
             }
@@ -84,7 +99,10 @@ function App() {
           <Route
             path="showtimes"
             element={
-              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}
+                fallback="/management/movies"
+              >
                 <ShowtimeManagement />
               </RequireRole>
             }
@@ -92,7 +110,10 @@ function App() {
           <Route
             path="pricing-policies"
             element={
-              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}
+                fallback="/management/movies"
+              >
                 <PricingPolicyManagement />
               </RequireRole>
             }
@@ -100,7 +121,10 @@ function App() {
           <Route
             path="bookings"
             element={
-              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}
+                fallback="/management/movies"
+              >
                 <BookingManagement />
               </RequireRole>
             }
@@ -108,7 +132,10 @@ function App() {
           <Route
             path="products"
             element={
-              <RequireRole allowedRoles={['MANAGER']} fallback="/management/movies">
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}
+                fallback="/management/movies"
+              >
                 <ProductManagement />
               </RequireRole>
             }
@@ -116,7 +143,10 @@ function App() {
           <Route
             path="users"
             element={
-              <RequireRole allowedRoles={['ADMIN', 'MANAGER']} fallback="/management/movies">
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}
+                fallback="/management/movies"
+              >
                 <UserManagement />
               </RequireRole>
             }

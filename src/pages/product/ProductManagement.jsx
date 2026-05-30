@@ -23,6 +23,7 @@ import {
   PRODUCT_STATUS_OPTIONS,
   PRODUCT_TYPE_LABEL_VI,
 } from '../../constants/productOptions'
+import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
 import { formatCurrency } from '../booking/bookingData'
 
 const PAGE_SIZE = 12
@@ -34,6 +35,7 @@ const STATUS_FILTER_OPTIONS = [
 
 function ProductManagement() {
   const toast = useToast()
+  const readOnly = isManagementOperationsReadOnly()
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -178,16 +180,18 @@ function ProductManagement() {
               Combo, bắp, nước và snack theo rạp bạn quản lý
             </Text>
           </div>
-          <Button
-            type="button"
-            variant="primary"
-            className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
-            onClick={() => setCreateOpen(true)}
-            disabled={modalCinemaOptions.length === 0}
-          >
-            <Icon name="add" />
-            Tạo sản phẩm
-          </Button>
+          {!readOnly ? (
+            <Button
+              type="button"
+              variant="primary"
+              className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
+              onClick={() => setCreateOpen(true)}
+              disabled={modalCinemaOptions.length === 0}
+            >
+              <Icon name="add" />
+              Tạo sản phẩm
+            </Button>
+          ) : null}
         </header>
 
         <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
@@ -225,20 +229,22 @@ function ProductManagement() {
                   <th className="px-6 py-4 font-semibold text-sm">Loại</th>
                   <th className="px-6 py-4 font-semibold text-sm">Giá</th>
                   <th className="px-6 py-4 font-semibold text-sm min-w-[130px]">Trạng thái</th>
-                  <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  {!readOnly ? (
+                    <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={readOnly ? 5 : 6} className="px-6 py-8 text-center text-slate-500">
                       Đang tải danh sách sản phẩm...
                     </td>
                   </tr>
                 ) : null}
                 {!loading && displayRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={readOnly ? 5 : 6} className="px-6 py-8 text-center text-slate-500">
                       Không có sản phẩm phù hợp.
                     </td>
                   </tr>
@@ -271,27 +277,29 @@ function ProductManagement() {
                               {PRODUCT_STATUS_LABEL_VI[product.status] || product.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
-                                onClick={() => setEditingProductId(product.id)}
-                              >
-                                <Icon name="edit" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
-                                onClick={() => setPendingDeleteProduct(product)}
-                                disabled={deletingId === product.id}
-                              >
-                                <Icon name="delete" />
-                              </Button>
-                            </div>
-                          </td>
+                          {!readOnly ? (
+                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
+                                  onClick={() => setEditingProductId(product.id)}
+                                >
+                                  <Icon name="edit" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
+                                  onClick={() => setPendingDeleteProduct(product)}
+                                  disabled={deletingId === product.id}
+                                >
+                                  <Icon name="delete" />
+                                </Button>
+                              </div>
+                            </td>
+                          ) : null}
                         </tr>
                       )
                     })
@@ -317,7 +325,7 @@ function ProductManagement() {
                   disabled={!hasPrevious || loading}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  Trang trước
+                  {'<'}
                 </Button>
                 <Text variant="small" className="text-sm text-slate-500">
                   Trang {page}
@@ -330,7 +338,7 @@ function ProductManagement() {
                   disabled={!hasNext || loading}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Trang sau
+                  {'>'}
                 </Button>
               </div>
             )}

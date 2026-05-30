@@ -28,6 +28,8 @@ function AdminSidebar() {
   const role = readCurrentUserRole()
   const isAdmin = role === 'ADMIN'
   const isManager = role === 'MANAGER'
+  const isStaff = role === 'STAFF'
+  const showOperations = isAdmin || isManager || isStaff
   const roleLabel = formatRoleLabel(currentUser?.role)
   const isMoviesActive = location.pathname.startsWith('/management/movies')
   const isCinemasActive = location.pathname.startsWith('/management/cinemas')
@@ -86,7 +88,7 @@ function AdminSidebar() {
             </span>
           </Link>
         ) : null}
-        {isAdmin || isManager ? (
+        {showOperations ? (
           <Link
             to="/management/users"
             className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
@@ -101,7 +103,7 @@ function AdminSidebar() {
             </span>
           </Link>
         ) : null}
-        {isAdmin ? (
+        {(isAdmin || isManager) ? (
           <Link
             to="/management/cinemas"
             className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
@@ -116,7 +118,7 @@ function AdminSidebar() {
             </span>
           </Link>
         ) : null}
-        {isManager ? (
+        {showOperations ? (
           <Link
             to="/management/halls"
             className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
@@ -131,7 +133,7 @@ function AdminSidebar() {
             </span>
           </Link>
         ) : null}
-        {isManager ? (
+        {showOperations ? (
           <Link
             to="/management/pricing-policies"
             className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
@@ -146,7 +148,7 @@ function AdminSidebar() {
             </span>
           </Link>
         ) : null}
-        {isManager ? (
+        {showOperations ? (
           <Link
             to="/management/showtimes"
             className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
@@ -161,7 +163,7 @@ function AdminSidebar() {
             </span>
           </Link>
         ) : null}
-        {isManager ? (
+        {showOperations ? (
           <Link
             to="/management/bookings"
             className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
@@ -176,7 +178,7 @@ function AdminSidebar() {
             </span>
           </Link>
         ) : null}
-        {isManager ? (
+        {showOperations ? (
           <Link
             to="/management/products"
             className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${

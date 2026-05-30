@@ -13,13 +13,16 @@ import {
   buildCinemasSearchBody,
   deleteCinema,
   getCinemaManagerLabel,
+  getMyManagedCinemas,
   searchCinemas,
   updateCinemaStatus,
 } from '../../api/cinema'
 import {
   CINEMA_STATUS_BADGE_CLASS,
+  CINEMA_STATUS_LABEL_VI,
   CINEMA_STATUS_OPTIONS,
 } from '../../constants/cinemaStatusOptions'
+import { isCinemaManagementReadOnlyFromStorage } from '../../constants/managementAccess'
 
 const PAGE_SIZE = 12
 
@@ -41,6 +44,7 @@ function formatHours(cinema) {
 
 function CinemaManagement() {
   const toast = useToast()
+  const readOnly = isCinemaManagementReadOnlyFromStorage()
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -73,6 +77,49 @@ function CinemaManagement() {
     setLoading(true)
 
     const ac = new AbortController()
+
+    if (readOnly) {
+      ;(async () => {
+        try {
+          const list = await getMyManagedCinemas({ signal: ac.signal })
+          if (cancelled) return
+
+          const q = debouncedKeyword.toLowerCase()
+          const filtered = (list || []).filter((cinema) => {
+            if (statusFilter !== 'all' && cinema.status !== statusFilter) return false
+            if (!q) return true
+            const text = `${cinema.code || ''} ${cinema.name || ''} ${cinema.address || ''}`.toLowerCase()
+            return text.includes(q)
+          })
+
+          const total = filtered.length
+          const totalPagesCount = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0
+          const safePage = totalPagesCount > 0 ? Math.min(page, totalPagesCount) : 1
+          const start = (safePage - 1) * PAGE_SIZE
+
+          setRows(filtered.slice(start, start + PAGE_SIZE))
+          setTotalPages(totalPagesCount)
+          setTotalElements(total)
+          setHasNext(safePage < totalPagesCount)
+          setHasPrevious(safePage > 1)
+        } catch (e) {
+          if (cancelled || e?.name === 'AbortError') return
+          toast.error(e?.message || 'Không tải được danh sách rạp')
+          setRows([])
+          setTotalPages(0)
+          setTotalElements(0)
+          setHasNext(false)
+          setHasPrevious(false)
+        } finally {
+          if (!cancelled) setLoading(false)
+        }
+      })()
+
+      return () => {
+        cancelled = true
+        ac.abort()
+      }
+    }
 
     const body = buildCinemasSearchBody({
       page,
@@ -107,7 +154,7 @@ function CinemaManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [page, debouncedKeyword, statusFilter, refreshTick, toast])
+  }, [page, debouncedKeyword, statusFilter, refreshTick, readOnly, toast])
 
   const handleDeleteCinema = useCallback(async () => {
     const cinema = pendingDeleteCinema
@@ -168,18 +215,22 @@ function CinemaManagement() {
             Quản lý rạp
           </Text>
           <Text variant="small" className="text-slate-500 dark:text-slate-400 mt-1">
-            Quản lý danh sách rạp và trạng thái hoạt động
+            {readOnly
+              ? 'Xem thông tin các rạp được phân quyền quản lý'
+              : 'Quản lý danh sách rạp và trạng thái hoạt động'}
           </Text>
         </div>
-        <Button
-          type="button"
-          variant="primary"
-          className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Icon name="add" />
-          Tạo rạp mới
-        </Button>
+        {!readOnly ? (
+          <Button
+            type="button"
+            variant="primary"
+            className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Icon name="add" />
+            Tạo rạp mới
+          </Button>
+        ) : null}
       </header>
 
       <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
@@ -217,7 +268,9 @@ function CinemaManagement() {
                 <th className="px-6 py-4 font-semibold text-sm">Liên hệ</th>
                 <th className="px-6 py-4 font-semibold text-sm">Giờ mở cửa</th>
                 <th className="px-6 py-4 font-semibold text-sm min-w-[150px]">Trạng thái</th>
-                <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                {!readOnly ? (
+                  <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
+                ) : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-primary/10">
@@ -249,41 +302,54 @@ function CinemaManagement() {
                           {formatHours(cinema)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 min-w-[150px]" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={cinema.status || ''}
-                          disabled={Boolean(statusUpdatingIds[cinema.id])}
-                          onChange={(e) => handleStatusChange(cinema, e.target.value)}
-                          className={`rounded-full border px-3 py-1 text-xs font-bold outline-none transition disabled:cursor-wait disabled:opacity-60 ${badgeClass}`}
-                        >
-                          {CINEMA_STATUS_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
-                            onClick={() => setEditingCinemaId(cinema.id)}
+                      <td
+                        className="px-6 py-4 min-w-[150px]"
+                        onClick={readOnly ? undefined : (e) => e.stopPropagation()}
+                      >
+                        {readOnly ? (
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${badgeClass}`}
                           >
-                            <Icon name="edit" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                            onClick={() => setPendingDeleteCinema(cinema)}
-                            disabled={deletingId === cinema.id}
+                            {CINEMA_STATUS_LABEL_VI[cinema.status] || cinema.status || '—'}
+                          </span>
+                        ) : (
+                          <select
+                            value={cinema.status || ''}
+                            disabled={Boolean(statusUpdatingIds[cinema.id])}
+                            onChange={(e) => handleStatusChange(cinema, e.target.value)}
+                            className={`rounded-full border px-3 py-1 text-xs font-bold outline-none transition disabled:cursor-wait disabled:opacity-60 ${badgeClass}`}
                           >
-                            <Icon name="delete" />
-                          </Button>
-                        </div>
+                            {CINEMA_STATUS_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
+                      {!readOnly ? (
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
+                              onClick={() => setEditingCinemaId(cinema.id)}
+                            >
+                              <Icon name="edit" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                              onClick={() => setPendingDeleteCinema(cinema)}
+                              disabled={deletingId === cinema.id}
+                            >
+                              <Icon name="delete" />
+                            </Button>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   )
                 })}
@@ -319,7 +385,7 @@ function CinemaManagement() {
                 disabled={!hasPrevious || loading}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                Trang trước
+                {'<'}
               </Button>
               <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
                 Trang {page}
@@ -333,33 +399,37 @@ function CinemaManagement() {
                 disabled={!hasNext || loading}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Trang sau
+                {'>'}
               </Button>
             </div>
           )}
         </div>
       </div>
 
-      <CinemaModal
-        isOpen={createOpen}
-        mode="create"
-        onCancel={() => setCreateOpen(false)}
-        onSubmitted={() => {
-          setCreateOpen(false)
-          setRefreshTick((n) => n + 1)
-        }}
-      />
+      {!readOnly ? (
+        <>
+          <CinemaModal
+            isOpen={createOpen}
+            mode="create"
+            onCancel={() => setCreateOpen(false)}
+            onSubmitted={() => {
+              setCreateOpen(false)
+              setRefreshTick((n) => n + 1)
+            }}
+          />
 
-      <CinemaModal
-        isOpen={Boolean(editingCinemaId)}
-        mode="edit"
-        cinemaId={editingCinemaId}
-        onCancel={() => setEditingCinemaId(null)}
-        onSubmitted={() => {
-          setEditingCinemaId(null)
-          setRefreshTick((n) => n + 1)
-        }}
-      />
+          <CinemaModal
+            isOpen={Boolean(editingCinemaId)}
+            mode="edit"
+            cinemaId={editingCinemaId}
+            onCancel={() => setEditingCinemaId(null)}
+            onSubmitted={() => {
+              setEditingCinemaId(null)
+              setRefreshTick((n) => n + 1)
+            }}
+          />
+        </>
+      ) : null}
 
       <CinemaModal
         isOpen={Boolean(viewingCinemaId)}
@@ -369,15 +439,17 @@ function CinemaManagement() {
       />
     </main>
 
-      <ConfirmModal
-        isOpen={Boolean(pendingDeleteCinema)}
-        title="Xác nhận xóa rạp"
-        message={`Bạn có chắc chắn muốn xóa rạp "${pendingDeleteCinema?.name || pendingDeleteCinema?.code || ''}"?`}
-        onConfirm={handleDeleteCinema}
-        onCancel={() => setPendingDeleteCinema(null)}
-        disableConfirm={deletingId === pendingDeleteCinema?.id}
-        closeOnOverlayClick={deletingId !== pendingDeleteCinema?.id}
-      />
+      {!readOnly ? (
+        <ConfirmModal
+          isOpen={Boolean(pendingDeleteCinema)}
+          title="Xác nhận xóa rạp"
+          message={`Bạn có chắc chắn muốn xóa rạp "${pendingDeleteCinema?.name || pendingDeleteCinema?.code || ''}"?`}
+          onConfirm={handleDeleteCinema}
+          onCancel={() => setPendingDeleteCinema(null)}
+          disableConfirm={deletingId === pendingDeleteCinema?.id}
+          closeOnOverlayClick={deletingId !== pendingDeleteCinema?.id}
+        />
+      ) : null}
     </>
   )
 }
