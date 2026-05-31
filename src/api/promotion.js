@@ -16,7 +16,7 @@ function normalizeApiDateTime(value) {
  * Body POST /promotions/search
  * BE PromotionField: CODE, NAME, STATUS, DISCOUNT_TYPE, ...
  */
-export function buildPromotionsSearchBody({ page = 1, size = 100, keyword, status } = {}) {
+export function buildPromotionsSearchBody({ page = 1, size = 12, keyword, status } = {}) {
   const filterBy = []
   if (status && status !== 'all') {
     filterBy.push({ field: 'STATUS', operator: 'EQ', value: status })

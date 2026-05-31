@@ -6,6 +6,7 @@ import {
   getPromotionById,
   updatePromotion,
 } from '../../api/promotion'
+import { getFilmById } from '../../api/film'
 import { formatCurrency } from '../../pages/booking/bookingData'
 import {
   PROMOTION_DISCOUNT_TYPE_OPTIONS,
@@ -91,6 +92,7 @@ function PromotionModal({
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [submitting, setSubmitting] = useState(false)
+  const [extraFilmOptions, setExtraFilmOptions] = useState([])
 
   const cinemaMultiOptions = useMemo(
     () =>
@@ -102,15 +104,59 @@ function PromotionModal({
     [cinemaOptions],
   )
 
-  const filmMultiOptions = useMemo(
-    () =>
-      filmOptions.map((opt) => ({
-        value: opt.value,
-        label: opt.label,
-        tagLabel: opt.label,
-      })),
-    [filmOptions],
-  )
+  const filmMultiOptions = useMemo(() => {
+    const merged = [...filmOptions]
+    for (const extra of extraFilmOptions) {
+      if (!merged.some((opt) => String(opt.value) === String(extra.value))) {
+        merged.push(extra)
+      }
+    }
+    return merged.map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+      tagLabel: opt.label,
+    }))
+  }, [filmOptions, extraFilmOptions])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setExtraFilmOptions([])
+      return undefined
+    }
+    const ids = (form.filmIds || []).map(String).filter(Boolean)
+    const missing = ids.filter((id) => !filmOptions.some((opt) => String(opt.value) === id))
+    if (!missing.length) return undefined
+
+    let cancelled = false
+    ;(async () => {
+      const extras = await Promise.all(
+        missing.map(async (id) => {
+          try {
+            const film = await getFilmById(id)
+            const label = film?.title || film?.name || id
+            return { value: id, label }
+          } catch {
+            return { value: id, label: id }
+          }
+        }),
+      )
+      if (!cancelled) {
+        setExtraFilmOptions((prev) => {
+          const next = [...prev]
+          for (const extra of extras) {
+            if (!next.some((opt) => String(opt.value) === String(extra.value))) {
+              next.push(extra)
+            }
+          }
+          return next
+        })
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, form.filmIds, filmOptions])
 
   useEffect(() => {
     if (!isOpen) return undefined

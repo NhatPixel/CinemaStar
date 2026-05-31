@@ -7,6 +7,7 @@ import {
   Input,
   Text,
   UserModal,
+  USER_MODAL_MODES,
   useToast,
 } from '../../components'
 import { buildUsersSearchBody, deleteManagedUser, searchManagedUsers } from '../../api/user'
@@ -15,6 +16,7 @@ import { USER_ROLE_LABEL_VI, readCurrentUserRole } from '../../constants/userRol
 import {
   MANAGED_USER_ROLES,
   canCreateManagedUser,
+  canViewManagedUser,
   canWriteManagedUser,
   getDefaultManagedRole,
   getManagedRoleFilterOptions,
@@ -23,6 +25,8 @@ import {
 } from '../../constants/userManagementOptions'
 
 const PAGE_SIZE = 12
+
+const CLOSED_MODAL = { open: false, mode: USER_MODAL_MODES.CREATE, userId: null }
 
 function formatDate(value) {
   if (value == null || value === '') return '—'
@@ -103,8 +107,7 @@ function UserManagement() {
   const [hasNext, setHasNext] = useState(false)
   const [hasPrevious, setHasPrevious] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editingUserId, setEditingUserId] = useState(null)
+  const [userModal, setUserModal] = useState(CLOSED_MODAL)
   const [pendingDeleteUser, setPendingDeleteUser] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
@@ -112,8 +115,23 @@ function UserManagement() {
   const columns = useMemo(() => getTableColumns(managedRole), [managedRole])
   const canCreate = canCreateManagedUser(viewerRole, managedRole)
   const canWrite = canWriteManagedUser(viewerRole, managedRole)
+  const canView = canViewManagedUser(viewerRole, managedRole)
+  const showActions = canWrite || canView
   const showRoleFilter = shouldShowManagedRoleFilter(viewerRole)
   const managedRoleLabel = USER_ROLE_LABEL_VI[managedRole] || managedRole
+
+  const openUserModal = (mode, userId = null) => {
+    setUserModal({ open: true, mode, userId })
+  }
+
+  const closeUserModal = () => {
+    setUserModal(CLOSED_MODAL)
+  }
+
+  const handleModalSubmitted = () => {
+    closeUserModal()
+    setRefreshTick((n) => n + 1)
+  }
 
   useEffect(() => {
     const allowed = roleFilterOptions.map((o) => o.value)
@@ -194,7 +212,7 @@ function UserManagement() {
     }
   }
 
-  const colSpan = columns.length + (canWrite ? 1 : 0)
+  const colSpan = columns.length + (showActions ? 1 : 0)
 
   if (roleFilterOptions.length === 0) {
     return (
@@ -226,7 +244,7 @@ function UserManagement() {
               type="button"
               variant="primary"
               className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
-              onClick={() => setCreateOpen(true)}
+              onClick={() => openUserModal(USER_MODAL_MODES.CREATE)}
             >
               <Icon name="person_add" />
               Thêm {managedRoleLabel.toLowerCase()}
@@ -268,7 +286,7 @@ function UserManagement() {
                       {col.label}
                     </th>
                   ))}
-                  {canWrite ? (
+                  {showActions ? (
                     <th className="px-6 py-4 font-semibold text-sm text-center">Hành động</th>
                   ) : null}
                 </tr>
@@ -290,7 +308,17 @@ function UserManagement() {
                 ) : null}
                 {!loading
                   ? displayRows.map((user) => (
-                      <tr key={user.id}>
+                      <tr
+                        key={user.id}
+                        className={
+                          canView
+                            ? 'cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors'
+                            : undefined
+                        }
+                        onClick={() => {
+                          if (canView) openUserModal(USER_MODAL_MODES.VIEW, user.id)
+                        }}
+                      >
                         {columns.map((col) => (
                           <td
                             key={col.key}
@@ -301,28 +329,43 @@ function UserManagement() {
                             {renderCell(user, col.key)}
                           </td>
                         ))}
-                        {canWrite ? (
-                          <td className="px-6 py-4 text-center">
+                        {showActions ? (
+                          <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
-                                title="Chỉnh sửa"
-                                onClick={() => setEditingUserId(user.id)}
-                              >
-                                <Icon name="edit" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
-                                title="Xóa"
-                                onClick={() => setPendingDeleteUser(user)}
-                                disabled={deletingId === user.id}
-                              >
-                                <Icon name="delete" />
-                              </Button>
+                              {canView && !canWrite ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-2 text-primary hover:bg-primary/10 rounded-lg"
+                                  title="Xem"
+                                  onClick={() => openUserModal(USER_MODAL_MODES.VIEW, user.id)}
+                                >
+                                  <Icon name="visibility" />
+                                </Button>
+                              ) : null}
+                              {canWrite ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
+                                    title="Chỉnh sửa"
+                                    onClick={() => openUserModal(USER_MODAL_MODES.EDIT, user.id)}
+                                  >
+                                    <Icon name="edit" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
+                                    title="Xóa"
+                                    onClick={() => setPendingDeleteUser(user)}
+                                    disabled={deletingId === user.id}
+                                  >
+                                    <Icon name="delete" />
+                                  </Button>
+                                </>
+                              ) : null}
                             </div>
                           </td>
                         ) : null}
@@ -371,33 +414,19 @@ function UserManagement() {
         </div>
 
         <UserModal
-          isOpen={createOpen}
-          mode="create"
+          isOpen={userModal.open}
+          mode={userModal.mode}
           managedRole={managedRole}
-          onCancel={() => setCreateOpen(false)}
-          onSubmitted={() => {
-            setCreateOpen(false)
-            setRefreshTick((n) => n + 1)
-          }}
-        />
-
-        <UserModal
-          isOpen={Boolean(editingUserId)}
-          mode="edit"
-          managedRole={managedRole}
-          userId={editingUserId}
-          onCancel={() => setEditingUserId(null)}
-          onSubmitted={() => {
-            setEditingUserId(null)
-            setRefreshTick((n) => n + 1)
-          }}
+          userId={userModal.userId}
+          onCancel={closeUserModal}
+          onSubmitted={handleModalSubmitted}
         />
       </main>
 
       <ConfirmModal
         isOpen={Boolean(pendingDeleteUser)}
         title={`Xác nhận xóa ${managedRoleLabel.toLowerCase()}`}
-        message={`Bạn có chắc chắn muốn xóa "${pendingDeleteUser?.name || pendingDeleteUser?.email || ''}"?`}
+        message={`Bạn có chắc chắn muốn xóa "${pendingDeleteUser?.name || pendingDeleteUser?.email || ''}"? Hành động này sẽ vô hiệu hóa tài khoản.`}
         onConfirm={handleDeleteUser}
         onCancel={() => setPendingDeleteUser(null)}
         disableConfirm={deletingId === pendingDeleteUser?.id}

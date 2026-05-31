@@ -60,7 +60,7 @@ export function needsBankFieldsForRole(managedRole) {
   return r === MANAGED_USER_ROLES.MANAGER || r === MANAGED_USER_ROLES.STAFF
 }
 
-/** Quyền sửa/xóa đối tượng trong trang quản lý (BE kiểm tra chi tiết thêm). */
+/** Quyền sửa/xóa đối tượng trong trang quản lý (khớp BE PUT/DELETE .../{id}). */
 export function canWriteManagedUser(viewerRole, managedRole) {
   const viewer = String(viewerRole || '').trim().toUpperCase()
   const target = String(managedRole || '').trim().toUpperCase()
@@ -69,7 +69,14 @@ export function canWriteManagedUser(viewerRole, managedRole) {
     return viewer === 'ADMIN' || viewer === 'MANAGER'
   }
   if (target === MANAGED_USER_ROLES.CUSTOMER) {
-    return viewer === 'ADMIN' || viewer === 'MANAGER' || viewer === 'STAFF'
+    return viewer === 'ADMIN'
   }
   return false
+}
+
+/** Quyền mở modal xem chi tiết (mode view). */
+export function canViewManagedUser(viewerRole, managedRole) {
+  return getManagedRoleFilterOptions(viewerRole).some(
+    (option) => option.value === String(managedRole || '').trim().toUpperCase(),
+  )
 }

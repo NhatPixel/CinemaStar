@@ -23,6 +23,12 @@ const GENDER_OPTIONS = [
   { value: Gender.OTHER, label: 'Khác' },
 ]
 
+export const USER_MODAL_MODES = {
+  CREATE: 'create',
+  EDIT: 'edit',
+  VIEW: 'view',
+}
+
 const EMPTY_FORM = {
   name: '',
   email: '',
@@ -91,16 +97,16 @@ function buildUpdatePayload(form, managedRole) {
 
 function UserModal({
   isOpen,
-  mode = 'create',
+  mode = USER_MODAL_MODES.CREATE,
   managedRole = MANAGED_USER_ROLES.STAFF,
   userId,
   onCancel,
   onSubmitted,
 }) {
   const toast = useToast()
-  const isCreate = mode === 'create'
-  const isEdit = mode === 'edit'
-  const isView = mode === 'view'
+  const isCreate = mode === USER_MODAL_MODES.CREATE
+  const isEdit = mode === USER_MODAL_MODES.EDIT
+  const isView = mode === USER_MODAL_MODES.VIEW
   const readOnly = isView
   const showBank = needsBankFieldsForRole(managedRole)
   const roleLabel = USER_ROLE_LABEL_VI[managedRole] || managedRole

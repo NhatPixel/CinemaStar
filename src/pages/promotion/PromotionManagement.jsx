@@ -26,7 +26,7 @@ import {
   PROMOTION_STATUS_OPTIONS,
 } from '../../constants/promotionOptions'
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = 12
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -66,6 +66,11 @@ function PromotionManagement() {
   const [pendingDelete, setPendingDelete] = useState(null)
   const [deletingId, setDeletingId] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [hasNext, setHasNext] = useState(false)
+  const [hasPrevious, setHasPrevious] = useState(false)
 
   const statusFilterOptions = [{ value: 'all', label: 'Tất cả trạng thái' }, ...PROMOTION_STATUS_OPTIONS]
 
@@ -75,6 +80,13 @@ function PromotionManagement() {
   }, [keyword])
 
   useEffect(() => {
+    setPage(1)
+  }, [debouncedKeyword, statusFilter])
+
+  const modalOpen = createOpen || Boolean(editingId) || Boolean(viewingId)
+
+  useEffect(() => {
+    if (!modalOpen) return undefined
     let cancelled = false
     const ac = new AbortController()
     ;(async () => {
@@ -82,7 +94,10 @@ function PromotionManagement() {
         const [cinemas, filmsData] = await Promise.all([
           getManagementCinemas({ signal: ac.signal }),
           searchFilms(
-            buildFilmsSearchBody({ size: 200, statusIn: ['NOW_SHOWING', 'COMING_SOON'] }),
+            buildFilmsSearchBody({
+              size: PAGE_SIZE,
+              statusIn: ['NOW_SHOWING', 'COMING_SOON'],
+            }),
             { signal: ac.signal },
           ),
         ])
@@ -110,14 +125,14 @@ function PromotionManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [toast])
+  }, [modalOpen, toast])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     const ac = new AbortController()
     const body = buildPromotionsSearchBody({
-      page: 1,
+      page,
       size: PAGE_SIZE,
       keyword: debouncedKeyword,
       status: statusFilter,
@@ -127,10 +142,18 @@ function PromotionManagement() {
         const data = await searchPromotions(body, { signal: ac.signal })
         if (cancelled) return
         setRows(data?.data || [])
+        setTotalPages(data?.totalPages ?? 0)
+        setTotalElements(data?.totalElements ?? 0)
+        setHasNext(Boolean(data?.hasNext))
+        setHasPrevious(Boolean(data?.hasPrevious))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         toast.error(e?.message || 'Không tải được mã giảm giá')
         setRows([])
+        setTotalPages(0)
+        setTotalElements(0)
+        setHasNext(false)
+        setHasPrevious(false)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -139,7 +162,7 @@ function PromotionManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [debouncedKeyword, statusFilter, refreshTick, toast])
+  }, [page, debouncedKeyword, statusFilter, refreshTick, toast])
 
   const handleDelete = useCallback(async () => {
     const row = pendingDelete
@@ -312,6 +335,42 @@ function PromotionManagement() {
                   : null}
               </tbody>
             </table>
+          </div>
+
+          <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {!loading && rows.length > 0 && (
+              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
+                {totalElements > 0
+                  ? `Hiển thị ${rows.length} / ${totalElements} mã giảm giá`
+                  : `Đang hiển thị ${rows.length} mã giảm giá`}
+              </Text>
+            )}
+            {!loading && totalPages > 1 && (
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!hasPrevious || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  {'<'}
+                </Button>
+                <Text variant="small" className="text-sm text-slate-500">
+                  Trang {page}
+                  {totalPages > 0 ? ` / ${totalPages}` : ''}
+                </Text>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!hasNext || loading}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  {'>'}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </main>
