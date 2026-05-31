@@ -10,8 +10,10 @@ import {
   Text,
   Input,
   CustomSelect,
+  SearchableSelect,
   useToast,
 } from '../../components'
+import { getBanks } from '../../api/bank'
 import {
   getCurrentUser,
   updateCustomerProfile,
@@ -79,9 +81,9 @@ function getProfileUpdateFn(roleKey) {
   return updateCustomerProfile
 }
 
+/** Chỉ quản lý có mục ngân hàng trên trang hồ sơ cá nhân. */
 function needsBankFields(roleKey) {
-  const r = normalizeRole(roleKey)
-  return r === 'MANAGER' || r === 'STAFF'
+  return normalizeRole(roleKey) === 'MANAGER'
 }
 
 const EMPTY_FORM = {
@@ -120,6 +122,45 @@ function UserProfile() {
   const [formData, setFormData] = useState({ ...EMPTY_FORM })
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [banks, setBanks] = useState([])
+
+  const showBankSection = needsBankFields(user?.role)
+
+  useEffect(() => {
+    if (!showBankSection) {
+      setBanks([])
+      return undefined
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const list = await getBanks()
+        if (!cancelled) setBanks(list || [])
+      } catch {
+        if (!cancelled) setBanks([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showBankSection])
+
+  const bankOptions = useMemo(
+    () =>
+      banks.map((bank) => ({
+        value: bank.code,
+        label: `${bank.shortName || bank.code} (${bank.name || bank.code})`,
+      })),
+    [banks],
+  )
+
+  const bankDisplayLabel = useMemo(() => {
+    const code = String(user?.bankCode ?? '').trim()
+    if (!code) return '—'
+    const match = banks.find((b) => String(b.code) === code)
+    if (!match) return code
+    return `${match.shortName || match.code} (${match.name || match.code})`
+  }, [banks, user?.bankCode])
 
   useEffect(() => {
     const onStorage = () => setUser(readStoredUser())
@@ -182,7 +223,6 @@ function UserProfile() {
       created: formatDisplayDate(created),
       updated: formatDisplayDate(updated),
       roleLabel: formatRoleLabel(user?.role),
-      uuid: user?.id != null ? String(user.id) : '—',
       avatarUrl: String(user?.avatarUrl || user?.avatar || user?.photoUrl || '').trim(),
       bankCode,
       accountNumber,
@@ -199,12 +239,15 @@ function UserProfile() {
   const isProfileDirty = useMemo(() => {
     if (!editing || !user) return false
     const b = buildFormDataFromUser(user)
-    return (
+    const baseDirty =
       formData.name.trim() !== b.name ||
       formData.email.trim() !== b.email ||
       (formData.dob || '') !== (b.dob || '') ||
       formData.gender !== b.gender ||
-      formData.phone.trim() !== b.phone ||
+      formData.phone.trim() !== b.phone
+    if (!needsBankFields(user?.role)) return baseDirty
+    return (
+      baseDirty ||
       formData.bankCode.trim() !== b.bankCode ||
       formData.accountNumber.trim() !== b.accountNumber ||
       formData.accountName.trim() !== b.accountName
@@ -508,16 +551,6 @@ function UserProfile() {
                 </h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
-                <div className="md:col-span-2 group">
-                  <span className="text-xs font-bold uppercase tracking-widest text-primary/70 block mb-2">
-                    ID
-                  </span>
-                  <div className="border-b border-slate-200 dark:border-slate-600/50 pb-2">
-                    <code className="text-sm font-mono text-primary bg-primary/5 px-2 py-0.5 rounded break-all">
-                      {display.uuid}
-                    </code>
-                  </div>
-                </div>
                 <div className="group md:col-span-2">
                   {editing ? (
                     <Input
@@ -558,6 +591,7 @@ function UserProfile() {
               </div>
             </section>
 
+            {showBankSection ? (
             <section className="rounded-3xl p-8 sm:p-10 glass-panel">
               <div className="flex items-center gap-4 mb-10">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -568,20 +602,24 @@ function UserProfile() {
                 </h3>
               </div>
               <div className="rounded-3xl p-8 border border-primary/15 bg-primary/5 dark:bg-primary/10 backdrop-blur-sm">
-                {needsBankFields(user?.role) && editing ? (
+                {editing ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Input
-                      label="Mã ngân hàng"
+                    <SearchableSelect
+                      label="Ngân hàng"
                       name="bankCode"
                       value={formData.bankCode}
                       onChange={handleFormChange}
                       icon="account_balance"
+                      placeholder="Ngân hàng"
+                      searchPlaceholder="Tìm ngân hàng"
+                      options={bankOptions}
                     />
                     <Input
                       label="Số tài khoản"
                       name="accountNumber"
                       value={formData.accountNumber}
                       onChange={handleFormChange}
+                      icon="vignette"
                     />
                     <Input
                       label="Chủ tài khoản"
@@ -595,10 +633,10 @@ function UserProfile() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-1">
                       <span className="text-xs font-bold uppercase tracking-widest text-primary/70 block">
-                        Mã ngân hàng
+                        Ngân hàng
                       </span>
-                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100 font-mono">
-                        {display.bankCode}
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                        {bankDisplayLabel}
                       </p>
                     </div>
                     <div className="space-y-1">
@@ -625,6 +663,7 @@ function UserProfile() {
                 )}
               </div>
             </section>
+            ) : null}
           </div>
         </div>
       </main>

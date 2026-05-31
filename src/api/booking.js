@@ -2,16 +2,19 @@ import { callApi, buildGet, buildPatch, buildPost } from './config/client'
 import { bookingPath } from './config/paths'
 
 const BOOKINGS_CREATE_URL = bookingPath('')
-const BOOKINGS_ME_SEARCH_URL = bookingPath('me/search')
+const BOOKINGS_ME_ACTIVE_SEARCH_URL = bookingPath('me/active/search')
 const BOOKINGS_ME_ACTIVE_URL = bookingPath('me/active')
 const BOOKINGS_OPERATOR_SEARCH_URL = bookingPath('cinemas/me/search')
+const BOOKINGS_OPERATOR_PURCHASED_SEARCH_URL = bookingPath('cinemas/me/purchased/search')
+const BOOKINGS_OPERATOR_UNPAID_SEARCH_URL = bookingPath('cinemas/me/unpaid/search')
 const bookingDetailUrl = (id) => bookingPath(id)
 const bookingCheckoutContextUrl = (id) => bookingPath(`${id}/checkout-context`)
 const bookingStatusUrl = (id) => bookingPath(`${id}/status`)
 const bookingCancelUrl = (id) => bookingPath(`${id}/cancel`)
 
 /**
- * Body cho POST /bookings/me/search và POST /bookings/cinemas/me/search
+ * Body cho POST /bookings/me/active/search, POST /bookings/cinemas/me/search, ...
+ * Với me/active/search: BE tự lọc đơn active — không gửi BOOKING_STATUS / PAYMENT_STATUS.
  */
 export function buildBookingsSearchBody({
   page = 1,
@@ -48,6 +51,48 @@ export function buildBookingsSearchBody({
     keyword: keyword?.trim() ?? '',
     filterBy,
     sortBy: Array.isArray(sortBy) ? sortBy : [{ field: 'TIME_CREATED', direction: 'DESC' }],
+  }
+}
+
+/**
+ * Body POST /bookings/cinemas/me/purchased/search | .../unpaid/search
+ * (BE tự ép BOOKING_STATUS / PAYMENT_STATUS — không gửi filter trạng thái đó)
+ */
+export function buildOperatorBookingsSearchBody({
+  page = 1,
+  size = 12,
+  keyword,
+  cinemaId,
+  showDate,
+  filmTitle,
+} = {}) {
+  const filterBy = []
+  if (cinemaId) {
+    filterBy.push({ field: 'CINEMA_ID', operator: 'EQ', value: cinemaId })
+  }
+  const title = String(filmTitle || '').trim()
+  if (title) {
+    filterBy.push({ field: 'FILM_TITLE', operator: 'LIKE', value: title })
+  }
+  const date = String(showDate || '').trim()
+  if (date) {
+    filterBy.push({
+      field: 'SHOWTIME_START_DATE_TIME',
+      operator: 'GTE',
+      value: `${date}T00:00:00`,
+    })
+    filterBy.push({
+      field: 'SHOWTIME_START_DATE_TIME',
+      operator: 'LTE',
+      value: `${date}T23:59:59`,
+    })
+  }
+  return {
+    page,
+    size,
+    keyword: keyword?.trim() ?? '',
+    filterBy,
+    sortBy: [{ field: 'TIME_CREATED', direction: 'DESC' }],
   }
 }
 
@@ -123,9 +168,9 @@ export async function getCheckoutContext(id, { signal } = {}) {
   }
 }
 
-/** POST /bookings/me/search */
-export async function searchMyBookings(body, { signal } = {}) {
-  const { url, options } = buildPost(BOOKINGS_ME_SEARCH_URL, body)
+/** POST /bookings/me/active/search — đơn PENDING/RESERVED, UNPAID, còn hạn giữ ghế */
+export async function searchMyActiveBookings(body, { signal } = {}) {
+  const { url, options } = buildPost(BOOKINGS_ME_ACTIVE_SEARCH_URL, body)
   const resp = await callApi({
     url,
     options: { ...options, ...(signal ? { signal } : {}) },
@@ -135,7 +180,7 @@ export async function searchMyBookings(body, { signal } = {}) {
   }
   throw {
     status: resp?.code || 400,
-    message: resp?.message || 'Không tải được lịch sử đặt vé',
+    message: resp?.message || 'Không tải được danh sách đơn đặt vé',
     raw: resp,
   }
 }
@@ -155,6 +200,48 @@ export async function searchOperatorBookings(body, { signal } = {}) {
     message: resp?.message || 'Không tải được danh sách đơn đặt vé',
     raw: resp,
   }
+}
+
+/** POST /bookings/cinemas/me/purchased/search */
+export async function searchPurchasedOperatorBookings(body, { signal } = {}) {
+  const { url, options } = buildPost(BOOKINGS_OPERATOR_PURCHASED_SEARCH_URL, body)
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được đơn đã thanh toán',
+    raw: resp,
+  }
+}
+
+/** POST /bookings/cinemas/me/unpaid/search */
+export async function searchUnpaidOperatorBookings(body, { signal } = {}) {
+  const { url, options } = buildPost(BOOKINGS_OPERATOR_UNPAID_SEARCH_URL, body)
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được đơn chưa thanh toán',
+    raw: resp,
+  }
+}
+
+/** purchased | unpaid */
+export async function searchOperatorBookingsByListType(listType, body, options = {}) {
+  if (listType === 'unpaid') {
+    return searchUnpaidOperatorBookings(body, options)
+  }
+  return searchPurchasedOperatorBookings(body, options)
 }
 
 export async function updateBookingStatus(id, payload) {

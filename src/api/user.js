@@ -1,4 +1,4 @@
-import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/client'
+import { callApi, buildDelete, buildGet, buildPatch, buildPost, buildPut } from './config/client'
 import { userPath } from './config/paths'
 
 export const USER_STORAGE_KEY = 'currentUser'
@@ -198,4 +198,23 @@ export function updateManagedUserProfile(managedRole, userId, payload) {
 /** DELETE /users/managers|staffs|customers/{id} */
 export function deleteManagedUser(managedRole, userId) {
   return mutateManagedUserById('DELETE', managedRole, userId)
+}
+
+/** PATCH /users/managers|staffs|customers/{id}/restore */
+export async function restoreManagedUser(managedRole, userId) {
+  const segment = resolveManagedRoleSegment(managedRole)
+  const id = String(userId || '').trim()
+  if (!id) {
+    throw { status: 400, message: 'Thiếu mã người dùng' }
+  }
+  const { url, options } = buildPatch(userPath(`${segment}/${id}/restore`), {})
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp?.data ?? resp
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể khôi phục người dùng',
+    raw: resp,
+  }
 }

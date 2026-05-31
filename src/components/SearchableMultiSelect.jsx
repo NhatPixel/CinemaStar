@@ -153,7 +153,7 @@ function SearchableMultiSelect({
             {!loading && filteredOptions.length === 0 ? (
               <div className="px-4 py-2 text-sm text-slate-500">
                 {selectedSet.size > 0 && !search.trim()
-                  ? 'Đã chọn hết nhân viên trong danh sách'
+                  ? 'Đã chọn hết trong danh sách'
                   : 'Không tìm thấy lựa chọn phù hợp'}
               </div>
             ) : (

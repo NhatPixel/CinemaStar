@@ -40,6 +40,7 @@ function AdminSidebar() {
   const isBookingsActive = location.pathname.startsWith('/management/bookings')
   const isProductsActive = location.pathname.startsWith('/management/products')
   const isUsersActive = location.pathname.startsWith('/management/users')
+  const isStatisticsActive = location.pathname.startsWith('/management/statistics')
 
   const handleLogout = async () => {
     if (loggingOut) return
@@ -176,6 +177,21 @@ function AdminSidebar() {
             <Icon name="event_available" />
             <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
               Quản lý suất chiếu
+            </span>
+          </Link>
+        ) : null}
+        {(isAdmin || isManager) ? (
+          <Link
+            to="/management/statistics"
+            className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
+              isStatisticsActive
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-slate-600 hover:bg-primary/5 hover:text-primary dark:text-slate-300'
+            }`}
+          >
+            <Icon name="bar_chart" />
+            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
+              Thống kê doanh thu
             </span>
           </Link>
         ) : null}

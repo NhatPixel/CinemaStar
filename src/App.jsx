@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
-import { ToastProvider } from './components'
+import { ToastProvider, ChatWidget } from './components'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import VerifyOtp from './pages/auth/VerifyOtp'
@@ -27,6 +27,7 @@ import UserProfile from './pages/user/UserProfile'
 import UserManagement from './pages/user/UserManagement'
 import PricingPolicyManagement from './pages/pricing/PricingPolicyManagement'
 import PromotionManagement from './pages/promotion/PromotionManagement'
+import RevenueStatistics from './pages/statistics/RevenueStatistics'
 
 function resolveManagementRedirectPath() {
   try {
@@ -162,9 +163,21 @@ function App() {
               </RequireRole>
             }
           />
+          <Route
+            path="statistics"
+            element={
+              <RequireRole
+                allowedRoles={['ADMIN', 'MANAGER']}
+                fallback="/management/halls"
+              >
+                <RevenueStatistics />
+              </RequireRole>
+            }
+          />
         </Route>
         <Route path="/" element={<Navigate to={rootPath} replace />} />
       </Routes>
+      <ChatWidget />
     </BrowserRouter>
     </ToastProvider>
   )

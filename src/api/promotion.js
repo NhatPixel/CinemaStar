@@ -30,20 +30,36 @@ export function buildPromotionsSearchBody({ page = 1, size = 12, keyword, status
   }
 }
 
-export function buildPromotionWritePayload({
-  code,
-  name,
-  description,
-  discountType,
-  discountValue,
-  minOrderAmount,
-  maxDiscountAmount,
-  startAt,
-  endAt,
-  status,
-  cinemaIds,
-  filmIds,
-}) {
+export function validatePromotionForm(form) {
+  if (!String(form?.code || '').trim()) return 'Vui lòng nhập mã khuyến mãi'
+  if (!String(form?.name || '').trim()) return 'Vui lòng nhập tên chương trình'
+  if (!form?.discountValue || Number(form.discountValue) <= 0) return 'Giá trị giảm không hợp lệ'
+  if (form.discountType === 'PERCENT' && Number(form.discountValue) > 100) {
+    return 'Giảm % tối đa 100'
+  }
+  if (!form?.startAt || !form?.endAt) return 'Vui lòng chọn thời gian hiệu lực'
+  if (form.startAt >= form.endAt) return 'Ngày kết thúc phải sau ngày bắt đầu'
+  if (!form?.cinemaIds?.length) return 'Chọn ít nhất một rạp áp dụng'
+  return null
+}
+
+export function buildPromotionWritePayload(
+  {
+    code,
+    name,
+    description,
+    discountType,
+    discountValue,
+    minOrderAmount,
+    maxDiscountAmount,
+    startAt,
+    endAt,
+    status,
+    cinemaIds,
+    filmIds,
+  },
+  { forCreate = false } = {},
+) {
   const payload = {
     code: String(code || '').trim(),
     name: String(name || '').trim(),
@@ -58,10 +74,14 @@ export function buildPromotionWritePayload({
   if (minOrderAmount !== '' && minOrderAmount != null) {
     payload.minOrderAmount = Number(minOrderAmount)
   }
-  if (maxDiscountAmount !== '' && maxDiscountAmount != null) {
+  if (
+    discountType === 'PERCENT' &&
+    maxDiscountAmount !== '' &&
+    maxDiscountAmount != null
+  ) {
     payload.maxDiscountAmount = Number(maxDiscountAmount)
   }
-  if (status) payload.status = status
+  if (!forCreate && status) payload.status = status
   return payload
 }
 

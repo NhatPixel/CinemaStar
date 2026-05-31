@@ -5,6 +5,7 @@ import {
   createPromotion,
   getPromotionById,
   updatePromotion,
+  validatePromotionForm,
 } from '../../api/promotion'
 import { getFilmById } from '../../api/film'
 import { formatCurrency } from '../../pages/booking/bookingData'
@@ -199,7 +200,13 @@ function PromotionModal({
   const handleChange = (e) => {
     if (readOnly) return
     const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    setForm((prev) => {
+      const next = { ...prev, [name]: value }
+      if (name === 'discountType' && value !== 'PERCENT') {
+        next.maxDiscountAmount = ''
+      }
+      return next
+    })
   }
 
   const handleMultiChange = (e) => {
@@ -208,39 +215,26 @@ function PromotionModal({
     setForm((prev) => ({ ...prev, [name]: Array.isArray(value) ? value : [] }))
   }
 
-  const validateForm = () => {
-    if (!form.code.trim()) return 'Vui lòng nhập mã khuyến mãi'
-    if (!form.name.trim()) return 'Vui lòng nhập tên chương trình'
-    if (!form.discountValue || Number(form.discountValue) <= 0) return 'Giá trị giảm không hợp lệ'
-    if (form.discountType === 'PERCENT' && Number(form.discountValue) > 100) {
-      return 'Giảm % tối đa 100'
-    }
-    if (!form.startAt || !form.endAt) return 'Vui lòng chọn thời gian hiệu lực'
-    if (form.startAt >= form.endAt) return 'Ngày kết thúc phải sau ngày bắt đầu'
-    if (!form.cinemaIds?.length) return 'Chọn ít nhất một rạp áp dụng'
-    return null
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (readOnly) return
-    const err = validateForm()
+    const err = validatePromotionForm(form)
     if (err) {
       toast.error(err)
       return
     }
 
-    const payload = buildPromotionWritePayload(form)
+    const payload = buildPromotionWritePayload(form, { forCreate: isCreate })
     setSubmitting(true)
     try {
       if (isCreate) {
-        await createPromotion(payload)
-        toast.success('Tạo mã giảm giá thành công')
+        const created = await createPromotion(payload)
+        toast.success(created?.message || 'Tạo mã giảm giá thành công')
       } else {
-        await updatePromotion(promotionId, payload)
-        toast.success('Cập nhật mã giảm giá thành công')
+        const updated = await updatePromotion(promotionId, payload)
+        toast.success(updated?.message || 'Cập nhật mã giảm giá thành công')
       }
-      onSubmitted?.()
+      onSubmitted?.(isCreate ? 'create' : 'edit')
     } catch (ex) {
       toast.error(ex?.message || 'Lưu mã giảm giá thất bại')
     } finally {
@@ -302,7 +296,7 @@ function PromotionModal({
               name="description"
               value={form.description}
               onChange={handleChange}
-              placeholder="Điều kiện áp dụng (tùy chọn)"
+              placeholder="Mô tả cho mã giảm giá"
               disabled={readOnly}
               rows={2}
             />
@@ -325,11 +319,14 @@ function PromotionModal({
                 value={form.discountValue}
                 onChange={handleChange}
                 disabled={readOnly}
-                icon="percent"
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div
+              className={`grid gap-4 ${
+                form.discountType === 'PERCENT' ? 'sm:grid-cols-2' : 'grid-cols-1'
+              }`}
+            >
               <Input
                 label="Đơn tối thiểu (VNĐ)"
                 name="minOrderAmount"
@@ -340,16 +337,18 @@ function PromotionModal({
                 disabled={readOnly}
                 placeholder="Không bắt buộc"
               />
-              <Input
-                label="Giảm tối đa (VNĐ)"
-                name="maxDiscountAmount"
-                type="number"
-                min="0"
-                value={form.maxDiscountAmount}
-                onChange={handleChange}
-                disabled={readOnly}
-                placeholder="Không bắt buộc"
-              />
+              {form.discountType === 'PERCENT' ? (
+                <Input
+                  label="Giảm tối đa (VNĐ)"
+                  name="maxDiscountAmount"
+                  type="number"
+                  min="0"
+                  value={form.maxDiscountAmount}
+                  onChange={handleChange}
+                  disabled={readOnly}
+                  placeholder="Không bắt buộc"
+                />
+              ) : null}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -425,6 +424,11 @@ function PromotionModal({
                 {detail.minOrderAmount != null ? (
                   <p className="mt-1 text-slate-500">
                     Đơn tối thiểu: {formatCurrency(detail.minOrderAmount)}
+                  </p>
+                ) : null}
+                {detail.discountType === 'PERCENT' && detail.maxDiscountAmount != null ? (
+                  <p className="mt-1 text-slate-500">
+                    Giảm tối đa: {formatCurrency(detail.maxDiscountAmount)}
                   </p>
                 ) : null}
               </div>

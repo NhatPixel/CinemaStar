@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AppFooter, AppHeader, Button, Icon, Text, useToast } from '../../components'
-import { getBookingById, getCheckoutContext, cancelBooking } from '../../api/booking'
+import { getBookingById, cancelBooking } from '../../api/booking'
 import {
   BOOKING_STATUS_BADGE_CLASS,
   BOOKING_STATUS_LABEL_VI,
@@ -13,11 +13,9 @@ import {
   BOOKING_RESULT_STORAGE_KEY,
   canCancelBooking,
   formatCurrency,
-  getBookingPayableAmount,
-  getBookingPromotionDiscount,
-  getBookingPromotionLabel,
+  getBookingGrossAmount,
   getPaymentPayUrl,
-  mergePaymentSession,
+  resolveCheckoutPricing,
   readAuthRole,
   readJsonStorage,
 } from './bookingData'
@@ -57,7 +55,6 @@ function BookingDetail() {
   const navigate = useNavigate()
   const toast = useToast()
   const [booking, setBooking] = useState(null)
-  const [checkoutContext, setCheckoutContext] = useState(null)
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(false)
 
@@ -72,13 +69,9 @@ function BookingDetail() {
 
     ;(async () => {
       try {
-        const [data, ctx] = await Promise.all([
-          getBookingById(id, { signal: ac.signal }),
-          getCheckoutContext(id, { signal: ac.signal }).catch(() => null),
-        ])
+        const data = await getBookingById(id, { signal: ac.signal })
         if (!cancelled) {
           setBooking(data)
-          setCheckoutContext(ctx)
         }
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
@@ -111,13 +104,11 @@ function BookingDetail() {
   }
 
   const cachedResult = readJsonStorage(BOOKING_RESULT_STORAGE_KEY)
-  const paymentSession = mergePaymentSession(
-    checkoutContext?.paymentSession,
-    cachedResult?.booking?.id === booking?.id ? cachedResult?.paymentSession : null,
-  )
+  const paymentSession =
+    cachedResult?.booking?.id === booking?.id ? cachedResult?.paymentSession : null
+  const pricing = resolveCheckoutPricing(booking, paymentSession, cachedResult?.context)
   const payUrl = getPaymentPayUrl(paymentSession)
-  const canPay =
-    booking?.paymentStatus !== 'PAID' && checkoutContext?.canPay !== false && Boolean(payUrl)
+  const canPay = booking?.paymentStatus !== 'PAID' && Boolean(payUrl)
   const showCancel =
     readAuthRole() === 'CUSTOMER' && canCancelBooking(booking) && booking?.paymentStatus !== 'PAID'
 
@@ -275,24 +266,24 @@ function BookingDetail() {
                     <span>Đồ ăn</span>
                     <span>{formatCurrency(Number(booking.productSubtotal || 0))}</span>
                   </div>
-                  {getBookingPromotionDiscount(booking) > 0 ? (
+                  {pricing.promotionDiscount > 0 ? (
                     <>
                       <div className="flex justify-between text-slate-300">
                         <span>Tạm tính</span>
-                        <span>{formatCurrency(Number(booking.finalAmount || 0))}</span>
+                        <span>{formatCurrency(pricing.grossAmount || getBookingGrossAmount(booking))}</span>
                       </div>
                       <div className="flex justify-between text-emerald-400">
                         <span>
                           Giảm giá
-                          {getBookingPromotionLabel(booking) ? ` (${getBookingPromotionLabel(booking)})` : ''}
+                          {pricing.promotionLabel ? ` (${pricing.promotionLabel})` : ''}
                         </span>
-                        <span>-{formatCurrency(getBookingPromotionDiscount(booking))}</span>
+                        <span>-{formatCurrency(pricing.promotionDiscount)}</span>
                       </div>
                     </>
                   ) : null}
                   <div className="flex justify-between border-t border-white/10 pt-4 text-lg font-black text-white">
                     <span>Tổng</span>
-                    <span className="text-primary">{formatCurrency(getBookingPayableAmount(booking))}</span>
+                    <span className="text-primary">{formatCurrency(pricing.payableAmount)}</span>
                   </div>
                 </div>
                 </div>

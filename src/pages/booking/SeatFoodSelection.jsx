@@ -138,7 +138,6 @@ function SeatFoodSelection() {
       toast.error('Vui lòng chọn ít nhất 1 ghế')
       return
     }
-
     const missingSeat = selectedSeatDetails.some((item) => !item.seat)
     if (missingSeat) {
       toast.error('Không xác định được thông tin ghế, vui lòng tải lại trang')
@@ -162,9 +161,12 @@ function SeatFoodSelection() {
           quantity: combo.quantity,
         })),
       combos: combos.filter((combo) => combo.quantity > 0),
+      promotionCode: '',
       totals: {
         ticketTotal,
         foodTotal,
+        subtotal: total,
+        promotionDiscount: 0,
         total,
       },
     }

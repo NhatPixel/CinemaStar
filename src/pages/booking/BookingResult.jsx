@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getCheckoutContext } from '../../api/booking'
+import { getBookingById } from '../../api/booking'
 import { Button, Icon, Text } from '../../components'
 import BookingLayout from './BookingLayout'
 import {
@@ -9,20 +9,24 @@ import {
   formatCurrency,
   formatShowtimeDate,
   formatShowtimeTime,
-  getBookingPayableAmount,
   formatPaymentMethodLabel,
-  getBookingPromotionDiscount,
-  getBookingPromotionLabel,
   getPaymentPayUrl,
+  resolveCheckoutPricing,
   mergePaymentSession,
   readJsonStorage,
 } from './bookingData'
 
-function formatCountdown(seconds) {
-  const total = Math.max(0, Number(seconds || 0))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+function formatReservedUntil(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
 }
 
 function BookingResult() {
@@ -30,7 +34,6 @@ function BookingResult() {
   const bookingId = searchParams.get('bookingId')
   const cachedResultRef = useRef(readJsonStorage(BOOKING_RESULT_STORAGE_KEY))
   const cachedResult = cachedResultRef.current
-  const [checkoutContext, setCheckoutContext] = useState(null)
   const [booking, setBooking] = useState(() => cachedResultRef.current?.booking || null)
   const [paymentSession, setPaymentSession] = useState(
     () => cachedResultRef.current?.paymentSession || null,
@@ -55,13 +58,21 @@ function BookingResult() {
 
     ;(async () => {
       const cached = cachedResultRef.current
+      const cachedMatches = cached?.booking?.id && String(cached.booking.id) === String(bookingId)
+
+      if (cachedMatches) {
+        setBooking(cached.booking)
+        setPaymentSession(cached.paymentSession || null)
+        if (!cancelled) setLoading(false)
+        return
+      }
+
       try {
-        const ctx = await getCheckoutContext(bookingId, { signal: ac.signal })
+        const data = await getBookingById(bookingId, { signal: ac.signal })
         if (cancelled) return
-        setCheckoutContext(ctx)
-        setBooking(ctx?.booking || cached?.booking || null)
+        setBooking(data)
         setPaymentSession(
-          mergePaymentSession(ctx?.paymentSession, cached?.paymentSession) || cached?.paymentSession || null,
+          mergePaymentSession(null, cached?.paymentSession) || cached?.paymentSession || null,
         )
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
@@ -82,41 +93,19 @@ function BookingResult() {
     }
   }, [bookingId])
 
-  useEffect(() => {
-    if (!bookingId || booking?.paymentStatus === 'PAID') return undefined
-
-    let cancelled = false
-    const interval = setInterval(async () => {
-      try {
-        const ctx = await getCheckoutContext(bookingId)
-        if (cancelled) return
-        setCheckoutContext(ctx)
-        if (ctx?.booking) setBooking(ctx.booking)
-        setPaymentSession((prev) =>
-          mergePaymentSession(ctx?.paymentSession, prev || cachedResultRef.current?.paymentSession),
-        )
-      } catch {
-        /* bỏ qua lỗi poll */
-      }
-    }, 5000)
-
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [bookingId, booking?.paymentStatus])
-
   const seats = booking?.seatItems?.map((item) => item.seatCode).filter(Boolean) || []
   const filmTitle = booking?.filmTitle || MOVIE_FALLBACK.title
-  const payableAmount = getBookingPayableAmount(booking)
-  const promotionDiscount = getBookingPromotionDiscount(booking)
-  const promotionLabel = getBookingPromotionLabel(booking)
+  const pricing = useMemo(
+    () => resolveCheckoutPricing(booking, paymentSession, cachedResult?.context),
+    [booking, paymentSession, cachedResult?.context],
+  )
+  const { payableAmount, promotionDiscount, promotionLabel } = pricing
   const bookingCode = booking?.id ? String(booking.id).slice(0, 8).toUpperCase() : 'BOOKING'
   const showtimeDate = formatShowtimeDate(booking?.showtimeStartDateTime)
   const showtimeTime = formatShowtimeTime(booking?.showtimeStartDateTime)
   const payUrl = getPaymentPayUrl(paymentSession)
-  const canPayOnline =
-    booking?.paymentStatus !== 'PAID' && checkoutContext?.canPay !== false && Boolean(payUrl)
+  const canPayOnline = booking?.paymentStatus !== 'PAID' && Boolean(payUrl)
+  const reservedUntilLabel = formatReservedUntil(booking?.reservedUntil)
 
   return (
     <BookingLayout
@@ -149,10 +138,8 @@ function BookingResult() {
             <p className="mt-2 font-mono text-2xl font-black tracking-[0.28em] md:text-4xl">
               {bookingCode}
             </p>
-            {checkoutContext?.secondsToExpire != null ? (
-              <p className="mt-3 text-sm text-white/80">
-                Giữ ghế còn {formatCountdown(checkoutContext.secondsToExpire)}
-              </p>
+            {reservedUntilLabel && booking?.paymentStatus !== 'PAID' ? (
+              <p className="mt-3 text-sm text-white/80">Giữ ghế đến {reservedUntilLabel}</p>
             ) : null}
           </div>
 
@@ -217,8 +204,7 @@ function BookingResult() {
               {canPayOnline ? (
                 <>
                   <p className="text-sm text-slate-300">
-                    Hoàn tất thanh toán MoMo trong thời gian giữ ghế. Trang tự cập nhật khi thanh
-                    toán xong.
+                    Hoàn tất thanh toán MoMo trong thời gian giữ ghế.
                   </p>
                   <a
                     href={payUrl}

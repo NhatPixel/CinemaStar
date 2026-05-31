@@ -1,7 +1,15 @@
 import { buildCookieHeaders } from '../../utils/authCookieStorage'
 import { authPath } from './paths'
 
-export const BASE_URL = 'https://cinema-api.duckdns.org/api'
+/**
+ * Dev: `/api` qua Vite proxy (cookie HttpOnly trên localhost → chatbot nhận được).
+ * Prod: URL thật (không đổi).
+ */
+export const BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CINEMA_API_BASE_URL) ||
+  (typeof import.meta !== 'undefined' && import.meta.env?.DEV
+    ? '/api'
+    : 'https://cinema-api.duckdns.org/api')
 
 export async function parseResponse(response) {
   const contentType = response.headers.get('content-type') || ''

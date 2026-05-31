@@ -16,7 +16,6 @@ import { USER_ROLE_LABEL_VI, readCurrentUserRole } from '../../constants/userRol
 import {
   MANAGED_USER_ROLES,
   canCreateManagedUser,
-  canViewManagedUser,
   canWriteManagedUser,
   getDefaultManagedRole,
   getManagedRoleFilterOptions,
@@ -115,8 +114,7 @@ function UserManagement() {
   const columns = useMemo(() => getTableColumns(managedRole), [managedRole])
   const canCreate = canCreateManagedUser(viewerRole, managedRole)
   const canWrite = canWriteManagedUser(viewerRole, managedRole)
-  const canView = canViewManagedUser(viewerRole, managedRole)
-  const showActions = canWrite || canView
+  const showActions = canWrite
   const showRoleFilter = shouldShowManagedRoleFilter(viewerRole)
   const managedRoleLabel = USER_ROLE_LABEL_VI[managedRole] || managedRole
 
@@ -187,15 +185,6 @@ function UserManagement() {
       ac.abort()
     }
   }, [page, debouncedKeyword, managedRole, refreshTick, toast])
-
-  const displayRows = useMemo(() => {
-    const q = debouncedKeyword.toLowerCase()
-    if (!q) return rows
-    return rows.filter((user) => {
-      const text = `${user.name || ''} ${user.email || ''} ${user.phone || ''}`.toLowerCase()
-      return text.includes(q)
-    })
-  }, [rows, debouncedKeyword])
 
   const handleDeleteUser = async () => {
     if (!pendingDeleteUser?.id || deletingId) return
@@ -299,7 +288,7 @@ function UserManagement() {
                     </td>
                   </tr>
                 ) : null}
-                {!loading && displayRows.length === 0 ? (
+                {!loading && rows.length === 0 ? (
                   <tr>
                     <td colSpan={colSpan} className="px-6 py-8 text-center text-slate-500">
                       Không có {managedRoleLabel.toLowerCase()} phù hợp.
@@ -307,18 +296,8 @@ function UserManagement() {
                   </tr>
                 ) : null}
                 {!loading
-                  ? displayRows.map((user) => (
-                      <tr
-                        key={user.id}
-                        className={
-                          canView
-                            ? 'cursor-pointer hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors'
-                            : undefined
-                        }
-                        onClick={() => {
-                          if (canView) openUserModal(USER_MODAL_MODES.VIEW, user.id)
-                        }}
-                      >
+                  ? rows.map((user) => (
+                      <tr key={user.id}>
                         {columns.map((col) => (
                           <td
                             key={col.key}
@@ -330,42 +309,27 @@ function UserManagement() {
                           </td>
                         ))}
                         {showActions ? (
-                          <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-6 py-4 text-center">
                             <div className="flex justify-center gap-2">
-                              {canView && !canWrite ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="p-2 text-primary hover:bg-primary/10 rounded-lg"
-                                  title="Xem"
-                                  onClick={() => openUserModal(USER_MODAL_MODES.VIEW, user.id)}
-                                >
-                                  <Icon name="visibility" />
-                                </Button>
-                              ) : null}
-                              {canWrite ? (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
-                                    title="Chỉnh sửa"
-                                    onClick={() => openUserModal(USER_MODAL_MODES.EDIT, user.id)}
-                                  >
-                                    <Icon name="edit" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
-                                    title="Xóa"
-                                    onClick={() => setPendingDeleteUser(user)}
-                                    disabled={deletingId === user.id}
-                                  >
-                                    <Icon name="delete" />
-                                  </Button>
-                                </>
-                              ) : null}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
+                                title="Chỉnh sửa"
+                                onClick={() => openUserModal(USER_MODAL_MODES.EDIT, user.id)}
+                              >
+                                <Icon name="edit" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
+                                title="Xóa"
+                                onClick={() => setPendingDeleteUser(user)}
+                                disabled={deletingId === user.id}
+                              >
+                                <Icon name="delete" />
+                              </Button>
                             </div>
                           </td>
                         ) : null}
@@ -377,11 +341,11 @@ function UserManagement() {
           </div>
 
           <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {!loading && displayRows.length > 0 && (
+            {!loading && rows.length > 0 && (
               <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
                 {totalElements > 0
-                  ? `Hiển thị ${displayRows.length} / ${totalElements} người dùng`
-                  : `Đang hiển thị ${displayRows.length} người dùng`}
+                  ? `Hiển thị ${rows.length} / ${totalElements} người dùng`
+                  : `Đang hiển thị ${rows.length} người dùng`}
               </Text>
             )}
             {!loading && totalPages > 1 && (

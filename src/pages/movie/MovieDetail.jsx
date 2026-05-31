@@ -160,14 +160,6 @@ function MovieDetail() {
                     Đặt vé ngay
                   </Button>
                 </Link>
-                <Button
-                  variant="secondary"
-                  className="flex-1 sm:flex-none bg-slate-200 dark:bg-white/5 hover:bg-white/10 text-slate-900 dark:text-white font-bold py-4 px-8 rounded-xl flex items-center justify-center gap-2 transition-all border border-white/5"
-                  onClick={() => toast.success('Đã thêm phim vào danh sách yêu thích')}
-                >
-                  <Icon name="favorite" />
-                  Yêu thích
-                </Button>
               </div>
             </div>
           </div>

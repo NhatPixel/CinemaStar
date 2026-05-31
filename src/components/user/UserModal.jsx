@@ -11,6 +11,11 @@ import { getBanks } from '../../api/bank'
 import { registerManager, registerStaff } from '../../api/auth'
 import { getUserById, updateManagedUserProfile } from '../../api/user'
 import { Gender, formatGenderLabel } from '../../constants/genderMeta'
+import {
+  buildManagedRegisterPayload,
+  buildManagedUpdatePayload,
+  validateManagedUserForm,
+} from '../../utils/userManagementPayload'
 import { USER_ROLE_LABEL_VI } from '../../constants/userRoleLabels'
 import {
   MANAGED_USER_ROLES,
@@ -46,8 +51,13 @@ function userToForm(user) {
   const dobRaw = user.dob ?? user.dateOfBirth ?? user.birthDate
   let dob = ''
   if (dobRaw) {
-    const d = new Date(dobRaw)
-    if (!Number.isNaN(d.getTime())) dob = d.toISOString().slice(0, 10)
+    const raw = String(dobRaw)
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+      dob = raw.slice(0, 10)
+    } else {
+      const d = new Date(dobRaw)
+      if (!Number.isNaN(d.getTime())) dob = d.toISOString().slice(0, 10)
+    }
   }
   return {
     name: user.name || '',
@@ -60,39 +70,6 @@ function userToForm(user) {
     accountNumber: user.accountNumber || '',
     accountName: user.accountName || '',
   }
-}
-
-function buildRegisterPayload(form, managedRole) {
-  const payload = {
-    name: form.name.trim(),
-    email: form.email.trim(),
-    password: form.password,
-    dob: form.dob,
-    gender: form.gender,
-    phone: form.phone.trim(),
-  }
-  if (needsBankFieldsForRole(managedRole)) {
-    payload.bankCode = form.bankCode?.trim() || undefined
-    payload.accountNumber = form.accountNumber?.trim() || undefined
-    payload.accountName = form.accountName?.trim() || undefined
-  }
-  return payload
-}
-
-function buildUpdatePayload(form, managedRole) {
-  const payload = {
-    name: form.name.trim(),
-    email: form.email.trim(),
-    dob: form.dob,
-    gender: form.gender,
-    phone: form.phone.trim(),
-  }
-  if (needsBankFieldsForRole(managedRole)) {
-    payload.bankCode = form.bankCode?.trim() || undefined
-    payload.accountNumber = form.accountNumber?.trim() || undefined
-    payload.accountName = form.accountName?.trim() || undefined
-  }
-  return payload
 }
 
 function UserModal({
@@ -178,18 +155,11 @@ function UserModal({
     e.preventDefault()
     if (readOnly || submitting || loadingDetail) return
 
-    const name = form.name.trim()
-    if (!name) return toast.error('Vui lòng nhập họ tên')
-    if (!form.email.trim()) return toast.error('Vui lòng nhập email')
-    if (!form.phone.trim()) return toast.error('Vui lòng nhập số điện thoại')
-    if (!form.dob) return toast.error('Vui lòng chọn ngày sinh')
+    const validationError = validateManagedUserForm(form, { isCreate, showBank })
+    if (validationError) return toast.error(validationError)
 
     if (isCreate) {
-      if (!form.password || form.password.length < 8) {
-        return toast.error('Mật khẩu phải từ 8 ký tự')
-      }
-
-      const payload = buildRegisterPayload(form, managedRole)
+      const payload = buildManagedRegisterPayload(form, managedRole)
 
       try {
         setSubmitting(true)
@@ -211,7 +181,7 @@ function UserModal({
 
     if (!isEdit || !userId) return
 
-    const payload = buildUpdatePayload(form, managedRole)
+    const payload = buildManagedUpdatePayload(form, managedRole)
 
     try {
       setSubmitting(true)
@@ -269,17 +239,6 @@ function UserModal({
           <p className="text-sm text-slate-500 mb-4">Đang tải thông tin...</p>
         ) : (
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {(isView || isEdit) && detail?.id ? (
-              <Input
-                label="Mã người dùng"
-                name="userIdView"
-                value={String(detail.id)}
-                onChange={() => {}}
-                disabled
-                readOnly
-              />
-            ) : null}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Họ và tên"
@@ -316,17 +275,28 @@ function UserModal({
               readOnly={readOnly}
             />
 
-            {isCreate ? (
-              <Input
-                label="Mật khẩu"
-                name="password"
-                type="password"
-                value={form.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                icon="lock"
-                showPasswordToggle
-              />
+            {isCreate || isEdit ? (
+              <div className="space-y-1">
+                <Input
+                  label={isCreate ? 'Mật khẩu' : 'Mật khẩu mới'}
+                  name="password"
+                  type="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  placeholder={isCreate ? '••••••••' : 'Để trống nếu không đổi'}
+                  icon="lock"
+                  showPasswordToggle
+                  disabled={readOnly}
+                  readOnly={readOnly}
+                />
+                {!readOnly ? (
+                  <p className="text-xs text-slate-500 ml-1">
+                    {isCreate
+                      ? '8–32 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt (@$!%*?&)'
+                      : 'Chỉ nhập khi muốn đặt lại mật khẩu cho người dùng'}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

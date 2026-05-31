@@ -7,6 +7,7 @@ import {
   persistCookieHeaderFromResponse,
 } from '../utils/authCookieStorage'
 import { Gender, registerGenderToApi } from '../constants/genderMeta'
+import { notifyChatUserChanged } from '../utils/chatMessageStorage'
 import { getCurrentUser, USER_STORAGE_KEY } from './user'
 
 /** Làm mới token — triển khai trong `transport` để tránh vòng import với `client`. */
@@ -33,6 +34,7 @@ export async function login(email, password) {
     } catch {
       // Giữ thành công đăng nhập nếu /me tạm lỗi
     }
+    notifyChatUserChanged()
     return resp.data
   }
   throw {
@@ -67,6 +69,7 @@ export async function logout() {
 export function clearStoredAuth() {
   localStorage.removeItem(USER_STORAGE_KEY)
   localStorage.removeItem(AUTH_COOKIE_STORAGE_KEY)
+  notifyChatUserChanged()
 }
 
 // ——— Đăng ký ———

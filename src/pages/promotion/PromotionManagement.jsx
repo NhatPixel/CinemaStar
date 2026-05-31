@@ -18,7 +18,11 @@ import {
   searchPromotions,
 } from '../../api/promotion'
 import { formatCurrency } from '../booking/bookingData'
-import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
+import {
+  canWriteManagementOperations,
+  isManagementOperationsReadOnly,
+} from '../../constants/managementAccess'
+import { readCurrentUserRole } from '../../constants/userRoleLabels'
 import {
   PROMOTION_DISCOUNT_TYPE_LABEL_VI,
   PROMOTION_STATUS_BADGE_CLASS,
@@ -48,9 +52,39 @@ function formatDiscount(row) {
   return formatCurrency(Number(row.discountValue || 0))
 }
 
+async function loadPromotionReferenceData({ signal } = {}) {
+  const [cinemas, filmsData] = await Promise.all([
+    getManagementCinemas({ signal }),
+    searchFilms(
+      buildFilmsSearchBody({
+        size: PAGE_SIZE,
+        statusIn: ['NOW_SHOWING', 'COMING_SOON'],
+      }),
+      { signal },
+    ),
+  ])
+  const nameMap = {}
+  for (const c of cinemas || []) {
+    if (c?.id) nameMap[c.id] = c.name || c.code || c.id
+  }
+  const films = filmsData?.data || []
+  const filmMap = {}
+  const fOpts = films.map((film) => {
+    if (film?.id) filmMap[film.id] = film.title || film.name || film.id
+    return { value: film.id, label: film.title || film.name || film.id }
+  })
+  return {
+    cinemaNameById: nameMap,
+    cinemaOptions: mapCinemasToSelectOptions(cinemas, { includeAll: false }),
+    filmNameById: filmMap,
+    filmOptions: fOpts,
+  }
+}
+
 function PromotionManagement() {
   const toast = useToast()
   const readOnly = isManagementOperationsReadOnly()
+  const canWrite = canWriteManagementOperations(readCurrentUserRole())
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -71,6 +105,7 @@ function PromotionManagement() {
   const [totalElements, setTotalElements] = useState(0)
   const [hasNext, setHasNext] = useState(false)
   const [hasPrevious, setHasPrevious] = useState(false)
+  const [refsLoading, setRefsLoading] = useState(false)
 
   const statusFilterOptions = [{ value: 'all', label: 'Tất cả trạng thái' }, ...PROMOTION_STATUS_OPTIONS]
 
@@ -86,46 +121,30 @@ function PromotionManagement() {
   const modalOpen = createOpen || Boolean(editingId) || Boolean(viewingId)
 
   useEffect(() => {
-    if (!modalOpen) return undefined
+    if (!canWrite && !modalOpen) return undefined
     let cancelled = false
     const ac = new AbortController()
+    setRefsLoading(true)
     ;(async () => {
       try {
-        const [cinemas, filmsData] = await Promise.all([
-          getManagementCinemas({ signal: ac.signal }),
-          searchFilms(
-            buildFilmsSearchBody({
-              size: PAGE_SIZE,
-              statusIn: ['NOW_SHOWING', 'COMING_SOON'],
-            }),
-            { signal: ac.signal },
-          ),
-        ])
+        const refs = await loadPromotionReferenceData({ signal: ac.signal })
         if (cancelled) return
-        const nameMap = {}
-        for (const c of cinemas || []) {
-          if (c?.id) nameMap[c.id] = c.name || c.code || c.id
-        }
-        setCinemaNameById(nameMap)
-        setCinemaOptions(mapCinemasToSelectOptions(cinemas, { includeAll: false }))
-        const films = filmsData?.data || []
-        const filmMap = {}
-        const fOpts = films.map((film) => {
-          if (film?.id) filmMap[film.id] = film.title || film.name || film.id
-          return { value: film.id, label: film.title || film.name || film.id }
-        })
-        setFilmNameById(filmMap)
-        setFilmOptions(fOpts)
+        setCinemaNameById(refs.cinemaNameById)
+        setCinemaOptions(refs.cinemaOptions)
+        setFilmNameById(refs.filmNameById)
+        setFilmOptions(refs.filmOptions)
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         toast.error(e?.message || 'Không tải được dữ liệu tham chiếu')
+      } finally {
+        if (!cancelled) setRefsLoading(false)
       }
     })()
     return () => {
       cancelled = true
       ac.abort()
     }
-  }, [modalOpen, toast])
+  }, [canWrite, modalOpen, toast])
 
   useEffect(() => {
     let cancelled = false
@@ -186,8 +205,11 @@ function PromotionManagement() {
     setViewingId(null)
   }
 
-  const handleSubmitted = () => {
+  const handleSubmitted = (action) => {
     closeModals()
+    if (action === 'create') {
+      setPage(1)
+    }
     setRefreshTick((n) => n + 1)
   }
 
@@ -205,16 +227,16 @@ function PromotionManagement() {
                 : 'Tạo và quản lý mã giảm giá cho đơn đặt vé'}
             </Text>
           </div>
-          {!readOnly ? (
+          {canWrite ? (
             <Button
               type="button"
               variant="primary"
               className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
               onClick={() => setCreateOpen(true)}
-              disabled={cinemaOptions.length === 0}
+              disabled={refsLoading}
             >
               <Icon name="add" />
-              Tạo mã giảm giá
+              {refsLoading ? 'Đang tải...' : 'Tạo mã giảm giá'}
             </Button>
           ) : null}
         </header>
@@ -309,24 +331,35 @@ function PromotionManagement() {
                             : 'Tất cả phim'}
                         </td>
                         {!readOnly ? (
-                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-6 py-4 text-center">
                             <div className="flex justify-center gap-2">
-                              <button
+                              <Button
                                 type="button"
-                                className="p-2 rounded-lg hover:bg-primary/10 text-primary"
-                                title="Sửa"
-                                onClick={() => setEditingId(row.id)}
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"
+                                title="Chỉnh sửa"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingId(row.id)
+                                }}
                               >
                                 <Icon name="edit" />
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 type="button"
-                                className="p-2 rounded-lg hover:bg-red-500/10 text-red-500"
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
                                 title="Xóa"
-                                onClick={() => setPendingDelete(row)}
+                                disabled={deletingId === row.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPendingDelete(row)
+                                }}
                               >
                                 <Icon name="delete" />
-                              </button>
+                              </Button>
                             </div>
                           </td>
                         ) : null}

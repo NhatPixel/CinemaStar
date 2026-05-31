@@ -84,6 +84,77 @@ export function getBookingPromotionLabel(booking) {
   return code || name || ''
 }
 
+function formatPromotionLabelFromParts(code, name) {
+  const c = String(code || '').trim()
+  const n = String(name || '').trim()
+  if (c && n) return `${c} — ${n}`
+  return c || n || ''
+}
+
+/**
+ * Tiền hiển thị lúc checkout: KM áp dụng trên payment session, không phải trên booking lúc create.
+ */
+export function resolveCheckoutPricing(booking, paymentSession, checkoutContext) {
+  const gross = getBookingGrossAmount(booking)
+  const sessionAmount = paymentSession?.amount
+
+  if (sessionAmount != null && sessionAmount !== '') {
+    const payableAmount = Number(sessionAmount)
+    const promotionDiscount = Number(paymentSession?.promotionDiscountAmount || 0)
+    return {
+      grossAmount: promotionDiscount > 0 ? payableAmount + promotionDiscount : gross,
+      payableAmount,
+      promotionDiscount,
+      promotionLabel: formatPromotionLabelFromParts(
+        paymentSession?.promotionCode,
+        paymentSession?.promotionName,
+      ),
+    }
+  }
+
+  const preview = checkoutContext?.appliedPromotion || checkoutContext?.promotionPreview
+  if (preview) {
+    const promotionDiscount = Number(preview.discountAmount || 0)
+    const payableAmount = Number(
+      preview.finalAmount ?? Math.max(0, Number(preview.originalAmount ?? gross) - promotionDiscount),
+    )
+    return {
+      grossAmount: Number(preview.originalAmount ?? gross),
+      payableAmount,
+      promotionDiscount,
+      promotionLabel: formatPromotionLabelFromParts(preview.promotionCode, null),
+    }
+  }
+
+  return {
+    grossAmount: gross,
+    payableAmount: getBookingPayableAmount(booking),
+    promotionDiscount: getBookingPromotionDiscount(booking),
+    promotionLabel: getBookingPromotionLabel(booking),
+  }
+}
+
+/** Gắn số tiền/KM từ payment session lên booking (lưu cache kết quả đặt vé). */
+export function enrichBookingWithPaymentSession(booking, paymentSession, { promotionCode } = {}) {
+  if (!booking) return booking
+  const patch = {}
+  if (paymentSession?.amount != null && paymentSession.amount !== '') {
+    patch.payableAmount = paymentSession.amount
+  }
+  if (paymentSession?.promotionDiscountAmount != null) {
+    patch.promotionDiscountAmount = paymentSession.promotionDiscountAmount
+  }
+  if (paymentSession?.promotionCode) {
+    patch.promotionCode = paymentSession.promotionCode
+  } else if (promotionCode) {
+    patch.promotionCode = promotionCode
+  }
+  if (paymentSession?.promotionName) {
+    patch.promotionName = paymentSession.promotionName
+  }
+  return { ...booking, ...patch }
+}
+
 export function canCancelBooking(booking) {
   if (!booking) return false
   if (booking.bookingStatus === 'CONFIRMED' && booking.paymentStatus === 'PAID') return false
@@ -124,6 +195,11 @@ export function removeJsonStorage(key) {
 
 export function getShowtimeFilm(showtime) {
   return showtime?.film || showtime?.filmResponse || null
+}
+
+export function getShowtimeFilmId(showtime, fallbackFilmId = '') {
+  const film = getShowtimeFilm(showtime)
+  return String(showtime?.filmId || film?.id || fallbackFilmId || '').trim()
 }
 
 export function getShowtimeHall(showtime) {

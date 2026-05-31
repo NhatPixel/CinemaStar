@@ -1,33 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, CustomSelect, Input, Text, useToast } from '../../components'
-import {
-  buildBookingsSearchBody,
-  searchOperatorBookings,
-  updateBookingStatus,
-} from '../../api/booking'
+import { Button, CustomSelect, Input, SearchableSelect, Text, useToast } from '../../components'
+import { buildOperatorBookingsSearchBody, searchOperatorBookingsByListType } from '../../api/booking'
+import { getManagementCinemas } from '../../api/cinema'
+import { mapCinemasToSelectOptions } from '../../api/hall'
+import { buildFilmsSearchBody, searchFilms } from '../../api/film'
 import {
   BOOKING_STATUS_BADGE_CLASS,
   BOOKING_STATUS_LABEL_VI,
-  BOOKING_STATUS_OPTIONS,
   PAYMENT_STATUS_BADGE_CLASS,
   PAYMENT_STATUS_LABEL_VI,
-  PAYMENT_STATUS_OPTIONS,
 } from '../../constants/bookingStatusOptions'
 import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
+import { OPERATOR_BOOKING_LIST_OPTIONS } from '../../constants/operatorBookingListOptions'
 import { formatCurrency, getBookingPayableAmount } from './bookingData'
 
 const PAGE_SIZE = 12
-
-const FILTER_BOOKING_STATUS_OPTIONS = [
-  { value: 'all', label: 'Tất cả trạng thái' },
-  ...BOOKING_STATUS_OPTIONS,
-]
-
-const FILTER_PAYMENT_STATUS_OPTIONS = [
-  { value: 'all', label: 'Trạng thái thanh toán' },
-  ...PAYMENT_STATUS_OPTIONS,
-]
+const FILM_FILTER_PAGE_SIZE = 50
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -42,6 +31,14 @@ function formatDateTime(value) {
   }).format(date)
 }
 
+function formatShowtimeRange(booking) {
+  const start = booking?.showtimeStartDateTime
+  const end = booking?.showtimeEndDateTime
+  if (!start && !end) return '—'
+  if (start && end) return `${formatDateTime(start)} → ${formatDateTime(end)}`
+  return formatDateTime(start || end)
+}
+
 function shortId(id) {
   if (!id) return '—'
   return String(id).slice(0, 8).toUpperCase()
@@ -52,23 +49,63 @@ function seatsText(booking) {
   return seats.length ? seats.join(', ') : '—'
 }
 
+function productsText(booking) {
+  const items = booking?.productItems || []
+  if (!items.length) return '—'
+  return items
+    .map((item) => {
+      const name = item.productNameSnapshot || item.productName || 'Sản phẩm'
+      const qty = item.quantity ?? 1
+      return `${name} ×${qty}`
+    })
+    .join(', ')
+}
+
+function promotionText(booking) {
+  const code = booking?.promotionCode
+  const name = booking?.promotionName
+  if (code && name) return `${code} — ${name}`
+  return code || name || '—'
+}
+
 function BookingManagement() {
   const toast = useToast()
   const navigate = useNavigate()
   const readOnly = isManagementOperationsReadOnly()
+
   const [rows, setRows] = useState([])
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
-  const [bookingStatus, setBookingStatus] = useState('all')
-  const [paymentStatus, setPaymentStatus] = useState('all')
+  const [listType, setListType] = useState('purchased')
+  const [cinemaId, setCinemaId] = useState('')
+  const [showDate, setShowDate] = useState('')
+  const [filmId, setFilmId] = useState('')
+  const [filmSearch, setFilmSearch] = useState('')
+  const [debouncedFilmSearch, setDebouncedFilmSearch] = useState('')
+
+  const [cinemaOptions, setCinemaOptions] = useState([])
+  const [cinemaNameById, setCinemaNameById] = useState({})
+  const [filmOptions, setFilmOptions] = useState([])
+  const [refsLoading, setRefsLoading] = useState(true)
+
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [hasNext, setHasNext] = useState(false)
   const [hasPrevious, setHasPrevious] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [updatingId, setUpdatingId] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
+
+  const cinemaSelectOptions = useMemo(
+    () => mapCinemasToSelectOptions(cinemaOptions, { includeAll: true, allLabel: 'Tất cả rạp' }),
+    [cinemaOptions],
+  )
+
+  const selectedFilmTitle = useMemo(() => {
+    if (!filmId) return ''
+    const match = filmOptions.find((opt) => String(opt.value) === String(filmId))
+    return match?.label || ''
+  }, [filmId, filmOptions])
 
   useEffect(() => {
     document.title = 'Quản lý đơn đặt vé - CinemaStar'
@@ -80,25 +117,93 @@ function BookingManagement() {
   }, [keyword])
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedFilmSearch(filmSearch.trim()), 400)
+    return () => clearTimeout(t)
+  }, [filmSearch])
+
+  useEffect(() => {
     setPage(1)
-  }, [debouncedKeyword, bookingStatus, paymentStatus])
+  }, [debouncedKeyword, listType, cinemaId, showDate, filmId])
+
+  useEffect(() => {
+    let cancelled = false
+    const ac = new AbortController()
+    setRefsLoading(true)
+    ;(async () => {
+      try {
+        const cinemas = await getManagementCinemas({ signal: ac.signal })
+        if (cancelled) return
+        const nameMap = {}
+        for (const c of cinemas || []) {
+          if (c?.id) nameMap[c.id] = c.name || c.code || c.id
+        }
+        setCinemaNameById(nameMap)
+        setCinemaOptions(Array.isArray(cinemas) ? cinemas : [])
+      } catch (e) {
+        if (cancelled || e?.name === 'AbortError') return
+        toast.error(e?.message || 'Không tải được danh sách rạp')
+      } finally {
+        if (!cancelled) setRefsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
+  }, [toast])
+
+  useEffect(() => {
+    let cancelled = false
+    const ac = new AbortController()
+    ;(async () => {
+      try {
+        const data = await searchFilms(
+          buildFilmsSearchBody({
+            page: 1,
+            size: FILM_FILTER_PAGE_SIZE,
+            keyword: debouncedFilmSearch,
+            statusIn: ['NOW_SHOWING', 'COMING_SOON', 'ENDED'],
+          }),
+          { signal: ac.signal },
+        )
+        if (cancelled) return
+        const films = data?.data || []
+        setFilmOptions(
+          films.map((film) => ({
+            value: film.id,
+            label: film.title || film.name || film.id,
+          })),
+        )
+      } catch (e) {
+        if (cancelled || e?.name === 'AbortError') return
+        setFilmOptions([])
+      }
+    })()
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
+  }, [debouncedFilmSearch])
 
   useEffect(() => {
     let cancelled = false
     const ac = new AbortController()
     setLoading(true)
 
-    const body = buildBookingsSearchBody({
+    const body = buildOperatorBookingsSearchBody({
       page,
       size: PAGE_SIZE,
       keyword: debouncedKeyword,
-      bookingStatus,
-      paymentStatus,
+      cinemaId: cinemaId || undefined,
+      showDate: showDate || undefined,
+      filmTitle: selectedFilmTitle || undefined,
     })
 
     ;(async () => {
       try {
-        const data = await searchOperatorBookings(body, { signal: ac.signal })
+        const data = await searchOperatorBookingsByListType(listType, body, {
+          signal: ac.signal,
+        })
         if (cancelled) return
         setRows(data?.data || [])
         setTotalPages(data?.totalPages ?? 0)
@@ -122,35 +227,18 @@ function BookingManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [page, debouncedKeyword, bookingStatus, paymentStatus, refreshTick, toast])
+  }, [
+    page,
+    debouncedKeyword,
+    listType,
+    cinemaId,
+    showDate,
+    selectedFilmTitle,
+    refreshTick,
+    toast,
+  ])
 
-  const handleStatusChange = useCallback(
-    async (booking, patch) => {
-      if (!booking?.id) return
-      const payload = {
-        bookingStatus: patch.bookingStatus || booking.bookingStatus,
-        paymentStatus: patch.paymentStatus ?? booking.paymentStatus,
-      }
-
-      const previousRows = rows
-      setRows((prev) =>
-        prev.map((item) => (item.id === booking.id ? { ...item, ...payload } : item)),
-      )
-      setUpdatingId(booking.id)
-
-      try {
-        await updateBookingStatus(booking.id, payload)
-        toast.success('Cập nhật đơn đặt vé thành công')
-        setRefreshTick((n) => n + 1)
-      } catch (e) {
-        setRows(previousRows)
-        toast.error(e?.message || 'Cập nhật đơn đặt vé thất bại')
-      } finally {
-        setUpdatingId('')
-      }
-    },
-    [rows, toast],
-  )
+  const colSpan = 13
 
   return (
     <main className="min-w-0 flex-1 p-6 md:p-8">
@@ -160,60 +248,99 @@ function BookingManagement() {
         </Text>
         <Text variant="small" className="mt-1 text-slate-500 dark:text-slate-400">
           {readOnly
-            ? 'Theo dõi đơn đặt vé theo rạp được phân quyền (chỉ xem).'
-            : 'Theo dõi đơn đặt vé theo rạp được phân quyền và cập nhật trạng thái xử lý.'}
+            ? 'Theo dõi đơn đã thanh toán / chưa thanh toán theo rạp được phân quyền (chỉ xem).'
+            : 'Lọc theo rạp, ngày chiếu và phim.'}
         </Text>
       </header>
 
-      <section className="bg-white dark:bg-primary/5 p-6 rounded-2xl border border-slate-200 dark:border-primary/20 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-primary/20 dark:bg-primary/5">
+        <div className="space-y-4">
           <Input
             name="bookingSearch"
+            label="Tìm kiếm"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Tìm mã đơn đặt vé, tên khách, SĐT, phim..."
+            placeholder="Mã đơn, khách hàng, SĐT, tên phim..."
             icon="search"
           />
-          <CustomSelect
-            name="bookingStatusFilter"
-            value={bookingStatus}
-            onChange={(e) => setBookingStatus(e.target.value)}
-            options={FILTER_BOOKING_STATUS_OPTIONS}
-          />
-          <CustomSelect
-            name="paymentStatusFilter"
-            value={paymentStatus}
-            onChange={(e) => setPaymentStatus(e.target.value)}
-            options={FILTER_PAYMENT_STATUS_OPTIONS}
-          />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <CustomSelect
+              name="listType"
+              label="Loại danh sách"
+              value={listType}
+              onChange={(e) => setListType(e.target.value)}
+              options={OPERATOR_BOOKING_LIST_OPTIONS}
+            />
+            <SearchableSelect
+              label="Rạp"
+              name="cinemaId"
+              value={cinemaId}
+              onChange={(e) => setCinemaId(e.target.value)}
+              options={cinemaSelectOptions}
+              placeholder="Tất cả rạp"
+              searchPlaceholder="Tìm rạp"
+              icon="location_on"
+              disabled={refsLoading}
+            />
+            <div className="space-y-2">
+              <label className="ml-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+                Ngày chiếu
+              </label>
+              <input
+                name="showDate"
+                type="date"
+                value={showDate}
+                onChange={(e) => setShowDate(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-primary/20 dark:bg-slate-900/50 dark:text-white"
+              />
+            </div>
+            <SearchableSelect
+              label="Phim"
+              name="filmId"
+              value={filmId}
+              onChange={(e) => setFilmId(e.target.value)}
+              options={[{ value: '', label: 'Tất cả phim' }, ...filmOptions]}
+              placeholder="Tất cả phim"
+              searchPlaceholder="Tìm phim"
+              icon="movie"
+              serverSearch
+              onSearchChange={setFilmSearch}
+            />
+          </div>
         </div>
       </section>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-primary/20 dark:bg-primary/5">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
+          <table className="w-full min-w-[1200px] border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 dark:border-primary/20 dark:bg-background-dark/30">
-                <th className="px-5 py-4 text-sm font-semibold">Mã</th>
-                <th className="px-5 py-4 text-sm font-semibold">Khách hàng</th>
-                <th className="px-5 py-4 text-sm font-semibold">Ghế</th>
-                <th className="px-5 py-4 text-sm font-semibold">Tổng tiền</th>
-                <th className="px-5 py-4 text-sm font-semibold min-w-[180px]">Đặt vé</th>
-                <th className="px-5 py-4 text-sm font-semibold min-w-[180px]">Thanh toán</th>
-                <th className="px-5 py-4 text-sm font-semibold">Ngày tạo</th>
+                <th className="px-4 py-3 text-sm font-semibold">Mã đơn</th>
+                <th className="px-4 py-3 text-sm font-semibold">Rạp</th>
+                <th className="px-4 py-3 text-sm font-semibold">Phim</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[160px]">Suất chiếu</th>
+                <th className="px-4 py-3 text-sm font-semibold">Khách hàng</th>
+                <th className="px-4 py-3 text-sm font-semibold">Ghế</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[120px]">Đồ ăn / combo</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[100px]">Khuyến mãi</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[120px]">Số tiền</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[140px]">Đặt vé</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[140px]">Thanh toán</th>
+                <th className="px-4 py-3 text-sm font-semibold">Giữ đến</th>
+                <th className="px-4 py-3 text-sm font-semibold">Tạo lúc</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-primary/10">
               {loading ? (
                 <tr>
-                  <td className="px-5 py-8 text-center text-slate-500" colSpan={7}>
+                  <td className="px-4 py-8 text-center text-slate-500" colSpan={colSpan}>
                     Đang tải danh sách đơn đặt vé...
                   </td>
                 </tr>
               ) : null}
               {!loading && rows.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-8 text-center text-slate-500" colSpan={7}>
+                  <td className="px-4 py-8 text-center text-slate-500" colSpan={colSpan}>
                     Không có đơn đặt vé phù hợp.
                   </td>
                 </tr>
@@ -225,58 +352,68 @@ function BookingManagement() {
                       className="cursor-pointer hover:bg-slate-50 dark:hover:bg-primary/5"
                       onClick={() => navigate(`/bookings/${booking.id}`)}
                     >
-                      <td className="px-5 py-4 font-mono text-sm font-bold">{shortId(booking.id)}</td>
-                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
-                        <p className="font-semibold">{booking.customerInfo?.fullName || '—'}</p>
+                      <td className="px-4 py-3 font-mono text-sm font-bold">{shortId(booking.id)}</td>
+                      <td className="px-4 py-3 text-sm font-medium">
+                        {cinemaNameById[booking.cinemaId] || shortId(booking.cinemaId)}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold">{booking.filmTitle || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                        {formatShowtimeRange(booking)}
+                      </td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <p className="text-sm font-semibold">
+                          {booking.customerInfo?.fullName || '—'}
+                        </p>
                         <p className="text-xs text-slate-500">{booking.customerInfo?.phone || '—'}</p>
+                        {booking.customerInfo?.email ? (
+                          <p className="text-xs text-slate-500">{booking.customerInfo.email}</p>
+                        ) : null}
                       </td>
-                      <td className="px-5 py-4 text-sm">{seatsText(booking)}</td>
-                      <td className="px-5 py-4 font-bold text-primary">
-                        {formatCurrency(getBookingPayableAmount(booking))}
+                      <td className="px-4 py-3 text-sm">{seatsText(booking)}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                        {productsText(booking)}
                       </td>
-                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3 text-xs">
+                        <p>{promotionText(booking)}</p>
+                        {booking.promotionDiscountAmount > 0 ? (
+                          <p className="text-emerald-600 dark:text-emerald-400">
+                            −{formatCurrency(Number(booking.promotionDiscountAmount))}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <p className="font-bold text-primary">
+                          {formatCurrency(getBookingPayableAmount(booking))}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Vé: {formatCurrency(Number(booking.ticketSubtotal || 0))}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Đồ: {formatCurrency(Number(booking.productSubtotal || 0))}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
                         <span
-                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
+                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold ${
                             BOOKING_STATUS_BADGE_CLASS[booking.bookingStatus] || ''
                           }`}
                         >
                           {BOOKING_STATUS_LABEL_VI[booking.bookingStatus] || booking.bookingStatus}
                         </span>
-                        {!readOnly ? (
-                          <CustomSelect
-                            name={`bookingStatus-${booking.id}`}
-                            value={booking.bookingStatus || ''}
-                            onChange={(e) =>
-                              handleStatusChange(booking, { bookingStatus: e.target.value })
-                            }
-                            options={BOOKING_STATUS_OPTIONS.filter((opt) => opt.value !== 'EXPIRED')}
-                            disabled={updatingId === booking.id}
-                            className="mt-2"
-                          />
-                        ) : null}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3">
                         <span
-                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
+                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold ${
                             PAYMENT_STATUS_BADGE_CLASS[booking.paymentStatus] || ''
                           }`}
                         >
                           {PAYMENT_STATUS_LABEL_VI[booking.paymentStatus] || booking.paymentStatus}
                         </span>
-                        {!readOnly ? (
-                          <CustomSelect
-                            name={`paymentStatus-${booking.id}`}
-                            value={booking.paymentStatus || ''}
-                            onChange={(e) =>
-                              handleStatusChange(booking, { paymentStatus: e.target.value })
-                            }
-                            options={PAYMENT_STATUS_OPTIONS}
-                            disabled={updatingId === booking.id}
-                            className="mt-2"
-                          />
-                        ) : null}
                       </td>
-                      <td className="px-5 py-4 text-sm text-slate-500">
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {formatDateTime(booking.reservedUntil)}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
                         {formatDateTime(booking.timeCreated)}
                       </td>
                     </tr>
@@ -290,8 +427,10 @@ function BookingManagement() {
           {!loading && rows.length > 0 && (
             <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
               {totalElements > 0
-                ? `Hiển thị ${rows.length} / ${totalElements} đơn đặt vé`
-                : `Đang hiển thị ${rows.length} đơn đặt vé`}
+                ? `Hiển thị ${rows.length} / ${totalElements} đơn · ${
+                    listType === 'purchased' ? 'Đã thanh toán' : 'Chưa thanh toán'
+                  }`
+                : `Đang hiển thị ${rows.length} đơn`}
             </Text>
           )}
           {!loading && totalPages > 1 && (
@@ -300,7 +439,6 @@ function BookingManagement() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
                 disabled={!hasPrevious || loading}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -314,7 +452,6 @@ function BookingManagement() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
                 disabled={!hasNext || loading}
                 onClick={() => setPage((p) => p + 1)}
               >
