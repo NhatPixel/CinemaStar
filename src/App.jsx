@@ -63,7 +63,14 @@ function App() {
         <Route path="/movies" element={<MovieList />} />
         <Route path="/movies/:id" element={<MovieDetail />} />
         <Route path="/profile" element={<UserProfile />} />
-        <Route path="/bookings" element={<BookingHistory />} />
+        <Route
+          path="/bookings"
+          element={
+            <RequireRole allowedRoles={['CUSTOMER', 'USER']} fallback="/movies">
+              <BookingHistory />
+            </RequireRole>
+          }
+        />
         <Route path="/bookings/:id" element={<BookingDetail />} />
         <Route path="/booking" element={<Navigate to="/booking/showtimes" replace />} />
         <Route path="/booking/showtimes" element={<ShowtimeSelection />} />

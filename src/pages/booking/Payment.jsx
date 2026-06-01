@@ -340,12 +340,6 @@ function Payment() {
           <span>Đồ ăn</span>
           <span>{formatCurrency(draft?.totals?.foodTotal || 0)}</span>
         </div>
-        {appliedPromotionCode ? (
-          <div className="flex justify-between text-slate-300">
-            <span>Mã KM</span>
-            <span className="font-bold text-white">{appliedPromotionCode}</span>
-          </div>
-        ) : null}
         {promotionDiscount > 0 ? (
           <div className="flex justify-between text-emerald-400">
             <span>Giảm giá</span>

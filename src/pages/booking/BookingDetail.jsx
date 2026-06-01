@@ -13,6 +13,7 @@ import {
   BOOKING_RESULT_STORAGE_KEY,
   canCancelBooking,
   formatCurrency,
+  getBookingCinemaName,
   getBookingGrossAmount,
   getPaymentPayUrl,
   resolveCheckoutPricing,
@@ -132,6 +133,7 @@ function BookingDetail() {
                   <Button className="rounded-full px-5">
                     <Icon name="payments" />
                     Thanh toán
+                    <Icon name="open_in_new" className="shrink-0 text-lg" aria-hidden />
                   </Button>
                 </a>
               ) : null}
@@ -163,9 +165,8 @@ function BookingDetail() {
 
         {!loading && booking ? (
           <>
-            <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <DetailCard icon="confirmation_number" label="Showtime ID" value={booking.showtimeId} />
-              <DetailCard icon="festival" label="Cinema ID" value={booking.cinemaId} />
+            <section className="grid gap-4 md:grid-cols-3">
+              <DetailCard icon="theaters" label="Rạp" value={getBookingCinemaName(booking)} />
               <DetailCard icon="event" label="Ngày tạo" value={formatDateTime(booking.timeCreated)} />
               <DetailCard icon="timer" label="Giữ đến" value={formatDateTime(booking.reservedUntil)} />
             </section>
@@ -243,6 +244,10 @@ function BookingDetail() {
                 </Text>
                 <div className="space-y-4 text-sm">
                   <div>
+                    <p className="text-slate-400">Rạp</p>
+                    <p className="mt-1 font-bold text-white">{getBookingCinemaName(booking)}</p>
+                  </div>
+                  <div>
                     <p className="text-slate-400">Khách hàng</p>
                     <p className="mt-1 font-bold text-white">{booking.customerInfo?.fullName || '—'}</p>
                     <p className="text-slate-400">{booking.customerInfo?.email || '—'}</p>
@@ -273,10 +278,7 @@ function BookingDetail() {
                         <span>{formatCurrency(pricing.grossAmount || getBookingGrossAmount(booking))}</span>
                       </div>
                       <div className="flex justify-between text-emerald-400">
-                        <span>
-                          Giảm giá
-                          {pricing.promotionLabel ? ` (${pricing.promotionLabel})` : ''}
-                        </span>
+                        <span>Giảm giá</span>
                         <span>-{formatCurrency(pricing.promotionDiscount)}</span>
                       </div>
                     </>

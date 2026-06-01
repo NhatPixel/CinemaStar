@@ -22,6 +22,15 @@ export function readCurrentUserRole() {
   }
 }
 
+/** Khách hàng (kể cả role USER cũ). */
+export function isCustomerRole(role) {
+  const key =
+    role != null && role !== ''
+      ? String(role).trim().toUpperCase()
+      : readCurrentUserRole()
+  return key === 'CUSTOMER' || key === 'USER'
+}
+
 export function formatRoleLabel(role) {
   if (role == null || role === '') return '—'
   let key = String(role).trim().toUpperCase()

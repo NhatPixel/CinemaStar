@@ -61,13 +61,6 @@ function productsText(booking) {
     .join(', ')
 }
 
-function promotionText(booking) {
-  const code = booking?.promotionCode
-  const name = booking?.promotionName
-  if (code && name) return `${code} — ${name}`
-  return code || name || '—'
-}
-
 function BookingManagement() {
   const toast = useToast()
   const navigate = useNavigate()
@@ -322,7 +315,7 @@ function BookingManagement() {
                 <th className="px-4 py-3 text-sm font-semibold">Khách hàng</th>
                 <th className="px-4 py-3 text-sm font-semibold">Ghế</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[120px]">Đồ ăn / combo</th>
-                <th className="px-4 py-3 text-sm font-semibold min-w-[100px]">Khuyến mãi</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[100px]">Giảm giá</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[120px]">Số tiền</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[140px]">Đặt vé</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[140px]">Thanh toán</th>
@@ -374,12 +367,13 @@ function BookingManagement() {
                         {productsText(booking)}
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        <p>{promotionText(booking)}</p>
-                        {booking.promotionDiscountAmount > 0 ? (
-                          <p className="text-emerald-600 dark:text-emerald-400">
+                        {Number(booking.promotionDiscountAmount || 0) > 0 ? (
+                          <p className="font-semibold text-emerald-600 dark:text-emerald-400">
                             −{formatCurrency(Number(booking.promotionDiscountAmount))}
                           </p>
-                        ) : null}
+                        ) : (
+                          <p className="text-slate-500">—</p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <p className="font-bold text-primary">

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { logout, clearStoredAuth } from '../api/auth'
 import { Icon, Text, Button, Avatar, useToast } from '.'
+import { isCustomerRole } from '../constants/userRoleLabels'
 
 function readCurrentUserFromStorage() {
   try {
@@ -35,6 +36,7 @@ function AppHeader({ showLoginButton = true }) {
   const shouldShowLoginButton = showLoginButton && !hasCurrentUser
   const currentUserName = String(currentUser?.name || '').trim()
   const roles = readRolesFromStorage()
+  const showMyBookings = hasCurrentUser && isCustomerRole()
   const canAccessManagement =
     roles.includes('ADMIN') || roles.includes('MANAGER') || roles.includes('STAFF')
   const managementPath = roles.includes('ADMIN')
@@ -76,7 +78,7 @@ function AppHeader({ showLoginButton = true }) {
               <Link className="text-sm font-semibold hover:text-primary transition-colors" to="/movies">
                 Phim
               </Link>
-              {hasCurrentUser ? (
+              {showMyBookings ? (
                 <Link className="text-sm font-semibold hover:text-primary transition-colors" to="/bookings">
                   Vé của tôi
                 </Link>

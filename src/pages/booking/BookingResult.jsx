@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import ReservationCountdown from './ReservationCountdown'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getBookingById } from '../../api/booking'
+import { getBookingById, getCheckoutContext } from '../../api/booking'
+import { getPaymentSession } from '../../api/payment'
 import { Button, Icon, Text } from '../../components'
 import BookingLayout from './BookingLayout'
 import {
@@ -14,6 +16,7 @@ import {
   resolveCheckoutPricing,
   mergePaymentSession,
   readJsonStorage,
+  resolveReservationDeadlineMs,
 } from './bookingData'
 
 function formatReservedUntil(value) {
@@ -40,6 +43,8 @@ function BookingResult() {
   )
   const [loading, setLoading] = useState(Boolean(bookingId))
   const [error, setError] = useState('')
+  const [checkoutContext, setCheckoutContext] = useState(() => cachedResultRef.current?.context || null)
+  const [reservationDeadlineMs, setReservationDeadlineMs] = useState(null)
 
   useEffect(() => {
     document.title = 'Kết Quả Đặt Vé - CinemaStar'
@@ -55,6 +60,8 @@ function BookingResult() {
     const ac = new AbortController()
     setLoading(true)
     setError('')
+    setReservationDeadlineMs(null)
+    setCheckoutContext(null)
 
     ;(async () => {
       const cached = cachedResultRef.current
@@ -63,24 +70,57 @@ function BookingResult() {
       if (cachedMatches) {
         setBooking(cached.booking)
         setPaymentSession(cached.paymentSession || null)
-        if (!cancelled) setLoading(false)
-        return
+        setCheckoutContext(cached.context || null)
+      }
+
+      const applyCheckout = (context, sessionFallback) => {
+        const nextBooking = context?.booking || cached?.booking
+        const nextSession = mergePaymentSession(
+          context?.paymentSession || sessionFallback,
+          cached?.paymentSession,
+        )
+        setBooking(nextBooking || null)
+        setPaymentSession(nextSession || null)
+        setCheckoutContext(context || null)
+        setReservationDeadlineMs(
+          resolveReservationDeadlineMs({
+            booking: nextBooking,
+            paymentSession: nextSession,
+            secondsToExpire: context?.secondsToExpire,
+          }),
+        )
       }
 
       try {
-        const data = await getBookingById(bookingId, { signal: ac.signal })
+        const context = await getCheckoutContext(bookingId, { signal: ac.signal })
         if (cancelled) return
-        setBooking(data)
-        setPaymentSession(
-          mergePaymentSession(null, cached?.paymentSession) || cached?.paymentSession || null,
-        )
+        applyCheckout(context, null)
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
-        if (cached?.booking) {
-          setBooking(cached.booking)
-          setPaymentSession(cached.paymentSession || null)
-        } else {
-          setError(e?.message || 'Không tải được đơn đặt vé')
+        try {
+          const [data, session] = await Promise.all([
+            getBookingById(bookingId, { signal: ac.signal }),
+            getPaymentSession(bookingId, { signal: ac.signal }).catch(() => null),
+          ])
+          if (cancelled) return
+          const mergedSession = mergePaymentSession(session, cached?.paymentSession) || session
+          setBooking(data)
+          setPaymentSession(mergedSession)
+          setReservationDeadlineMs(
+            resolveReservationDeadlineMs({ booking: data, paymentSession: mergedSession }),
+          )
+        } catch (fallbackError) {
+          if (cancelled || fallbackError?.name === 'AbortError') return
+          if (cachedMatches) {
+            setReservationDeadlineMs(
+              resolveReservationDeadlineMs({
+                booking: cached.booking,
+                paymentSession: cached.paymentSession,
+              }),
+            )
+          } else {
+            setError(fallbackError?.message || e?.message || 'Không tải được đơn đặt vé')
+          }
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -96,16 +136,34 @@ function BookingResult() {
   const seats = booking?.seatItems?.map((item) => item.seatCode).filter(Boolean) || []
   const filmTitle = booking?.filmTitle || MOVIE_FALLBACK.title
   const pricing = useMemo(
-    () => resolveCheckoutPricing(booking, paymentSession, cachedResult?.context),
-    [booking, paymentSession, cachedResult?.context],
+    () => resolveCheckoutPricing(booking, paymentSession, checkoutContext),
+    [booking, paymentSession, checkoutContext],
   )
-  const { payableAmount, promotionDiscount, promotionLabel } = pricing
+  const { payableAmount, promotionDiscount } = pricing
   const bookingCode = booking?.id ? String(booking.id).slice(0, 8).toUpperCase() : 'BOOKING'
   const showtimeDate = formatShowtimeDate(booking?.showtimeStartDateTime)
   const showtimeTime = formatShowtimeTime(booking?.showtimeStartDateTime)
   const payUrl = getPaymentPayUrl(paymentSession)
   const canPayOnline = booking?.paymentStatus !== 'PAID' && Boolean(payUrl)
   const reservedUntilLabel = formatReservedUntil(booking?.reservedUntil)
+
+  const showReservationTimer =
+    booking?.paymentStatus !== 'PAID' && (canPayOnline || checkoutContext?.canPay)
+
+  const [holdExpired, setHoldExpired] = useState(false)
+
+  useEffect(() => {
+    if (!reservationDeadlineMs) {
+      setHoldExpired(false)
+      return undefined
+    }
+    const tick = () => setHoldExpired(Date.now() >= reservationDeadlineMs)
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [reservationDeadlineMs])
+
+  const canShowPayButton = canPayOnline && !holdExpired
 
   return (
     <BookingLayout
@@ -132,7 +190,7 @@ function BookingResult() {
               <Icon name="check_circle" className="text-5xl" />
             </div>
             <Text variant="h1" className="text-3xl font-black text-white md:text-5xl">
-              {booking ? 'Đặt vé thành công!' : 'Kết quả đặt vé'}
+              {booking ? 'Đã đặt vé!' : 'Kết quả đặt vé'}
             </Text>
             <p className="mt-3 text-white/80">Mã đặt vé của bạn là</p>
             <p className="mt-2 font-mono text-2xl font-black tracking-[0.28em] md:text-4xl">
@@ -189,8 +247,7 @@ function BookingResult() {
                   <p className="mt-2 text-xl font-black text-white">{formatCurrency(payableAmount)}</p>
                   {promotionDiscount > 0 ? (
                     <p className="mt-1 text-sm text-emerald-400">
-                      Đã giảm {formatCurrency(promotionDiscount)}
-                      {promotionLabel ? ` · ${promotionLabel}` : ''}
+                      Giảm giá {formatCurrency(promotionDiscount)}
                     </p>
                   ) : (
                     <p className="mt-1 text-sm text-slate-400">Đã gồm combo (nếu có)</p>
@@ -201,22 +258,34 @@ function BookingResult() {
             </div>
 
             <aside className="flex flex-col justify-center rounded-3xl border border-white/10 bg-white/5 p-5">
-              {canPayOnline ? (
+              {canPayOnline || showReservationTimer ? (
                 <>
-                  <p className="text-sm text-slate-300">
-                    Hoàn tất thanh toán MoMo trong thời gian giữ ghế.
-                  </p>
-                  <a
-                    href={payUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-5 block"
-                  >
-                    <Button fullWidth className="rounded-full">
-                      <Icon name="payments" />
-                      Thanh toán MoMo · {formatCurrency(payableAmount)}
-                    </Button>
-                  </a>
+                  {canShowPayButton ? (
+                    <>
+                      <p className="text-sm text-slate-300">
+                        Thanh toán MoMo trong thời gian giữ ghế.
+                      </p>
+                      <a
+                        href={payUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-5 block"
+                      >
+                        <Button fullWidth className="rounded-full">
+                          <Icon name="payments" />
+                          <span className="min-w-0 flex-1">
+                            Thanh toán MoMo · {formatCurrency(payableAmount)}
+                          </span>
+                          <Icon name="open_in_new" className="shrink-0 text-lg" aria-hidden />
+                        </Button>
+                      </a>
+                    </>
+                  ) : null}
+                  {showReservationTimer && reservationDeadlineMs ? (
+                    <ReservationCountdown deadlineMs={reservationDeadlineMs} />
+                  ) : showReservationTimer && loading ? (
+                    <p className="mt-4 text-center text-xs text-slate-400">Đang tải thời gian giữ ghế...</p>
+                  ) : null}
                 </>
               ) : (
                 <>

@@ -3,6 +3,7 @@ import { bookingPath } from './config/paths'
 
 const BOOKINGS_CREATE_URL = bookingPath('')
 const BOOKINGS_ME_ACTIVE_SEARCH_URL = bookingPath('me/active/search')
+const BOOKINGS_ME_HISTORY_SEARCH_URL = bookingPath('me/history/search')
 const BOOKINGS_ME_ACTIVE_URL = bookingPath('me/active')
 const BOOKINGS_OPERATOR_SEARCH_URL = bookingPath('cinemas/me/search')
 const BOOKINGS_OPERATOR_PURCHASED_SEARCH_URL = bookingPath('cinemas/me/purchased/search')
@@ -13,8 +14,8 @@ const bookingStatusUrl = (id) => bookingPath(`${id}/status`)
 const bookingCancelUrl = (id) => bookingPath(`${id}/cancel`)
 
 /**
- * Body cho POST /bookings/me/active/search, POST /bookings/cinemas/me/search, ...
- * Với me/active/search: BE tự lọc đơn active — không gửi BOOKING_STATUS / PAYMENT_STATUS.
+ * Body cho POST /bookings/me/active/search, /me/history/search, POST /bookings/cinemas/me/search, ...
+ * Với me/active|history/search: BE tự lọc trạng thái — không gửi BOOKING_STATUS / PAYMENT_STATUS.
  */
 export function buildBookingsSearchBody({
   page = 1,
@@ -183,6 +184,31 @@ export async function searchMyActiveBookings(body, { signal } = {}) {
     message: resp?.message || 'Không tải được danh sách đơn đặt vé',
     raw: resp,
   }
+}
+
+/** POST /bookings/me/history/search — đơn đã thanh toán (CONFIRMED + PAID) */
+export async function searchMyBookingHistory(body, { signal } = {}) {
+  const { url, options } = buildPost(BOOKINGS_ME_HISTORY_SEARCH_URL, body)
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tải được lịch sử đặt vé',
+    raw: resp,
+  }
+}
+
+/** active | history */
+export async function searchMyBookingsByListType(listType, body, options = {}) {
+  if (listType === 'history') {
+    return searchMyBookingHistory(body, options)
+  }
+  return searchMyActiveBookings(body, options)
 }
 
 /** POST /bookings/cinemas/me/search */

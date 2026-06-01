@@ -7,6 +7,7 @@ import {
 } from '../../api/showtime'
 import { Button, Icon, SearchableSelect, Text, useToast } from '../../components'
 import { mapCinemasToSelectOptions } from '../../api/hall'
+import BookingFilmSummary from './BookingFilmSummary'
 import BookingLayout from './BookingLayout'
 import {
   BOOKING_MOVIE_STORAGE_KEY,
@@ -16,7 +17,6 @@ import {
   extractCinemasFromShowtimes,
   formatCurrency,
   formatShowtimeTime,
-  getFilmPoster,
   getFilmTitle,
   getShowtimeHall,
   readJsonStorage,
@@ -169,21 +169,13 @@ function ShowtimeSelection() {
     }
   }, [selectedFilmId, selectedDate, selectedCinemaId])
 
-  const featuredFilm = useMemo(() => {
-    if (selectedMovie) {
-      return {
-        title: selectedMovie.title || selectedMovie.name || MOVIE_FALLBACK.title,
-        poster: selectedMovie.poster || MOVIE_FALLBACK.poster,
-        ageRating: selectedMovie.ageRating || MOVIE_FALLBACK.ageRating,
-        duration: selectedMovie.duration ? `${selectedMovie.duration} phút` : MOVIE_FALLBACK.duration,
-        genres: selectedMovie.type || MOVIE_FALLBACK.genres,
-        format: MOVIE_FALLBACK.format,
-      }
-    }
-    return MOVIE_FALLBACK
-  }, [selectedMovie])
-
   const cinemaOptions = useMemo(() => mapCinemasToSelectOptions(cinemas), [cinemas])
+
+  const filmTitle = selectedMovie
+    ? getFilmTitle(selectedMovie)
+    : selectedFilmId
+      ? MOVIE_FALLBACK.title
+      : ''
 
   const selectedCinema = useMemo(
     () => cinemas.find((c) => c.id === selectedCinemaId) || null,
@@ -215,43 +207,13 @@ function ShowtimeSelection() {
     <BookingLayout
       eyebrow="Bước 01"
       title="Chọn Suất Chiếu"
-      subtitle="Chọn ngày chiếu, rạp và khung giờ phù hợp để bắt đầu đặt vé."
+      subtitle={
+        filmTitle
+          ? `${filmTitle} — chọn ngày chiếu, rạp và khung giờ.`
+          : 'Chọn ngày chiếu, rạp và khung giờ phù hợp để bắt đầu đặt vé.'
+      }
     >
-      <div className="grid gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 shadow-xl shadow-primary/10">
-          <div className="overflow-hidden rounded-2xl">
-            <img
-              alt={featuredFilm.title}
-              className="aspect-[2/3] w-full object-cover"
-              src={featuredFilm.poster}
-            />
-          </div>
-          <div className="mt-5 space-y-4">
-            <div>
-              <span className="mb-3 inline-flex rounded-lg bg-red-600 px-3 py-1 text-xs font-black text-white">
-                {featuredFilm.ageRating}
-              </span>
-              <Text variant="h2" className="text-2xl font-black text-white">
-                {featuredFilm.title}
-              </Text>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm text-slate-300">
-              <div className="rounded-2xl bg-white/5 p-4">
-                <Icon name="schedule" className="mb-2 text-primary" />
-                <p className="font-semibold">{featuredFilm.duration}</p>
-              </div>
-              <div className="rounded-2xl bg-white/5 p-4">
-                <Icon name="high_quality" className="mb-2 text-primary" />
-                <p className="font-semibold">{featuredFilm.format}</p>
-              </div>
-            </div>
-            <Text variant="small" className="leading-6 text-slate-400">
-              {featuredFilm.genres}
-            </Text>
-          </div>
-        </section>
-
-        <section className="space-y-6">
+      <div className="space-y-6">
           {!selectedFilmId ? (
             <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center text-red-200">
               Vui lòng chọn phim từ{' '}
@@ -263,7 +225,10 @@ function ShowtimeSelection() {
           ) : null}
 
           {selectedFilmId ? (
-            <>
+            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+              <BookingFilmSummary film={selectedMovie} loading={filmLoading && !selectedMovie} />
+
+              <div className="min-w-0 space-y-6">
               <div className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-4">
                   <div className="shrink-0">
@@ -381,35 +346,33 @@ function ShowtimeSelection() {
                 </div>
               ) : null}
 
-            </>
-          ) : null}
-
-          <div className="flex justify-end">
-            <div className="flex flex-col-reverse gap-3 sm:flex-row">
-              <Link to={selectedFilmId ? `/movies/${selectedFilmId}` : '/movies'}>
-                <Button variant="secondary" className="w-full rounded-full px-8 sm:w-auto">
-                  <Icon name="arrow_back" />
-                  Quay lại
-                </Button>
-              </Link>
-              <Button
-                className="w-full rounded-full px-8 sm:w-auto"
-                disabled={
-                  pageLoading ||
-                  !selectedFilmId ||
-                  !selectedDate ||
-                  !selectedCinemaId ||
-                  !selectedShowtimeId ||
-                  showtimesLoading
-                }
-                onClick={handleContinue}
-              >
-                Tiếp tục
-                <Icon name="arrow_forward" />
-              </Button>
+              <div className="flex justify-end">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                  <Link to={`/movies/${selectedFilmId}`}>
+                    <Button variant="secondary" className="w-full rounded-full px-8 sm:w-auto">
+                      <Icon name="arrow_back" />
+                      Quay lại
+                    </Button>
+                  </Link>
+                  <Button
+                    className="w-full rounded-full px-8 sm:w-auto"
+                    disabled={
+                      pageLoading ||
+                      !selectedDate ||
+                      !selectedCinemaId ||
+                      !selectedShowtimeId ||
+                      showtimesLoading
+                    }
+                    onClick={handleContinue}
+                  >
+                    Tiếp tục
+                    <Icon name="arrow_forward" />
+                  </Button>
+                </div>
+              </div>
+              </div>
             </div>
-          </div>
-        </section>
+          ) : null}
       </div>
     </BookingLayout>
   )

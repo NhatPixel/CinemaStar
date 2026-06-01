@@ -1,4 +1,5 @@
 import { formatSeatLabel, seatsToLayoutDefinition } from '../../components/hall/hallLayoutUtils'
+import { AGE_RATING_META } from '../../constants/ageRatingMeta'
 import { SEAT_TYPE } from '../../constants/hallStatusOptions'
 
 export const BOOKING_DRAFT_STORAGE_KEY = 'cinemaStar.bookingDraft'
@@ -20,6 +21,42 @@ export const MOVIE_FALLBACK = {
   duration: 'Đang cập nhật',
   genres: 'Đang cập nhật',
   format: '2D Phụ đề',
+}
+
+export function getFilmRecordTitle(film) {
+  return String(film?.title || film?.name || MOVIE_FALLBACK.title).trim()
+}
+
+export function getFilmRecordPoster(film) {
+  return String(film?.poster || MOVIE_FALLBACK.poster).trim()
+}
+
+export function formatFilmAgeRatingShort(film) {
+  const key = String(film?.ageRating || '').trim().toUpperCase()
+  if (!key) return '—'
+  return AGE_RATING_META[key]?.short || key.replace(/^RATING_/i, '')
+}
+
+export function formatFilmDurationLabel(film) {
+  const raw = film?.duration
+  if (raw == null || raw === '') return MOVIE_FALLBACK.duration
+  const minutes = Number(raw)
+  if (Number.isNaN(minutes)) return String(raw)
+  return `${minutes} phút`
+}
+
+export function formatFilmFormatLabel(film) {
+  return String(film?.format || film?.filmFormat || MOVIE_FALLBACK.format).trim()
+}
+
+export function formatFilmGenresLabel(film) {
+  const raw = film?.genres ?? film?.genre
+  if (raw == null || raw === '') return MOVIE_FALLBACK.genres
+  if (Array.isArray(raw)) {
+    const parts = raw.map((item) => String(item).trim()).filter(Boolean)
+    return parts.length ? parts.join(', ') : MOVIE_FALLBACK.genres
+  }
+  return String(raw).trim() || MOVIE_FALLBACK.genres
 }
 
 /** Phương thức thanh toán mặc định (hiển thị). */
@@ -57,6 +94,45 @@ export function formatCurrency(value) {
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(Number(value || 0))
+}
+
+/** Thời gian giữ ghế mặc định (5 phút). */
+export const BOOKING_HOLD_DURATION_MS = 5 * 60 * 1000
+
+function parseDateTimeMs(value) {
+  if (value == null || value === '') return null
+  const ms = new Date(value).getTime()
+  return Number.isNaN(ms) ? null : ms
+}
+
+/** Hạn giữ ghế từ BE hoặc timeCreated + 5 phút. */
+export function getReservationDeadlineMs(booking) {
+  if (!booking) return null
+  const until = parseDateTimeMs(booking.reservedUntil)
+  if (until != null) return until
+  const created = parseDateTimeMs(booking.timeCreated)
+  if (created != null) return created + BOOKING_HOLD_DURATION_MS
+  return null
+}
+
+/**
+ * Hạn đếm ngược sau khi gọi API (ưu tiên secondsToExpire từ checkout-context).
+ */
+export function resolveReservationDeadlineMs({ booking, paymentSession, secondsToExpire } = {}) {
+  if (secondsToExpire != null && secondsToExpire !== '') {
+    const sec = Math.max(0, Number(secondsToExpire))
+    if (Number.isFinite(sec)) return Date.now() + sec * 1000
+  }
+  const sessionUntil = parseDateTimeMs(paymentSession?.expiresAt)
+  if (sessionUntil != null) return sessionUntil
+  return getReservationDeadlineMs(booking)
+}
+
+export function formatCountdownFromMs(ms) {
+  const totalSec = Math.max(0, Math.ceil(Number(ms || 0) / 1000))
+  const minutes = Math.floor(totalSec / 60)
+  const seconds = totalSec % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 /** Tổng gốc trước khuyến mãi (BE: finalAmount). */
@@ -153,6 +229,15 @@ export function enrichBookingWithPaymentSession(booking, paymentSession, { promo
     patch.promotionName = paymentSession.promotionName
   }
   return { ...booking, ...patch }
+}
+
+export function isBookingUnpaid(booking) {
+  return String(booking?.paymentStatus || '').trim().toUpperCase() !== 'PAID'
+}
+
+export function getBookingCinemaName(booking) {
+  const name = String(booking?.cinemaName || booking?.cinema?.name || '').trim()
+  return name || '—'
 }
 
 export function canCancelBooking(booking) {
