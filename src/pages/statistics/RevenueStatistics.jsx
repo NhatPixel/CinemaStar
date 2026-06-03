@@ -4,13 +4,13 @@ import {
   CustomSelect,
   Icon,
   Input,
+  PagePagination,
   SearchableMultiSelect,
   Text,
   useToast,
 } from '../../components'
-import { getManagementCinemas } from '../../api/cinema'
-import { buildFilmsSearchBody, searchFilms } from '../../api/film'
-import { mapCinemasToSelectOptions } from '../../api/hall'
+import { useCursorFilmOptions } from '../../hooks/useCursorFilmOptions'
+import { usePagedCinemaOptions } from '../../hooks/usePagedCinemaOptions'
 import {
   buildRevenueReportBody,
   downloadBlob,
@@ -24,8 +24,6 @@ import { REVENUE_REPORT_TYPE_OPTIONS } from '../../constants/revenueReportOption
 import { readCurrentUserRole } from '../../constants/userRoleLabels'
 
 const PAGE_SIZE = 12
-const FILM_PAGE_SIZE = 50
-
 function formatDateTime(value) {
   if (!value) return '—'
   const d = new Date(value)
@@ -61,10 +59,27 @@ function RevenueStatistics() {
   const [dateTo, setDateTo] = useState('')
   const [cinemaIds, setCinemaIds] = useState([])
   const [filmIds, setFilmIds] = useState([])
-  const [cinemaOptions, setCinemaOptions] = useState([])
-  const [filmOptions, setFilmOptions] = useState([])
-  const [refsLoading, setRefsLoading] = useState(true)
+  const {
+    options: cinemaOptions,
+    loading: cinemaOptionsLoading,
+    loadingMore: cinemaOptionsLoadingMore,
+    hasMore: cinemaOptionsHasMore,
+    onSearchChange: onCinemaSearchChange,
+    onLoadMore: onCinemaLoadMore,
+    mergeOption: mergeCinemaOption,
+  } = usePagedCinemaOptions({ enabled: true })
 
+  const {
+    options: filmOptions,
+    loading: filmOptionsLoading,
+    loadingMore: filmOptionsLoadingMore,
+    hasMore: filmOptionsHasMore,
+    onSearchChange: onFilmSearchChange,
+    onLoadMore: onFilmLoadMore,
+    mergeOption: mergeFilmOption,
+  } = useCursorFilmOptions({
+    statusIn: ['NOW_SHOWING', 'COMING_SOON', 'ENDED'],
+  })
   const [report, setReport] = useState(null)
   const [rows, setRows] = useState([])
   const [selectedIds, setSelectedIds] = useState([])
@@ -73,25 +88,20 @@ function RevenueStatistics() {
   const [exporting, setExporting] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
 
-  const cinemaMultiOptions = useMemo(
-    () =>
-      cinemaOptions.map((opt) => ({
-        value: opt.value,
-        label: opt.label,
-        tagLabel: opt.label,
-      })),
-    [cinemaOptions],
-  )
+  const cinemaMultiOptions = cinemaOptions
+  const filmMultiOptions = filmOptions
 
-  const filmMultiOptions = useMemo(
-    () =>
-      filmOptions.map((opt) => ({
-        value: opt.value,
-        label: opt.label,
-        tagLabel: opt.label,
-      })),
-    [filmOptions],
-  )
+  useEffect(() => {
+    for (const id of cinemaIds) {
+      mergeCinemaOption(id)
+    }
+  }, [cinemaIds, mergeCinemaOption])
+
+  useEffect(() => {
+    for (const id of filmIds) {
+      mergeFilmOption(id)
+    }
+  }, [filmIds, mergeFilmOption])
 
   const isPayment = reportType === 'payment'
   const totalSummary = report?.total
@@ -110,60 +120,6 @@ function RevenueStatistics() {
     setPage(1)
     setSelectedIds([])
   }, [debouncedKeyword, reportType, dateFrom, dateTo, cinemaIds, filmIds])
-
-  useEffect(() => {
-    let cancelled = false
-    const ac = new AbortController()
-    setRefsLoading(true)
-    ;(async () => {
-      try {
-        const cinemas = await getManagementCinemas({ signal: ac.signal })
-        if (cancelled) return
-        setCinemaOptions(mapCinemasToSelectOptions(cinemas, { includeAll: false }))
-      } catch (e) {
-        if (cancelled || e?.name === 'AbortError') return
-        toast.error(e?.message || 'Không tải được danh sách rạp')
-      } finally {
-        if (!cancelled) setRefsLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [toast])
-
-  useEffect(() => {
-    let cancelled = false
-    const ac = new AbortController()
-    ;(async () => {
-      try {
-        const data = await searchFilms(
-          buildFilmsSearchBody({
-            page: 1,
-            size: FILM_PAGE_SIZE,
-            keyword: '',
-            statusIn: ['NOW_SHOWING', 'COMING_SOON', 'ENDED'],
-          }),
-          { signal: ac.signal },
-        )
-        if (cancelled) return
-        const films = data?.data || []
-        setFilmOptions(
-          films.map((film) => ({
-            value: film.id,
-            label: film.title || film.name || film.id,
-          })),
-        )
-      } catch {
-        if (!cancelled) setFilmOptions([])
-      }
-    })()
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -329,7 +285,14 @@ function RevenueStatistics() {
               onChange={(e) => setCinemaIds(Array.isArray(e.target.value) ? e.target.value : [])}
               options={cinemaMultiOptions}
               placeholder="Tất cả rạp trong phạm vi"
-              disabled={refsLoading}
+              searchPlaceholder="Tìm rạp..."
+              icon="location_on"
+              serverSearch
+              onSearchChange={onCinemaSearchChange}
+              onLoadMore={onCinemaLoadMore}
+              hasMore={cinemaOptionsHasMore}
+              loading={cinemaOptionsLoading}
+              loadingMore={cinemaOptionsLoadingMore}
             />
             <SearchableMultiSelect
               label="Phim"
@@ -338,6 +301,14 @@ function RevenueStatistics() {
               onChange={(e) => setFilmIds(Array.isArray(e.target.value) ? e.target.value : [])}
               options={filmMultiOptions}
               placeholder="Tất cả phim"
+              searchPlaceholder="Tìm phim..."
+              icon="movie"
+              serverSearch
+              onSearchChange={onFilmSearchChange}
+              onLoadMore={onFilmLoadMore}
+              hasMore={filmOptionsHasMore}
+              loading={filmOptionsLoading}
+              loadingMore={filmOptionsLoadingMore}
             />
           </div>
           <div className="flex justify-end pt-1">
@@ -534,30 +505,16 @@ function RevenueStatistics() {
                 : `Đang hiển thị ${rows.length} rạp`}
             </Text>
           ) : null}
-          {!loading && report && report.totalPages > 1 ? (
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!report.hasPrevious || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                {'<'}
-              </Button>
-              <Text variant="small" className="text-sm text-slate-500">
-                Trang {report.currentPage || page} / {report.totalPages}
-              </Text>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!report.hasNext || loading}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {'>'}
-              </Button>
-            </div>
+          {report ? (
+            <PagePagination
+              page={report.currentPage || page}
+              totalPages={report.totalPages}
+              hasNext={report.hasNext}
+              hasPrevious={report.hasPrevious}
+              loading={loading}
+              onPageChange={setPage}
+              className="self-end sm:self-auto"
+            />
           ) : null}
         </div>
       </div>

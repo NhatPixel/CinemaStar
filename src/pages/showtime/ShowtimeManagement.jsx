@@ -5,6 +5,7 @@ import {
   CustomSelect,
   Icon,
   Input,
+  PagePagination,
   Text,
   useToast,
 } from '../../components'
@@ -134,7 +135,7 @@ function ShowtimeManagement() {
         const data = await searchHalls(
           buildHallsSearchBody({
             page: 1,
-            size: 200,
+            size: 12,
             cinemaId: cinemaFilter,
             status: 'ACTIVE',
           }),
@@ -383,34 +384,15 @@ function ShowtimeManagement() {
                   : `Đang hiển thị ${rows.length} suất chiếu`}
               </Text>
             )}
-            {!loading && totalPages > 1 && (
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
-                  disabled={!hasPrevious || loading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  {'<'}
-                </Button>
-                <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-                  Trang {page}
-                  {totalPages > 0 ? ` / ${totalPages}` : ''}
-                </Text>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
-                  disabled={!hasNext || loading}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  {'>'}
-                </Button>
-              </div>
-            )}
+            <PagePagination
+              page={page}
+              totalPages={totalPages}
+              hasNext={hasNext}
+              hasPrevious={hasPrevious}
+              loading={loading}
+              onPageChange={setPage}
+              className="self-end sm:self-auto"
+            />
           </div>
         </div>
 

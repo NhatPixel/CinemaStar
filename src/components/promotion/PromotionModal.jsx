@@ -8,6 +8,8 @@ import {
   validatePromotionForm,
 } from '../../api/promotion'
 import { getFilmById } from '../../api/film'
+import { useCursorFilmOptions } from '../../hooks/useCursorFilmOptions'
+import { usePagedCinemaOptions } from '../../hooks/usePagedCinemaOptions'
 import { formatCurrency } from '../../pages/booking/bookingData'
 import {
   PROMOTION_DISCOUNT_TYPE_OPTIONS,
@@ -76,10 +78,6 @@ function PromotionModal({
   isOpen,
   mode = 'create',
   promotionId,
-  cinemaOptions = [],
-  filmOptions = [],
-  cinemaNameById = {},
-  filmNameById = {},
   onCancel,
   onSubmitted,
 }) {
@@ -95,28 +93,37 @@ function PromotionModal({
   const [submitting, setSubmitting] = useState(false)
   const [extraFilmOptions, setExtraFilmOptions] = useState([])
 
-  const cinemaMultiOptions = useMemo(
-    () =>
-      cinemaOptions.map((opt) => ({
-        value: opt.value,
-        label: opt.label,
-        tagLabel: opt.label,
-      })),
-    [cinemaOptions],
-  )
+  const {
+    options: cinemaMultiOptions,
+    loading: cinemaLoading,
+    loadingMore: cinemaLoadingMore,
+    hasMore: cinemaHasMore,
+    onSearchChange: onCinemaSearchChange,
+    onLoadMore: onCinemaLoadMore,
+    mergeOption: mergeCinemaOption,
+  } = usePagedCinemaOptions({ enabled: isOpen })
+
+  const {
+    options: filmOptions,
+    loading: filmLoading,
+    loadingMore: filmLoadingMore,
+    hasMore: filmHasMore,
+    onSearchChange: onFilmSearchChange,
+    onLoadMore: onFilmLoadMore,
+    mergeOption: mergeFilmOption,
+  } = useCursorFilmOptions({
+    enabled: isOpen,
+    statusIn: ['NOW_SHOWING', 'COMING_SOON'],
+  })
 
   const filmMultiOptions = useMemo(() => {
     const merged = [...filmOptions]
     for (const extra of extraFilmOptions) {
       if (!merged.some((opt) => String(opt.value) === String(extra.value))) {
-        merged.push(extra)
+        merged.push({ ...extra, tagLabel: extra.label })
       }
     }
-    return merged.map((opt) => ({
-      value: opt.value,
-      label: opt.label,
-      tagLabel: opt.label,
-    }))
+    return merged
   }, [filmOptions, extraFilmOptions])
 
   useEffect(() => {
@@ -160,14 +167,19 @@ function PromotionModal({
   }, [isOpen, form.filmIds, filmOptions])
 
   useEffect(() => {
+    if (!isOpen || !form.cinemaIds?.length) return
+    form.cinemaIds.forEach((id) => mergeCinemaOption(id))
+  }, [isOpen, form.cinemaIds, mergeCinemaOption])
+
+  useEffect(() => {
     if (!isOpen) return undefined
     if (isCreate) {
       setDetail(null)
-      setForm({
-        ...EMPTY_FORM,
-        cinemaIds: defaultCinemaIds(cinemaOptions),
-      })
       setSubmitting(false)
+      setForm((prev) => {
+        if (prev.cinemaIds?.length) return prev
+        return { ...EMPTY_FORM, cinemaIds: defaultCinemaIds(cinemaMultiOptions) }
+      })
       return undefined
     }
     if (!promotionId) return undefined
@@ -195,7 +207,7 @@ function PromotionModal({
       cancelled = true
       controller.abort()
     }
-  }, [isOpen, isCreate, promotionId, cinemaOptions, toast, onCancel])
+  }, [isOpen, isCreate, promotionId, cinemaMultiOptions, toast, onCancel])
 
   const handleChange = (e) => {
     if (readOnly) return
@@ -388,7 +400,15 @@ function PromotionModal({
               onChange={handleMultiChange}
               options={cinemaMultiOptions}
               placeholder="Chọn rạp"
-              disabled={readOnly || cinemaMultiOptions.length === 0}
+              searchPlaceholder="Tìm rạp..."
+              icon="location_on"
+              disabled={readOnly}
+              serverSearch={!readOnly}
+              onSearchChange={onCinemaSearchChange}
+              onLoadMore={onCinemaLoadMore}
+              hasMore={cinemaHasMore}
+              loading={cinemaLoading}
+              loadingMore={cinemaLoadingMore}
             />
 
             <SearchableMultiSelect
@@ -398,7 +418,15 @@ function PromotionModal({
               onChange={handleMultiChange}
               options={filmMultiOptions}
               placeholder="Chọn phim"
+              searchPlaceholder="Tìm phim..."
+              icon="movie"
               disabled={readOnly}
+              serverSearch={!readOnly}
+              onSearchChange={onFilmSearchChange}
+              onLoadMore={onFilmLoadMore}
+              hasMore={filmHasMore}
+              loading={filmLoading}
+              loadingMore={filmLoadingMore}
             />
 
             {isView && detail ? (
@@ -412,13 +440,23 @@ function PromotionModal({
                 <p className="mt-2 text-slate-500">
                   Rạp:{' '}
                   {(detail.cinemaIds || [])
-                    .map((id) => cinemaNameById[id] || id)
+                    .map(
+                      (id) =>
+                        cinemaMultiOptions.find((opt) => String(opt.value) === String(id))?.label ||
+                        id,
+                    )
                     .join(', ') || '—'}
                 </p>
                 <p className="mt-1 text-slate-500">
                   Phim:{' '}
                   {(detail.filmIds || []).length > 0
-                    ? detail.filmIds.map((id) => filmNameById[id] || id).join(', ')
+                    ? detail.filmIds
+                        .map(
+                          (id) =>
+                            filmMultiOptions.find((opt) => String(opt.value) === String(id))
+                              ?.label || id,
+                        )
+                        .join(', ')
                     : 'Tất cả phim'}
                 </p>
                 {detail.minOrderAmount != null ? (

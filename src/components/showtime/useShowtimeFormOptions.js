@@ -1,20 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getManagementCinemas } from '../../api/cinema'
-import { mapCinemasToSelectOptions } from '../../api/hall'
-import { buildFilmsSearchBody, searchFilms } from '../../api/film'
 import { buildHallsSearchBody, searchHalls } from '../../api/hall'
 import { getPricingPolicies } from '../../api/pricingPolicy'
+import { useCursorFilmOptions } from '../../hooks/useCursorFilmOptions'
+import { usePagedCinemaOptions } from '../../hooks/usePagedCinemaOptions'
 
 const PAGE_SIZE = 12
 const FILM_STATUS = 'NOW_SHOWING'
 const HALL_STATUS = 'ACTIVE'
-
-function mapFilmOptions(list) {
-  return (list || []).map((film) => ({
-    value: film.id,
-    label: film.title || film.name || String(film.id),
-  }))
-}
 
 function mapHallOptions(list) {
   return (list || []).map((hall) => ({
@@ -43,19 +35,30 @@ function mergeOption(options, value, label) {
 }
 
 /**
- * Load phim (NOW_SHOWING), rạp (getManagementCinemas), phòng (ACTIVE) cho form suất chiếu.
+ * Phim (cursor), rạp & phòng (phân trang) — lazy load trong dropdown.
  */
 export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
-  const [filmOptions, setFilmOptions] = useState([])
-  const [filmCursor, setFilmCursor] = useState(null)
-  const [filmHasMore, setFilmHasMore] = useState(false)
-  const [filmLoading, setFilmLoading] = useState(false)
-  const [filmLoadingMore, setFilmLoadingMore] = useState(false)
-  const [filmKeyword, setFilmKeyword] = useState('')
-  const filmAbortRef = useRef(null)
+  const {
+    options: filmOptions,
+    loading: filmLoading,
+    loadingMore: filmLoadingMore,
+    hasMore: filmHasMore,
+    onSearchChange: onFilmSearchChange,
+    onLoadMore: onFilmLoadMore,
+    mergeOption: mergeFilmOption,
+    setOptions: setFilmOptions,
+  } = useCursorFilmOptions({ enabled, status: FILM_STATUS })
 
-  const [cinemaOptions, setCinemaOptions] = useState([])
-  const [cinemaLoading, setCinemaLoading] = useState(false)
+  const {
+    options: cinemaOptions,
+    loading: cinemaLoading,
+    loadingMore: cinemaLoadingMore,
+    hasMore: cinemaHasMore,
+    onSearchChange: onCinemaSearchChange,
+    onLoadMore: onCinemaLoadMore,
+    mergeOption: mergeCinemaOption,
+    setOptions: setCinemaOptions,
+  } = usePagedCinemaOptions({ enabled })
 
   const [hallOptions, setHallOptions] = useState([])
   const [hallPage, setHallPage] = useState(1)
@@ -68,55 +71,6 @@ export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
   const [pricingPolicyOptions, setPricingPolicyOptions] = useState([])
   const [pricingLoading, setPricingLoading] = useState(false)
   const pricingAbortRef = useRef(null)
-
-  const fetchFilms = useCallback(
-    async ({ cursor, keyword, append }) => {
-      filmAbortRef.current?.abort()
-      const ac = new AbortController()
-      filmAbortRef.current = ac
-
-      if (append) setFilmLoadingMore(true)
-      else setFilmLoading(true)
-
-      try {
-        const body = buildFilmsSearchBody({
-          size: PAGE_SIZE,
-          cursor: cursor || undefined,
-          title: keyword,
-          status: FILM_STATUS,
-        })
-        const data = await searchFilms(body, { signal: ac.signal })
-        const mapped = mapFilmOptions(data?.data)
-        setFilmOptions((prev) => (append ? [...prev, ...mapped] : mapped))
-        setFilmCursor(data?.nextCursor ?? null)
-        setFilmHasMore(Boolean(data?.hasNext))
-      } catch (e) {
-        if (e?.name === 'AbortError') return
-        toast?.error?.(e?.message || 'Không tải được danh sách phim')
-        if (!append) setFilmOptions([])
-        setFilmHasMore(false)
-      } finally {
-        if (!ac.signal.aborted) {
-          setFilmLoading(false)
-          setFilmLoadingMore(false)
-        }
-      }
-    },
-    [toast],
-  )
-
-  const fetchCinemas = useCallback(async () => {
-    setCinemaLoading(true)
-    try {
-      const list = await getManagementCinemas()
-      setCinemaOptions(mapCinemasToSelectOptions(list, { includeAll: false }))
-    } catch (e) {
-      toast?.error?.(e?.message || 'Không tải được danh sách rạp')
-      setCinemaOptions([])
-    } finally {
-      setCinemaLoading(false)
-    }
-  }, [toast])
 
   const fetchHalls = useCallback(
     async ({ page, keyword, append, cinemaId: cid }) => {
@@ -162,16 +116,6 @@ export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
   )
 
   useEffect(() => {
-    if (!enabled) return undefined
-    setFilmKeyword('')
-    fetchFilms({ keyword: '', append: false })
-    fetchCinemas()
-    return () => {
-      filmAbortRef.current?.abort()
-    }
-  }, [enabled, fetchFilms, fetchCinemas])
-
-  useEffect(() => {
     if (!enabled) {
       setPricingPolicyOptions([])
       return undefined
@@ -208,20 +152,6 @@ export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
     }
   }, [enabled, cinemaId, fetchHalls])
 
-  const onFilmSearchChange = useCallback(
-    (keyword) => {
-      setFilmKeyword(keyword)
-      setFilmCursor(null)
-      fetchFilms({ keyword, append: false })
-    },
-    [fetchFilms],
-  )
-
-  const onFilmLoadMore = useCallback(() => {
-    if (!filmHasMore || filmLoadingMore || filmLoading || !filmCursor) return
-    fetchFilms({ cursor: filmCursor, keyword: filmKeyword, append: true })
-  }, [filmHasMore, filmLoadingMore, filmLoading, filmCursor, filmKeyword, fetchFilms])
-
   const onHallSearchChange = useCallback(
     (keyword) => {
       if (!cinemaId) return
@@ -252,12 +182,8 @@ export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
       pricingPolicyId,
       pricingPolicyLabel,
     }) => {
-      if (filmId) {
-        setFilmOptions((prev) => mergeOption(prev, filmId, filmLabel))
-      }
-      if (cid) {
-        setCinemaOptions((prev) => mergeOption(prev, cid, cinemaLabel))
-      }
+      if (filmId) mergeFilmOption(filmId, filmLabel)
+      if (cid) mergeCinemaOption(cid, cinemaLabel)
       if (hallId) {
         setHallOptions((prev) => mergeOption(prev, hallId, hallLabel))
       }
@@ -265,7 +191,7 @@ export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
         setPricingPolicyOptions((prev) => mergeOption(prev, pricingPolicyId, pricingPolicyLabel))
       }
     },
-    [],
+    [mergeFilmOption, mergeCinemaOption],
   )
 
   return {
@@ -278,11 +204,15 @@ export function useShowtimeFormOptions({ enabled, cinemaId, toast }) {
     filmLoadingMore,
     filmHasMore,
     cinemaLoading,
+    cinemaLoadingMore,
+    cinemaHasMore,
     hallLoading,
     hallLoadingMore,
     hallHasMore,
     onFilmSearchChange,
     onFilmLoadMore,
+    onCinemaSearchChange,
+    onCinemaLoadMore,
     onHallSearchChange,
     onHallLoadMore,
     injectSelectedLabels,

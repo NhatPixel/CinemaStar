@@ -3,9 +3,8 @@ import { cinemaPath } from './config/paths'
 import { readCurrentUserRole } from '../constants/userRoleLabels'
 
 const CINEMAS_SEARCH_URL = cinemaPath('search')
+const CINEMAS_ME_SEARCH_URL = cinemaPath('me/search')
 const CINEMAS_CREATE_URL = cinemaPath('')
-/** GET /api/cinemas/me — rạp manager/staff được phân quyền */
-const CINEMAS_ME_URL = cinemaPath('me')
 const cinemaDetailUrl = (id) => cinemaPath(id)
 
 const MAX_CINEMA_SEARCH_PAGES = 50
@@ -53,9 +52,9 @@ export function getCinemaManagerLabel(cinema) {
   return cinema.managerName?.trim() || '—'
 }
 
-/** GET /cinemas/me — response cũng có `managerName` */
-export async function getMyManagedCinemas({ signal } = {}) {
-  const { url, options } = buildGet(CINEMAS_ME_URL)
+/** POST /cinemas/me/search — rạp manager/staff được phân quyền (PageResponse). */
+export async function searchMyManagedCinemas(body, { signal } = {}) {
+  const { url, options } = buildPost(CINEMAS_ME_SEARCH_URL, body)
   const resp = await callApi({
     url,
     options: { ...options, ...(signal ? { signal } : {}) },
@@ -68,6 +67,32 @@ export async function getMyManagedCinemas({ signal } = {}) {
     message: resp?.message || 'Không tải được danh sách rạp được quản lý',
     raw: resp,
   }
+}
+
+/** Manager/staff: lấy toàn bộ rạp qua POST /cinemas/me/search (phân trang). */
+export async function searchAllMyManagedCinemas({
+  signal,
+  keyword,
+  status,
+  size = DEFAULT_CINEMA_PAGE_SIZE,
+  extraFilters,
+} = {}) {
+  const all = []
+  for (let page = 1; page <= MAX_CINEMA_SEARCH_PAGES; page += 1) {
+    const data = await searchMyManagedCinemas(
+      buildCinemasSearchBody({
+        page,
+        size,
+        keyword,
+        status,
+        extraFilters,
+      }),
+      { signal },
+    )
+    all.push(...(data?.data || []))
+    if (!data?.hasNext) break
+  }
+  return all
 }
 
 /** Admin: lấy toàn bộ rạp qua POST /cinemas/search (phân trang). */
@@ -99,7 +124,7 @@ export async function searchAllCinemas({
 /**
  * Rạp theo quyền quản lý (filter/modal/form):
  * - ADMIN → POST /cinemas/search
- * - MANAGER/STAFF → GET /cinemas/me
+ * - MANAGER/STAFF → POST /cinemas/me/search
  */
 export async function getManagementCinemas({
   signal,
@@ -112,7 +137,7 @@ export async function getManagementCinemas({
   if (role === 'ADMIN') {
     return searchAllCinemas({ signal, keyword, status, size, extraFilters })
   }
-  return getMyManagedCinemas({ signal })
+  return searchAllMyManagedCinemas({ signal, keyword, status, size, extraFilters })
 }
 
 /** POST /cinemas/search — mỗi item có `managerId`, `managerName` (BE enrich từ user service) */

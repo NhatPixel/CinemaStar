@@ -6,6 +6,7 @@ import {
   CustomSelect,
   Icon,
   Input,
+  PagePagination,
   Text,
   useToast,
 } from '../../components'
@@ -13,8 +14,8 @@ import {
   buildCinemasSearchBody,
   deleteCinema,
   getCinemaManagerLabel,
-  getMyManagedCinemas,
   searchCinemas,
+  searchMyManagedCinemas,
   updateCinemaStatus,
 } from '../../api/cinema'
 import {
@@ -78,59 +79,17 @@ function CinemaManagement() {
 
     const ac = new AbortController()
 
-    if (readOnly) {
-      ;(async () => {
-        try {
-          const list = await getMyManagedCinemas({ signal: ac.signal })
-          if (cancelled) return
-
-          const q = debouncedKeyword.toLowerCase()
-          const filtered = (list || []).filter((cinema) => {
-            if (statusFilter !== 'all' && cinema.status !== statusFilter) return false
-            if (!q) return true
-            const text = `${cinema.code || ''} ${cinema.name || ''} ${cinema.address || ''}`.toLowerCase()
-            return text.includes(q)
-          })
-
-          const total = filtered.length
-          const totalPagesCount = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0
-          const safePage = totalPagesCount > 0 ? Math.min(page, totalPagesCount) : 1
-          const start = (safePage - 1) * PAGE_SIZE
-
-          setRows(filtered.slice(start, start + PAGE_SIZE))
-          setTotalPages(totalPagesCount)
-          setTotalElements(total)
-          setHasNext(safePage < totalPagesCount)
-          setHasPrevious(safePage > 1)
-        } catch (e) {
-          if (cancelled || e?.name === 'AbortError') return
-          toast.error(e?.message || 'Không tải được danh sách rạp')
-          setRows([])
-          setTotalPages(0)
-          setTotalElements(0)
-          setHasNext(false)
-          setHasPrevious(false)
-        } finally {
-          if (!cancelled) setLoading(false)
-        }
-      })()
-
-      return () => {
-        cancelled = true
-        ac.abort()
-      }
-    }
-
     const body = buildCinemasSearchBody({
       page,
       size: PAGE_SIZE,
       keyword: debouncedKeyword,
       status: statusFilter,
     })
+    const searchFn = readOnly ? searchMyManagedCinemas : searchCinemas
 
     ;(async () => {
       try {
-        const data = await searchCinemas(body, { signal: ac.signal })
+        const data = await searchFn(body, { signal: ac.signal })
         if (cancelled) return
         setRows(data?.data || [])
         setTotalPages(data?.totalPages ?? 0)
@@ -375,34 +334,15 @@ function CinemaManagement() {
                 : `Đang hiển thị ${rows.length} rạp`}
             </Text>
           )}
-          {!loading && totalPages > 1 && (
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
-                disabled={!hasPrevious || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                {'<'}
-              </Button>
-              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-                Trang {page}
-                {totalPages > 0 ? ` / ${totalPages}` : ''}
-              </Text>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-100 dark:border-primary/20 dark:text-slate-300 dark:hover:bg-primary/10"
-                disabled={!hasNext || loading}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {'>'}
-              </Button>
-            </div>
-          )}
+          <PagePagination
+            page={page}
+            totalPages={totalPages}
+            hasNext={hasNext}
+            hasPrevious={hasPrevious}
+            loading={loading}
+            onPageChange={setPage}
+            className="self-end sm:self-auto"
+          />
         </div>
       </div>
 

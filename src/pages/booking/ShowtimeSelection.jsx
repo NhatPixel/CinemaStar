@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { getFilmById } from '../../api/film'
 import {
   buildShowtimesByFilmSearchBody,
-  searchShowtimesByFilmId,
+  searchAllShowtimesByFilmId,
 } from '../../api/showtime'
 import { Button, Icon, SearchableSelect, Text, useToast } from '../../components'
 import { mapCinemasToSelectOptions } from '../../api/hall'
@@ -106,13 +106,13 @@ function ShowtimeSelection() {
 
     ;(async () => {
       try {
-        const data = await searchShowtimesByFilmId(
+        const showtimes = await searchAllShowtimesByFilmId(
           selectedFilmId,
-          buildShowtimesByFilmSearchBody({ date: selectedDate, page: 1, size: 100 }),
+          buildShowtimesByFilmSearchBody({ date: selectedDate, page: 1, size: 12 }),
           { signal: ac.signal },
         )
         if (cancelled) return
-        setCinemas(extractCinemasFromShowtimes(data?.data || [], cinemaNameById))
+        setCinemas(extractCinemasFromShowtimes(showtimes, cinemaNameById))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         setCinemas([])
@@ -142,18 +142,18 @@ function ShowtimeSelection() {
 
     ;(async () => {
       try {
-        const data = await searchShowtimesByFilmId(
+        const list = await searchAllShowtimesByFilmId(
           selectedFilmId,
           buildShowtimesByFilmSearchBody({
             date: selectedDate,
             cinemaId: selectedCinemaId,
             page: 1,
-            size: 100,
+            size: 12,
           }),
           { signal: ac.signal },
         )
         if (cancelled) return
-        setShowtimes(data?.data || [])
+        setShowtimes(list)
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         setShowtimes([])

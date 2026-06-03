@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, CustomSelect, Input, SearchableSelect, Text, useToast } from '../../components'
+import {
+  Button,
+  CustomSelect,
+  Input,
+  PagePagination,
+  SearchableSelect,
+  Text,
+  useToast,
+} from '../../components'
 import { buildOperatorBookingsSearchBody, searchOperatorBookingsByListType } from '../../api/booking'
-import { getManagementCinemas } from '../../api/cinema'
-import { mapCinemasToSelectOptions } from '../../api/hall'
-import { buildFilmsSearchBody, searchFilms } from '../../api/film'
+import { useCursorFilmOptions } from '../../hooks/useCursorFilmOptions'
+import { usePagedCinemaOptions } from '../../hooks/usePagedCinemaOptions'
 import {
   BOOKING_STATUS_BADGE_CLASS,
   BOOKING_STATUS_LABEL_VI,
@@ -16,7 +23,6 @@ import { OPERATOR_BOOKING_LIST_OPTIONS } from '../../constants/operatorBookingLi
 import { formatCurrency, getBookingPayableAmount } from './bookingData'
 
 const PAGE_SIZE = 12
-const FILM_FILTER_PAGE_SIZE = 50
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -73,13 +79,26 @@ function BookingManagement() {
   const [cinemaId, setCinemaId] = useState('')
   const [showDate, setShowDate] = useState('')
   const [filmId, setFilmId] = useState('')
-  const [filmSearch, setFilmSearch] = useState('')
-  const [debouncedFilmSearch, setDebouncedFilmSearch] = useState('')
 
-  const [cinemaOptions, setCinemaOptions] = useState([])
-  const [cinemaNameById, setCinemaNameById] = useState({})
-  const [filmOptions, setFilmOptions] = useState([])
-  const [refsLoading, setRefsLoading] = useState(true)
+  const {
+    options: cinemaSelectOptions,
+    loading: cinemaOptionsLoading,
+    loadingMore: cinemaOptionsLoadingMore,
+    hasMore: cinemaOptionsHasMore,
+    onSearchChange: onCinemaSearchChange,
+    onLoadMore: onCinemaLoadMore,
+  } = usePagedCinemaOptions({ includeAll: true, allLabel: 'Tất cả rạp' })
+
+  const {
+    options: filmOptions,
+    loading: filmOptionsLoading,
+    loadingMore: filmOptionsLoadingMore,
+    hasMore: filmOptionsHasMore,
+    onSearchChange: onFilmSearchChange,
+    onLoadMore: onFilmLoadMore,
+  } = useCursorFilmOptions({
+    statusIn: ['NOW_SHOWING', 'COMING_SOON', 'ENDED'],
+  })
 
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
@@ -88,11 +107,6 @@ function BookingManagement() {
   const [hasPrevious, setHasPrevious] = useState(false)
   const [loading, setLoading] = useState(true)
   const [refreshTick, setRefreshTick] = useState(0)
-
-  const cinemaSelectOptions = useMemo(
-    () => mapCinemasToSelectOptions(cinemaOptions, { includeAll: true, allLabel: 'Tất cả rạp' }),
-    [cinemaOptions],
-  )
 
   const selectedFilmTitle = useMemo(() => {
     if (!filmId) return ''
@@ -110,73 +124,8 @@ function BookingManagement() {
   }, [keyword])
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedFilmSearch(filmSearch.trim()), 400)
-    return () => clearTimeout(t)
-  }, [filmSearch])
-
-  useEffect(() => {
     setPage(1)
   }, [debouncedKeyword, listType, cinemaId, showDate, filmId])
-
-  useEffect(() => {
-    let cancelled = false
-    const ac = new AbortController()
-    setRefsLoading(true)
-    ;(async () => {
-      try {
-        const cinemas = await getManagementCinemas({ signal: ac.signal })
-        if (cancelled) return
-        const nameMap = {}
-        for (const c of cinemas || []) {
-          if (c?.id) nameMap[c.id] = c.name || c.code || c.id
-        }
-        setCinemaNameById(nameMap)
-        setCinemaOptions(Array.isArray(cinemas) ? cinemas : [])
-      } catch (e) {
-        if (cancelled || e?.name === 'AbortError') return
-        toast.error(e?.message || 'Không tải được danh sách rạp')
-      } finally {
-        if (!cancelled) setRefsLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [toast])
-
-  useEffect(() => {
-    let cancelled = false
-    const ac = new AbortController()
-    ;(async () => {
-      try {
-        const data = await searchFilms(
-          buildFilmsSearchBody({
-            page: 1,
-            size: FILM_FILTER_PAGE_SIZE,
-            keyword: debouncedFilmSearch,
-            statusIn: ['NOW_SHOWING', 'COMING_SOON', 'ENDED'],
-          }),
-          { signal: ac.signal },
-        )
-        if (cancelled) return
-        const films = data?.data || []
-        setFilmOptions(
-          films.map((film) => ({
-            value: film.id,
-            label: film.title || film.name || film.id,
-          })),
-        )
-      } catch (e) {
-        if (cancelled || e?.name === 'AbortError') return
-        setFilmOptions([])
-      }
-    })()
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [debouncedFilmSearch])
 
   useEffect(() => {
     let cancelled = false
@@ -273,7 +222,12 @@ function BookingManagement() {
               placeholder="Tất cả rạp"
               searchPlaceholder="Tìm rạp"
               icon="location_on"
-              disabled={refsLoading}
+              serverSearch
+              onSearchChange={onCinemaSearchChange}
+              onLoadMore={onCinemaLoadMore}
+              hasMore={cinemaOptionsHasMore}
+              loading={cinemaOptionsLoading}
+              loadingMore={cinemaOptionsLoadingMore}
             />
             <div className="space-y-2">
               <label className="ml-1 text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -297,7 +251,11 @@ function BookingManagement() {
               searchPlaceholder="Tìm phim"
               icon="movie"
               serverSearch
-              onSearchChange={setFilmSearch}
+              onSearchChange={onFilmSearchChange}
+              onLoadMore={onFilmLoadMore}
+              hasMore={filmOptionsHasMore}
+              loading={filmOptionsLoading}
+              loadingMore={filmOptionsLoadingMore}
             />
           </div>
         </div>
@@ -347,7 +305,7 @@ function BookingManagement() {
                     >
                       <td className="px-4 py-3 font-mono text-sm font-bold">{shortId(booking.id)}</td>
                       <td className="px-4 py-3 text-sm font-medium">
-                        {cinemaNameById[booking.cinemaId] || shortId(booking.cinemaId)}
+                        {booking.cinemaName || shortId(booking.cinemaId)}
                       </td>
                       <td className="px-4 py-3 text-sm font-semibold">{booking.filmTitle || '—'}</td>
                       <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
@@ -427,32 +385,15 @@ function BookingManagement() {
                 : `Đang hiển thị ${rows.length} đơn`}
             </Text>
           )}
-          {!loading && totalPages > 1 && (
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!hasPrevious || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                {'<'}
-              </Button>
-              <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-                Trang {page}
-                {totalPages > 0 ? ` / ${totalPages}` : ''}
-              </Text>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!hasNext || loading}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {'>'}
-              </Button>
-            </div>
-          )}
+          <PagePagination
+            page={page}
+            totalPages={totalPages}
+            hasNext={hasNext}
+            hasPrevious={hasPrevious}
+            loading={loading}
+            onPageChange={setPage}
+            className="self-end sm:self-auto"
+          />
         </div>
       </div>
     </main>

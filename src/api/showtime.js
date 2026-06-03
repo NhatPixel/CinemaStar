@@ -101,7 +101,7 @@ export async function getShowtimeSeatMap(id, { signal } = {}) {
 }
 
 /** Body POST /showtimes/films/{filmId}/search — date bắt buộc (yyyy-MM-dd), cinemaId tùy chọn */
-export function buildShowtimesByFilmSearchBody({ page = 1, size = 50, date, cinemaId } = {}) {
+export function buildShowtimesByFilmSearchBody({ page = 1, size = 12, date, cinemaId } = {}) {
   const body = {
     page,
     size,
@@ -109,6 +109,23 @@ export function buildShowtimesByFilmSearchBody({ page = 1, size = 50, date, cine
   }
   if (cinemaId) body.cinemaId = cinemaId
   return body
+}
+
+const MAX_SHOWTIME_BY_FILM_PAGES = 50
+
+/** Gom mọi trang POST /showtimes/films/{filmId}/search (PageResponse). */
+export async function searchAllShowtimesByFilmId(filmId, baseBody, { signal } = {}) {
+  const all = []
+  for (let page = 1; page <= MAX_SHOWTIME_BY_FILM_PAGES; page += 1) {
+    const data = await searchShowtimesByFilmId(
+      filmId,
+      { ...baseBody, page, size: baseBody?.size ?? 12 },
+      { signal },
+    )
+    all.push(...(data?.data || []))
+    if (!data?.hasNext) break
+  }
+  return all
 }
 
 /** POST /showtimes/films/{filmId}/search — đặt vé: lọc theo ngày và rạp */

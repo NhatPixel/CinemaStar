@@ -5,6 +5,7 @@ import {
   CustomSelect,
   Icon,
   Input,
+  PagePagination,
   PricingPolicyModal,
   Text,
   useToast,
@@ -15,7 +16,7 @@ import { mapCinemasToSelectOptions } from '../../api/hall'
 import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
 import { formatCurrency } from '../booking/bookingData'
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = 12
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -40,6 +41,11 @@ function PricingPolicyManagement() {
   const [modalCinemaOptions, setModalCinemaOptions] = useState([])
   const [cinemaNameById, setCinemaNameById] = useState({})
   const [rows, setRows] = useState([])
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [hasNext, setHasNext] = useState(false)
+  const [hasPrevious, setHasPrevious] = useState(false)
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingPolicyId, setEditingPolicyId] = useState(null)
@@ -81,12 +87,16 @@ function PricingPolicyManagement() {
   }, [toast])
 
   useEffect(() => {
+    setPage(1)
+  }, [debouncedKeyword, cinemaFilter])
+
+  useEffect(() => {
     let cancelled = false
     setLoading(true)
     const ac = new AbortController()
 
     const body = buildPricingPoliciesSearchBody({
-      page: 1,
+      page,
       size: PAGE_SIZE,
       keyword: debouncedKeyword,
       cinemaId: cinemaFilter,
@@ -97,10 +107,18 @@ function PricingPolicyManagement() {
         const data = await searchPricingPolicies(body, { signal: ac.signal })
         if (cancelled) return
         setRows(data?.data || [])
+        setTotalPages(data?.totalPages ?? 0)
+        setTotalElements(data?.totalElements ?? 0)
+        setHasNext(Boolean(data?.hasNext))
+        setHasPrevious(Boolean(data?.hasPrevious))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         toast.error(e?.message || 'Không tải được chính sách giá')
         setRows([])
+        setTotalPages(0)
+        setTotalElements(0)
+        setHasNext(false)
+        setHasPrevious(false)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -110,7 +128,7 @@ function PricingPolicyManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [debouncedKeyword, cinemaFilter, refreshTick, toast])
+  }, [page, debouncedKeyword, cinemaFilter, refreshTick, toast])
 
   const displayRows = rows
 
@@ -260,10 +278,21 @@ function PricingPolicyManagement() {
           </div>
 
           {!loading && displayRows.length > 0 && (
-            <div className="px-6 py-4 bg-slate-50 dark:bg-background-dark/30 border-t border-slate-200 dark:border-primary/20">
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-primary/20 bg-slate-50 dark:bg-background-dark/30">
               <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
-                Hiển thị {displayRows.length} chính sách giá
+                {totalElements > 0
+                  ? `Hiển thị ${displayRows.length} / ${totalElements} chính sách giá`
+                  : `Hiển thị ${displayRows.length} chính sách giá`}
               </Text>
+              <PagePagination
+                page={page}
+                totalPages={totalPages}
+                hasNext={hasNext}
+                hasPrevious={hasPrevious}
+                loading={loading}
+                onPageChange={setPage}
+                className="self-end sm:self-auto"
+              />
             </div>
           )}
         </div>

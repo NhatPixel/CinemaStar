@@ -11,7 +11,7 @@ const pricingPolicyDetailUrl = (id) => showtimePath(`pricing-policies/${id}`)
  */
 export function buildPricingPoliciesSearchBody({
   page = 1,
-  size = 100,
+  size = 12,
   keyword,
   cinemaId,
 } = {}) {
@@ -45,13 +45,20 @@ export async function searchPricingPolicies(body, { signal } = {}) {
   }
 }
 
+const MAX_PRICING_POLICY_PAGES = 50
+
 /** Lấy toàn bộ policy visible (helper cho select/modal). */
 export async function getPricingPolicies({ cinemaId, signal } = {}) {
-  const data = await searchPricingPolicies(
-    buildPricingPoliciesSearchBody({ page: 1, size: 200, cinemaId }),
-    { signal },
-  )
-  return data?.data || []
+  const all = []
+  for (let page = 1; page <= MAX_PRICING_POLICY_PAGES; page += 1) {
+    const data = await searchPricingPolicies(
+      buildPricingPoliciesSearchBody({ page, size: 12, cinemaId }),
+      { signal },
+    )
+    all.push(...(data?.data || []))
+    if (!data?.hasNext) break
+  }
+  return all
 }
 
 /** GET /showtimes/pricing-policies/{id} */

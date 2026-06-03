@@ -4,6 +4,7 @@ import { filmPath } from './config/paths'
 const FILMS_SEARCH_URL = filmPath('search')
 const FILMS_CREATE_URL = filmPath('')
 const filmDetailUrl = (id) => filmPath(id)
+const MAX_FILM_CURSOR_PAGES = 50
 
 export function buildFilmsSearchBody({
   cursor,
@@ -41,6 +42,29 @@ export function buildFilmsSearchBody({
     body.cursor = cursor
   }
   return body
+}
+
+/** Gom toàn bộ trang cursor (dropdown cần danh sách đầy đủ). */
+export async function searchAllFilms({
+  signal,
+  size = 12,
+  title,
+  status,
+  statusIn,
+} = {}) {
+  const all = []
+  let cursor
+  for (let i = 0; i < MAX_FILM_CURSOR_PAGES; i += 1) {
+    const data = await searchFilms(
+      buildFilmsSearchBody({ size, cursor, title, status, statusIn }),
+      { signal },
+    )
+    all.push(...(data?.data || []))
+    if (!data?.hasNext) break
+    cursor = data?.nextCursor
+    if (!cursor) break
+  }
+  return all
 }
 
 export async function searchFilms(body, { signal } = {}) {

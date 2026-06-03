@@ -13,11 +13,17 @@ function SearchableMultiSelect({
   className = '',
   disabled = false,
   loading = false,
+  serverSearch = false,
+  onSearchChange,
+  onLoadMore,
+  hasMore = false,
+  loadingMore = false,
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const containerRef = useRef(null)
   const inputRef = useRef(null)
+  const listRef = useRef(null)
   const selectedSet = useMemo(() => new Set((values || []).map(String)), [values])
 
   const selectedItems = useMemo(
@@ -33,8 +39,15 @@ function SearchableMultiSelect({
     [values, options],
   )
 
+  useEffect(() => {
+    if (!serverSearch || !onSearchChange || !open) return undefined
+    const t = setTimeout(() => onSearchChange(search.trim()), 400)
+    return () => clearTimeout(t)
+  }, [search, serverSearch, onSearchChange, open])
+
   const filteredOptions = useMemo(() => {
     const available = options.filter((opt) => !selectedSet.has(String(opt.value)))
+    if (serverSearch) return available
     if (!search.trim()) return available
     const keyword = search.trim().toLowerCase()
     return available.filter(
@@ -42,7 +55,7 @@ function SearchableMultiSelect({
         opt.label?.toLowerCase().includes(keyword) ||
         String(opt.value || '').toLowerCase().includes(keyword),
     )
-  }, [options, search, selectedSet])
+  }, [options, search, selectedSet, serverSearch])
 
   const emitChange = useCallback(
     (nextValues) => {
@@ -88,6 +101,13 @@ function SearchableMultiSelect({
     window.addEventListener('mousedown', handleClickOutside)
     return () => window.removeEventListener('mousedown', handleClickOutside)
   }, [open])
+
+  const handleListScroll = useCallback(() => {
+    const el = listRef.current
+    if (!el || !onLoadMore || !hasMore || loadingMore || loading) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+    if (nearBottom) onLoadMore()
+  }, [onLoadMore, hasMore, loadingMore, loading])
 
   return (
     <div className="space-y-2" ref={containerRef}>
@@ -146,7 +166,11 @@ function SearchableMultiSelect({
         </button>
 
         {open && !disabled ? (
-          <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl">
+          <div
+            ref={listRef}
+            onScroll={handleListScroll}
+            className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl"
+          >
             {loading && filteredOptions.length === 0 ? (
               <div className="px-4 py-2 text-sm text-slate-500">Đang tải...</div>
             ) : null}
@@ -169,6 +193,9 @@ function SearchableMultiSelect({
                 </button>
               ))
             )}
+            {loadingMore ? (
+              <div className="px-4 py-2 text-xs text-slate-500 text-center">Đang tải thêm...</div>
+            ) : null}
           </div>
         ) : null}
       </div>

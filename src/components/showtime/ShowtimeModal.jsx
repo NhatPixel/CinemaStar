@@ -124,11 +124,15 @@ function ShowtimeModal({
     filmLoadingMore,
     filmHasMore,
     cinemaLoading,
+    cinemaLoadingMore,
+    cinemaHasMore,
     hallLoading,
     hallLoadingMore,
     hallHasMore,
     onFilmSearchChange,
     onFilmLoadMore,
+    onCinemaSearchChange,
+    onCinemaLoadMore,
     onHallSearchChange,
     onHallLoadMore,
     injectSelectedLabels,
@@ -396,7 +400,12 @@ function ShowtimeModal({
                     placeholder={cinemaLoading ? 'Đang tải rạp...' : 'Chọn rạp'}
                     searchPlaceholder="Tìm theo tên rạp..."
                     icon="festival"
+                    serverSearch
+                    onSearchChange={onCinemaSearchChange}
+                    onLoadMore={onCinemaLoadMore}
+                    hasMore={cinemaHasMore}
                     loading={cinemaLoading}
+                    loadingMore={cinemaLoadingMore}
                   />
                   <SearchableSelect
                     label="Phòng chiếu"

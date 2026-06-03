@@ -17,6 +17,7 @@ import {
   updateCinema,
 } from '../../api/cinema'
 import { searchManagers, searchStaffs } from '../../api/user'
+import { usePagedUserOptions } from '../../hooks/usePagedUserOptions'
 import { CINEMA_STATUS_LABEL_VI, CINEMA_STATUS_OPTIONS } from '../../constants/cinemaStatusOptions'
 
 const EMPTY_FORM = {
@@ -32,8 +33,6 @@ const EMPTY_FORM = {
   managerId: '',
   staffIds: [],
 }
-
-const MAX_USER_PAGES = 50
 
 function mapUserToOption(user) {
   if (!user?.id) return null
@@ -58,18 +57,6 @@ function mapStaffToOption(user) {
 function normalizeStaffIds(value) {
   if (!Array.isArray(value)) return []
   return value.map(String).filter(Boolean)
-}
-
-async function loadAllBySearch(searchFn, signal) {
-  const all = []
-  const size = 100
-  for (let page = 1; page <= MAX_USER_PAGES; page += 1) {
-    const res = await searchFn({ page, size, keyword: '' }, { signal })
-    const list = Array.isArray(res?.data) ? res.data : []
-    all.push(...list)
-    if (!res?.hasNext) break
-  }
-  return all
 }
 
 function formToInitial(cinema) {
@@ -130,11 +117,36 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [submitting, setSubmitting] = useState(false)
-  const [managers, setManagers] = useState([])
-  const [managersLoading, setManagersLoading] = useState(false)
-  const [staffs, setStaffs] = useState([])
-  const [staffsLoading, setStaffsLoading] = useState(false)
   const [initialStaffIds, setInitialStaffIds] = useState([])
+
+  const userOptionsEnabled = isOpen && !isView
+  const {
+    options: managerOptionsBase,
+    loading: managersLoading,
+    loadingMore: managersLoadingMore,
+    hasMore: managersHasMore,
+    onSearchChange: onManagerSearchChange,
+    onLoadMore: onManagerLoadMore,
+    mergeOption: mergeManagerOption,
+  } = usePagedUserOptions({
+    enabled: userOptionsEnabled,
+    searchFn: searchManagers,
+    mapOption: mapUserToOption,
+  })
+
+  const {
+    options: staffOptionsBase,
+    loading: staffsLoading,
+    loadingMore: staffsLoadingMore,
+    hasMore: staffsHasMore,
+    onSearchChange: onStaffSearchChange,
+    onLoadMore: onStaffLoadMore,
+    mergeOption: mergeStaffOption,
+  } = usePagedUserOptions({
+    enabled: isOpen,
+    searchFn: searchStaffs,
+    mapOption: mapStaffToOption,
+  })
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -185,85 +197,27 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
   }, [isOpen, submitting, loadingDetail, onCancel])
 
   useEffect(() => {
-    if (!isOpen || isView) return undefined
-    const controller = new AbortController()
-    let cancelled = false
-    setManagersLoading(true)
-    ;(async () => {
-      try {
-        const managerList = await loadAllBySearch(searchManagers, controller.signal)
-        if (!cancelled) setManagers(managerList)
-      } catch (e) {
-        if (!cancelled && !controller.signal.aborted) {
-          toast.error(e?.message || 'Không tải được danh sách quản lý')
-        }
-      } finally {
-        if (!cancelled) setManagersLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      controller.abort()
+    const managerId = String(form.managerId || detail?.managerId || '').trim()
+    if (managerId) {
+      mergeManagerOption(managerId, detail?.managerName)
     }
-  }, [isOpen, isView, toast])
+  }, [form.managerId, detail?.managerId, detail?.managerName, mergeManagerOption])
 
   useEffect(() => {
-    if (!isOpen) return undefined
-    const controller = new AbortController()
-    let cancelled = false
-    setStaffsLoading(true)
-    ;(async () => {
-      try {
-        const staffList = await loadAllBySearch(searchStaffs, controller.signal)
-        if (!cancelled) setStaffs(staffList)
-      } catch (e) {
-        if (!cancelled && !controller.signal.aborted) {
-          toast.error(e?.message || 'Không tải được danh sách nhân viên')
-        }
-      } finally {
-        if (!cancelled) setStaffsLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      controller.abort()
-    }
-  }, [isOpen, toast])
+    if (!isOpen) return
+    const ids = new Set([
+      ...normalizeStaffIds(form.staffIds),
+      ...normalizeStaffIds(detail?.staffIds),
+    ])
+    ids.forEach((staffId) => mergeStaffOption(staffId))
+  }, [isOpen, form.staffIds, detail?.staffIds, mergeStaffOption])
 
-  const managerOptions = useMemo(() => {
-    const optionMap = new Map()
-    managers.forEach((manager) => {
-      const option = mapUserToOption(manager)
-      if (option) optionMap.set(String(option.value), option)
-    })
-    const managerId = String(form.managerId || detail?.managerId || '').trim()
-    if (managerId && !optionMap.has(managerId)) {
-      optionMap.set(managerId, {
-        value: managerId,
-        label: detail?.managerName || managerId,
-      })
-    }
-    return [...optionMap.values()]
-  }, [managers, form.managerId, detail?.managerId, detail?.managerName])
+  const managerOptions = managerOptionsBase
 
   const staffOptions = useMemo(() => {
     const managerId = String(form.managerId || '').trim()
-    const optionMap = new Map()
-    staffs.forEach((staff) => {
-      if (managerId && String(staff.id) === managerId) return
-      const option = mapStaffToOption(staff)
-      if (option) optionMap.set(String(option.value), option)
-    })
-    normalizeStaffIds(form.staffIds).forEach((staffId) => {
-      if (optionMap.has(staffId)) return
-      optionMap.set(staffId, { value: staffId, label: staffId })
-    })
-    normalizeStaffIds(detail?.staffIds).forEach((staffId) => {
-      if (optionMap.has(staffId)) return
-      optionMap.set(staffId, { value: staffId, label: staffId })
-    })
-    return [...optionMap.values()]
-  }, [staffs, form.staffIds, form.managerId, detail?.staffIds])
+    return staffOptionsBase.filter((opt) => !managerId || String(opt.value) !== managerId)
+  }, [staffOptionsBase, form.managerId])
 
   useEffect(() => {
     if (!form.managerId) return
@@ -623,7 +577,12 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
                   }
                   searchPlaceholder="Tìm theo tên hoặc email..."
                   icon="badge"
+                  serverSearch
+                  onSearchChange={onManagerSearchChange}
+                  onLoadMore={onManagerLoadMore}
+                  hasMore={managersHasMore}
                   loading={managersLoading}
+                  loadingMore={managersLoadingMore}
                 />
                 <SearchableMultiSelect
                   label="Nhân viên"
@@ -636,7 +595,12 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
                   }
                   searchPlaceholder="Tìm theo tên hoặc email..."
                   icon="groups"
+                  serverSearch
+                  onSearchChange={onStaffSearchChange}
+                  onLoadMore={onStaffLoadMore}
+                  hasMore={staffsHasMore}
                   loading={staffsLoading}
+                  loadingMore={staffsLoadingMore}
                 />
               </>
             ) : null}

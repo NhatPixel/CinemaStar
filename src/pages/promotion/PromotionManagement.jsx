@@ -5,13 +5,11 @@ import {
   CustomSelect,
   Icon,
   Input,
+  PagePagination,
   PromotionModal,
   Text,
   useToast,
 } from '../../components'
-import { getManagementCinemas } from '../../api/cinema'
-import { buildFilmsSearchBody, searchFilms } from '../../api/film'
-import { mapCinemasToSelectOptions } from '../../api/hall'
 import {
   buildPromotionsSearchBody,
   deletePromotion,
@@ -52,35 +50,6 @@ function formatDiscount(row) {
   return formatCurrency(Number(row.discountValue || 0))
 }
 
-async function loadPromotionReferenceData({ signal } = {}) {
-  const [cinemas, filmsData] = await Promise.all([
-    getManagementCinemas({ signal }),
-    searchFilms(
-      buildFilmsSearchBody({
-        size: PAGE_SIZE,
-        statusIn: ['NOW_SHOWING', 'COMING_SOON'],
-      }),
-      { signal },
-    ),
-  ])
-  const nameMap = {}
-  for (const c of cinemas || []) {
-    if (c?.id) nameMap[c.id] = c.name || c.code || c.id
-  }
-  const films = filmsData?.data || []
-  const filmMap = {}
-  const fOpts = films.map((film) => {
-    if (film?.id) filmMap[film.id] = film.title || film.name || film.id
-    return { value: film.id, label: film.title || film.name || film.id }
-  })
-  return {
-    cinemaNameById: nameMap,
-    cinemaOptions: mapCinemasToSelectOptions(cinemas, { includeAll: false }),
-    filmNameById: filmMap,
-    filmOptions: fOpts,
-  }
-}
-
 function PromotionManagement() {
   const toast = useToast()
   const readOnly = isManagementOperationsReadOnly()
@@ -90,10 +59,6 @@ function PromotionManagement() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
-  const [cinemaOptions, setCinemaOptions] = useState([])
-  const [filmOptions, setFilmOptions] = useState([])
-  const [cinemaNameById, setCinemaNameById] = useState({})
-  const [filmNameById, setFilmNameById] = useState({})
   const [createOpen, setCreateOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [viewingId, setViewingId] = useState(null)
@@ -105,8 +70,6 @@ function PromotionManagement() {
   const [totalElements, setTotalElements] = useState(0)
   const [hasNext, setHasNext] = useState(false)
   const [hasPrevious, setHasPrevious] = useState(false)
-  const [refsLoading, setRefsLoading] = useState(false)
-
   const statusFilterOptions = [{ value: 'all', label: 'Tất cả trạng thái' }, ...PROMOTION_STATUS_OPTIONS]
 
   useEffect(() => {
@@ -117,34 +80,6 @@ function PromotionManagement() {
   useEffect(() => {
     setPage(1)
   }, [debouncedKeyword, statusFilter])
-
-  const modalOpen = createOpen || Boolean(editingId) || Boolean(viewingId)
-
-  useEffect(() => {
-    if (!canWrite && !modalOpen) return undefined
-    let cancelled = false
-    const ac = new AbortController()
-    setRefsLoading(true)
-    ;(async () => {
-      try {
-        const refs = await loadPromotionReferenceData({ signal: ac.signal })
-        if (cancelled) return
-        setCinemaNameById(refs.cinemaNameById)
-        setCinemaOptions(refs.cinemaOptions)
-        setFilmNameById(refs.filmNameById)
-        setFilmOptions(refs.filmOptions)
-      } catch (e) {
-        if (cancelled || e?.name === 'AbortError') return
-        toast.error(e?.message || 'Không tải được dữ liệu tham chiếu')
-      } finally {
-        if (!cancelled) setRefsLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [canWrite, modalOpen, toast])
 
   useEffect(() => {
     let cancelled = false
@@ -233,10 +168,9 @@ function PromotionManagement() {
               variant="primary"
               className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/30"
               onClick={() => setCreateOpen(true)}
-              disabled={refsLoading}
             >
               <Icon name="add" />
-              {refsLoading ? 'Đang tải...' : 'Tạo mã giảm giá'}
+              Tạo mã giảm giá
             </Button>
           ) : null}
         </header>
@@ -378,32 +312,15 @@ function PromotionManagement() {
                   : `Đang hiển thị ${rows.length} mã giảm giá`}
               </Text>
             )}
-            {!loading && totalPages > 1 && (
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={!hasPrevious || loading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  {'<'}
-                </Button>
-                <Text variant="small" className="text-sm text-slate-500">
-                  Trang {page}
-                  {totalPages > 0 ? ` / ${totalPages}` : ''}
-                </Text>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={!hasNext || loading}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  {'>'}
-                </Button>
-              </div>
-            )}
+            <PagePagination
+              page={page}
+              totalPages={totalPages}
+              hasNext={hasNext}
+              hasPrevious={hasPrevious}
+              loading={loading}
+              onPageChange={setPage}
+              className="self-end sm:self-auto"
+            />
           </div>
         </div>
       </main>
@@ -411,10 +328,6 @@ function PromotionManagement() {
       <PromotionModal
         isOpen={createOpen}
         mode="create"
-        cinemaOptions={cinemaOptions}
-        filmOptions={filmOptions}
-        cinemaNameById={cinemaNameById}
-        filmNameById={filmNameById}
         onCancel={closeModals}
         onSubmitted={handleSubmitted}
       />
@@ -422,10 +335,6 @@ function PromotionManagement() {
         isOpen={Boolean(editingId)}
         mode="edit"
         promotionId={editingId}
-        cinemaOptions={cinemaOptions}
-        filmOptions={filmOptions}
-        cinemaNameById={cinemaNameById}
-        filmNameById={filmNameById}
         onCancel={closeModals}
         onSubmitted={handleSubmitted}
       />
@@ -433,10 +342,6 @@ function PromotionManagement() {
         isOpen={Boolean(viewingId)}
         mode="view"
         promotionId={viewingId}
-        cinemaOptions={cinemaOptions}
-        filmOptions={filmOptions}
-        cinemaNameById={cinemaNameById}
-        filmNameById={filmNameById}
         onCancel={closeModals}
       />
 

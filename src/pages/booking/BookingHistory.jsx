@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AppFooter, AppHeader, Button, CustomSelect, Input, Text, useToast } from '../../components'
+import {
+  AppFooter,
+  AppHeader,
+  Button,
+  CustomSelect,
+  Input,
+  PagePagination,
+  Text,
+  useToast,
+} from '../../components'
 import { buildBookingsSearchBody, searchMyBookingsByListType } from '../../api/booking'
 import {
   PAYMENT_STATUS_BADGE_CLASS,
@@ -263,34 +272,15 @@ function BookingHistory() {
                   ? `Hiển thị ${rows.length} / ${totalElements} đơn — ${listMeta.title}`
                   : `Đang hiển thị ${rows.length} đơn — ${listMeta.title}`}
               </Text>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-lg border border-white/10 px-3 py-1.5 text-slate-300 hover:bg-white/5"
-                    disabled={!hasPrevious || loading}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    {'<'}
-                  </Button>
-                  <Text variant="small" className="text-sm text-slate-400">
-                    Trang {page}
-                    {totalPages > 0 ? ` / ${totalPages}` : ''}
-                  </Text>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-lg border border-white/10 px-3 py-1.5 text-slate-300 hover:bg-white/5"
-                    disabled={!hasNext || loading}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    {'>'}
-                  </Button>
-                </div>
-              )}
+              <PagePagination
+                page={page}
+                totalPages={totalPages}
+                hasNext={hasNext}
+                hasPrevious={hasPrevious}
+                loading={loading}
+                onPageChange={setPage}
+                className="self-end sm:self-auto"
+              />
             </div>
           )}
         </section>

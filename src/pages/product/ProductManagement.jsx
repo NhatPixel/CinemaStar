@@ -5,6 +5,7 @@ import {
   CustomSelect,
   Icon,
   Input,
+  PagePagination,
   ProductModal,
   Text,
   useToast,
@@ -327,32 +328,15 @@ function ProductManagement() {
                   : `Đang hiển thị ${displayRows.length} sản phẩm`}
               </Text>
             )}
-            {!loading && totalPages > 1 && (
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={!hasPrevious || loading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  {'<'}
-                </Button>
-                <Text variant="small" className="text-sm text-slate-500">
-                  Trang {page}
-                  {totalPages > 0 ? ` / ${totalPages}` : ''}
-                </Text>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={!hasNext || loading}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  {'>'}
-                </Button>
-              </div>
-            )}
+            <PagePagination
+              page={page}
+              totalPages={totalPages}
+              hasNext={hasNext}
+              hasPrevious={hasPrevious}
+              loading={loading}
+              onPageChange={setPage}
+              className="self-end sm:self-auto"
+            />
           </div>
         </div>
 

@@ -66,7 +66,7 @@ function SeatFoodSelection() {
         const productPage = cinemaId
           ? await searchProductsByCinema(
               cinemaId,
-              buildProductsSearchBody({ size: 30, status: 'ACTIVE' }),
+              buildProductsSearchBody({ size: 12, status: 'ACTIVE' }),
               { signal: ac.signal },
             ).catch(() => ({ data: [] }))
           : { data: [] }
