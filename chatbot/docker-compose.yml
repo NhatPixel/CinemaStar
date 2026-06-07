@@ -1,0 +1,42 @@
+services:
+  chatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cinemastar-chatbot:latest
+    container_name: cinemastar-chatbot
+    env_file:
+      - .env
+    environment:
+      CHATBOT_HOST: 0.0.0.0
+      CHATBOT_PORT: 8000
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${CHATBOT_PORT:-8000}:8000"
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    mem_limit: 512m
+
+  # Monitor: tự restart container chatbot khi healthcheck fail (endless).
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: chatbot-autoheal
+    restart: always
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 30
+      AUTOHEAL_START_PERIOD: 60
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

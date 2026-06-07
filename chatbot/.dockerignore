@@ -1,0 +1,16 @@
+.git
+.gitignore
+venv
+.venv
+__pycache__
+*.py[cod]
+*.log
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+.cursor
+*.md
+docker-compose*.yml
+Dockerfile
