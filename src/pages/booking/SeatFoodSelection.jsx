@@ -289,6 +289,7 @@ function SeatFoodSelection() {
               >
                 <ProductThumbnail
                   imageUrl={combo.imageUrl}
+                  name={combo.name}
                   alt={combo.name}
                   type={combo.type}
                   fallbackIcon={combo.icon}

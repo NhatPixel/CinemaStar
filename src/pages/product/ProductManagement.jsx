@@ -266,6 +266,7 @@ function ProductManagement() {
                           <td className="px-6 py-4">
                             <ProductThumbnail
                               imageUrl={product.imageUrl}
+                              name={product.name}
                               alt={product.name || 'Sản phẩm'}
                               type={product.type}
                               className="h-12 w-12 shrink-0 rounded-lg border border-slate-200 bg-slate-100 object-cover dark:border-primary/20 dark:bg-slate-900/50"

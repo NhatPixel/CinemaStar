@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { resolveProductImageUrl } from '../../constants/productImages'
 import Icon from '../Icon'
 
 function defaultIconForType(type) {
   if (type === 'DRINK') return 'local_cafe'
-  if (type === 'FOOD') return 'fastfood'
+  if (type === 'SNACK' || type === 'FOOD') return 'fastfood'
+  if (type === 'POPCORN') return 'local_movies'
+  if (type === 'COMBO') return 'fastfood'
   return 'local_movies'
 }
 
@@ -14,12 +17,13 @@ function ProductThumbnail({
   imageUrl,
   alt = '',
   type,
+  name,
   fallbackIcon,
   className = '',
   iconClassName = 'text-3xl',
 }) {
   const [failed, setFailed] = useState(false)
-  const url = String(imageUrl || '').trim()
+  const url = resolveProductImageUrl({ imageUrl, type, name })
   const icon = fallbackIcon || defaultIconForType(type)
 
   if (url && !failed) {

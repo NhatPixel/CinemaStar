@@ -11,6 +11,10 @@ import {
   PRODUCT_STATUS_OPTIONS,
   PRODUCT_TYPE_OPTIONS,
 } from '../../constants/productOptions'
+import {
+  resolveProductImageUrl,
+  suggestProductImageUrl,
+} from '../../constants/productImages'
 
 const EMPTY_FORM = {
   cinemaId: '',
@@ -60,7 +64,11 @@ function ProductModal({
   const [submitting, setSubmitting] = useState(false)
   const [imagePreviewError, setImagePreviewError] = useState(false)
 
-  const imagePreviewUrl = form.imageUrl?.trim() || ''
+  const imagePreviewUrl = resolveProductImageUrl({
+    imageUrl: form.imageUrl,
+    type: form.type,
+    name: form.name,
+  })
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -111,7 +119,17 @@ function ProductModal({
   const handleChange = (e) => {
     if (readOnly) return
     const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    setForm((prev) => {
+      const next = { ...prev, [name]: value }
+      if (
+        isCreate &&
+        !String(prev.imageUrl || '').trim() &&
+        (name === 'type' || name === 'name')
+      ) {
+        next.imageUrl = suggestProductImageUrl(next.type, next.name)
+      }
+      return next
+    })
   }
 
   const handleSubmit = async (e) => {
@@ -133,7 +151,9 @@ function ProductModal({
       type: form.type,
       price,
       description: form.description?.trim() || '',
-      imageUrl: form.imageUrl?.trim() || '',
+      imageUrl:
+        form.imageUrl?.trim() ||
+        suggestProductImageUrl(form.type, form.name),
       status: form.status,
     }
 
@@ -280,23 +300,21 @@ function ProductModal({
               readOnly={readOnly}
             />
 
-            {imagePreviewUrl ? (
-              <div className="rounded-xl border border-slate-200 dark:border-primary/20 bg-slate-50 dark:bg-slate-900/40 p-3">
-                {!imagePreviewError ? (
-                  <img
-                    src={imagePreviewUrl}
-                    alt={form.name?.trim() || 'Xem trước ảnh sản phẩm'}
-                    className="mx-auto max-h-52 w-full rounded-lg object-contain"
-                    onLoad={() => setImagePreviewError(false)}
-                    onError={() => setImagePreviewError(true)}
-                  />
-                ) : (
-                  <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-6">
-                    Không tải được ảnh từ URL này
-                  </p>
-                )}
-              </div>
-            ) : null}
+            <div className="rounded-xl border border-slate-200 dark:border-primary/20 bg-slate-50 dark:bg-slate-900/40 p-3">
+              {!imagePreviewError ? (
+                <img
+                  src={imagePreviewUrl}
+                  alt={form.name?.trim() || 'Xem trước ảnh sản phẩm'}
+                  className="mx-auto max-h-52 w-full rounded-lg object-contain"
+                  onLoad={() => setImagePreviewError(false)}
+                  onError={() => setImagePreviewError(true)}
+                />
+              ) : (
+                <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-6">
+                  Không tải được ảnh từ URL này
+                </p>
+              )}
+            </div>
 
             {readOnly ? (
               <Input

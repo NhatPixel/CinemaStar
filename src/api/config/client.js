@@ -1,4 +1,8 @@
 import { parseResponse, refreshAccessToken, request } from './transport'
+import {
+  createAuthSessionExpiredError,
+  redirectToLoginOnAuthFailure,
+} from '../../utils/authSession'
 
 export { refreshAccessToken }
 export {
@@ -19,7 +23,8 @@ async function retryAfterUnauthorized(response, url, options) {
   }
   const refreshed = await refreshAccessToken()
   if (!refreshed) {
-    return response
+    redirectToLoginOnAuthFailure()
+    throw createAuthSessionExpiredError()
   }
   return request(url, options)
 }

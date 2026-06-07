@@ -10,12 +10,7 @@ import {
   useToast,
 } from '../../components'
 import { getManagementCinemas } from '../../api/cinema'
-import { buildHallsSearchBody, searchHalls } from '../../api/hall'
-import {
-  buildShowtimesSearchBody,
-  deleteShowtime,
-  searchShowtimes,
-} from '../../api/showtime'
+import { deleteShowtime, searchShowtimesForManagement } from '../../api/showtime'
 import ShowtimeModal from '../../components/showtime/ShowtimeModal'
 import {
   getShowtimeCinemaId,
@@ -68,7 +63,6 @@ function ShowtimeManagement() {
   const [cinemaFilter, setCinemaFilter] = useState('')
   const [cinemaOptions, setCinemaOptions] = useState([])
   const [cinemaNameById, setCinemaNameById] = useState({})
-  const [hallIdsForCinemaFilter, setHallIdsForCinemaFilter] = useState(null)
   const [rows, setRows] = useState([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
@@ -124,73 +118,22 @@ function ShowtimeManagement() {
   }, [])
 
   useEffect(() => {
-    if (!cinemaFilter) {
-      setHallIdsForCinemaFilter(null)
-      return undefined
-    }
-    let cancelled = false
-    const ac = new AbortController()
-    ;(async () => {
-      try {
-        const data = await searchHalls(
-          buildHallsSearchBody({
-            page: 1,
-            size: 12,
-            cinemaId: cinemaFilter,
-            status: 'ACTIVE',
-          }),
-          { signal: ac.signal },
-        )
-        if (cancelled) return
-        const ids = (data?.data || []).map((h) => h.id).filter(Boolean)
-        setHallIdsForCinemaFilter(ids)
-      } catch {
-        if (!cancelled) setHallIdsForCinemaFilter([])
-      }
-    })()
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [cinemaFilter])
-
-  useEffect(() => {
     let cancelled = false
     setLoading(true)
     const ac = new AbortController()
 
-    if (cinemaFilter && hallIdsForCinemaFilter === null) {
-      setLoading(true)
-      return () => {
-        cancelled = true
-        ac.abort()
-      }
-    }
-
-    if (cinemaFilter && Array.isArray(hallIdsForCinemaFilter) && hallIdsForCinemaFilter.length === 0) {
-      setRows([])
-      setTotalPages(0)
-      setTotalElements(0)
-      setHasNext(false)
-      setHasPrevious(false)
-      setLoading(false)
-      return () => {
-        cancelled = true
-        ac.abort()
-      }
-    }
-
-    const body = buildShowtimesSearchBody({
-      page,
-      size: PAGE_SIZE,
-      keyword: debouncedKeyword,
-      status: statusFilter,
-      hallIds: cinemaFilter ? hallIdsForCinemaFilter : undefined,
-    })
-
     ;(async () => {
       try {
-        const data = await searchShowtimes(body, { signal: ac.signal })
+        const data = await searchShowtimesForManagement(
+          {
+            cinemaId: cinemaFilter || undefined,
+            page,
+            size: PAGE_SIZE,
+            keyword: debouncedKeyword,
+            status: statusFilter,
+          },
+          { signal: ac.signal },
+        )
         if (cancelled) return
         setRows(data?.data || [])
         setTotalPages(data?.totalPages ?? 0)
@@ -214,7 +157,7 @@ function ShowtimeManagement() {
       cancelled = true
       ac.abort()
     }
-  }, [page, debouncedKeyword, statusFilter, cinemaFilter, hallIdsForCinemaFilter, refreshTick, toast])
+  }, [page, debouncedKeyword, statusFilter, cinemaFilter, refreshTick, toast])
 
   const handleDeleteShowtime = useCallback(async () => {
     const showtime = pendingDeleteShowtime

@@ -2,6 +2,7 @@ import { callApi, buildDelete, buildGet, buildPost, buildPut } from './config/cl
 import { filmPath } from './config/paths'
 
 const FILMS_SEARCH_URL = filmPath('search')
+const FILMS_CUSTOMER_SEARCH_URL = filmPath('customer/search')
 const FILMS_CREATE_URL = filmPath('')
 const filmDetailUrl = (id) => filmPath(id)
 const MAX_FILM_CURSOR_PAGES = 50
@@ -44,6 +45,21 @@ export function buildFilmsSearchBody({
   return body
 }
 
+/** Body POST /films/customer/search — cinemaId top-level, không lọc STATUS (BE tự scope). */
+export function buildFilmsCustomerSearchBody({
+  cursor,
+  size = 12,
+  title,
+  cinemaId,
+}) {
+  const body = buildFilmsSearchBody({ cursor, size, title })
+  const id = cinemaId?.trim()
+  if (id) {
+    body.cinemaId = id
+  }
+  return body
+}
+
 /** Gom toàn bộ trang cursor (dropdown cần danh sách đầy đủ). */
 export async function searchAllFilms({
   signal,
@@ -67,10 +83,10 @@ export async function searchAllFilms({
   return all
 }
 
-export async function searchFilms(body, { signal } = {}) {
-  const { url, options } = buildPost(FILMS_SEARCH_URL, body)
+async function postFilmsSearch(url, body, { signal } = {}) {
+  const { url: requestUrl, options } = buildPost(url, body)
   const resp = await callApi({
-    url,
+    url: requestUrl,
     options: { ...options, ...(signal ? { signal } : {}) },
   })
   if (resp?.success) {
@@ -81,6 +97,15 @@ export async function searchFilms(body, { signal } = {}) {
     message: resp?.message || 'Không tải được danh sách phim',
     raw: resp,
   }
+}
+
+export async function searchFilms(body, { signal } = {}) {
+  return postFilmsSearch(FILMS_SEARCH_URL, body, { signal })
+}
+
+/** POST /films/customer/search — danh sách phim công khai (/movies). */
+export async function searchFilmsForCustomer(body, { signal } = {}) {
+  return postFilmsSearch(FILMS_CUSTOMER_SEARCH_URL, body, { signal })
 }
 
 export async function createFilm(payload) {

@@ -1,4 +1,5 @@
 import { callApi, buildDelete, buildGet, buildPatch, buildPost, buildPut } from './config/client'
+import { getAllActiveHallIdsByCinema } from './hall'
 import { showtimePath } from './config/paths'
 
 const SHOWTIMES_SEARCH_URL = showtimePath('search')
@@ -9,8 +10,8 @@ export { getPricingPolicies, searchPricingPolicies, buildPricingPoliciesSearchBo
 
 /**
  * Xây dựng body cho POST /showtimes/search
- * BE ShowTimeField: ID, START_DATE_TIME, END_DATE_TIME, HALL_ID, FILM_ID, PRICING_POLICY_ID, STATUS, ...
- * Không có CINEMA_ID — lọc rạp qua hallIds + operator IN trên HALL_ID.
+ * BE ShowTimeField: không có CINEMA_ID — lọc theo rạp dùng hallIds (HALL_ID IN).
+ * Gọi searchShowtimesForManagement({ cinemaId }) thay vì tự resolve hallIds ở UI.
  */
 export function buildShowtimesSearchBody({
   page = 1,
@@ -49,6 +50,18 @@ export function buildShowtimesSearchBody({
   }
 }
 
+function emptyShowtimePage(page = 1, size = 12) {
+  return {
+    data: [],
+    currentPage: page,
+    totalPages: 0,
+    totalElements: 0,
+    size,
+    hasNext: false,
+    hasPrevious: page > 1,
+  }
+}
+
 /** POST /showtimes/search */
 export async function searchShowtimes(body, { signal } = {}) {
   const { url, options } = buildPost(SHOWTIMES_SEARCH_URL, body)
@@ -64,6 +77,27 @@ export async function searchShowtimes(body, { signal } = {}) {
     message: resp?.message || 'Không tải được danh sách suất chiếu',
     raw: resp,
   }
+}
+
+/**
+ * Tìm suất chiếu cho màn quản lý — filter rạp qua cinemaId (resolve hallIds nội bộ).
+ */
+export async function searchShowtimesForManagement(
+  { cinemaId, page = 1, size = 12, keyword, status, sortBy, extraFilters } = {},
+  { signal } = {},
+) {
+  const base = { page, size, keyword, status, sortBy, extraFilters }
+  const trimmedCinemaId = String(cinemaId || '').trim()
+  if (!trimmedCinemaId) {
+    return searchShowtimes(buildShowtimesSearchBody(base), { signal })
+  }
+
+  const hallIds = await getAllActiveHallIdsByCinema(trimmedCinemaId, { signal })
+  if (!hallIds.length) {
+    return emptyShowtimePage(page, size)
+  }
+
+  return searchShowtimes(buildShowtimesSearchBody({ ...base, hallIds }), { signal })
 }
 
 /** GET /showtimes/{id} */

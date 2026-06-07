@@ -1,5 +1,9 @@
 import { getAuthCookieForForward } from '../utils/authCookieStorage'
 import { refreshAccessToken } from './auth'
+import {
+  createAuthSessionExpiredError,
+  redirectToLoginOnAuthFailure,
+} from '../utils/authSession'
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV
 const explicitChatbotBase =
@@ -94,6 +98,8 @@ export async function sendChatMessage(question, { signal, history } = {}) {
       if (refreshed) {
         return attempt(true)
       }
+      redirectToLoginOnAuthFailure()
+      throw createAuthSessionExpiredError()
     }
 
     if (payload && typeof payload === 'object' && payload.success === false) {

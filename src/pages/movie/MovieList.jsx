@@ -10,12 +10,19 @@ import {
   Input,
   useToast,
 } from '../../components'
-import { buildFilmsSearchBody, searchFilms } from '../../api/film'
+import { searchAllCinemas } from '../../api/cinema'
+import {
+  buildFilmsCustomerSearchBody,
+  buildFilmsSearchBody,
+  searchFilms,
+  searchFilmsForCustomer,
+} from '../../api/film'
 import { AGE_RATING_META } from '../../constants/ageRatingMeta'
 import {
   MOVIE_LIST_PUBLIC_STATUSES,
   MOVIE_LIST_STATUS_OPTIONS,
 } from '../../constants/movieStatusOptions'
+import { isCustomerRole } from '../../constants/userRoleLabels'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
 
 const PAGE_SIZE = 12
@@ -57,11 +64,16 @@ function mapFilmToCardProps(film) {
 
 function MovieList() {
   const toast = useToast()
+  const isCustomer = isCustomerRole()
   const [titleSearch, setTitleSearch] = useState('')
   const [debouncedTitle, setDebouncedTitle] = useState('')
   const [filters, setFilters] = useState({
     status: 'NOW_SHOWING',
   })
+  const [cinemaFilter, setCinemaFilter] = useState('')
+  const [cinemaOptions, setCinemaOptions] = useState([
+    { value: '', label: 'Tất cả rạp' },
+  ])
   const [items, setItems] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [hasNext, setHasNext] = useState(false)
@@ -76,8 +88,42 @@ function MovieList() {
     return () => clearTimeout(t)
   }, [titleSearch])
 
+  useEffect(() => {
+    if (!isCustomer) return undefined
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const cinemas = await searchAllCinemas({ status: 'ACTIVE', size: 50 })
+        if (cancelled) return
+        setCinemaOptions([
+          { value: '', label: 'Tất cả rạp' },
+          ...cinemas.map((cinema) => ({
+            value: cinema.id,
+            label: cinema.name || cinema.code || String(cinema.id),
+          })),
+        ])
+      } catch (e) {
+        if (cancelled) return
+        toast.error(e?.message || 'Không tải được danh sách rạp')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isCustomer, toast])
+
   const buildSearchBody = useCallback(
     (extra = {}) => {
+      if (isCustomer) {
+        return buildFilmsCustomerSearchBody({
+          size: PAGE_SIZE,
+          title: debouncedTitle,
+          cinemaId: cinemaFilter || undefined,
+          ...extra,
+        })
+      }
       const status = filters.status
       return buildFilmsSearchBody({
         size: PAGE_SIZE,
@@ -88,7 +134,7 @@ function MovieList() {
         ...extra,
       })
     },
-    [debouncedTitle, filters.status],
+    [isCustomer, debouncedTitle, cinemaFilter, filters.status],
   )
 
   useEffect(() => {
@@ -105,8 +151,9 @@ function MovieList() {
     const body = buildSearchBody()
 
     ;(async () => {
+      const searchFn = isCustomer ? searchFilmsForCustomer : searchFilms
       try {
-        const data = await searchFilms(body, { signal: ac.signal })
+        const data = await searchFn(body, { signal: ac.signal })
         if (cancelled) return
         setItems(data?.data || [])
         setNextCursor(data?.nextCursor ?? null)
@@ -124,14 +171,15 @@ function MovieList() {
       cancelled = true
       ac.abort()
     }
-  }, [debouncedTitle, filters.status, buildSearchBody, toast])
+  }, [debouncedTitle, filters.status, cinemaFilter, isCustomer, buildSearchBody, toast])
 
   const loadMore = useCallback(async () => {
     if (!nextCursor || !hasNext || loadingMore || loading) return
     setLoadingMore(true)
     try {
+      const searchFn = isCustomer ? searchFilmsForCustomer : searchFilms
       const body = buildSearchBody({ cursor: nextCursor })
-      const data = await searchFilms(body)
+      const data = await searchFn(body)
       setItems((prev) => [...prev, ...(data?.data || [])])
       setNextCursor(data?.nextCursor ?? null)
       setHasNext(Boolean(data?.hasNext))
@@ -140,7 +188,7 @@ function MovieList() {
     } finally {
       setLoadingMore(false)
     }
-  }, [nextCursor, hasNext, loadingMore, loading, buildSearchBody, toast])
+  }, [nextCursor, hasNext, loadingMore, loading, buildSearchBody, isCustomer, toast])
 
   loadMoreRef.current = loadMore
 
@@ -202,21 +250,39 @@ function MovieList() {
                 icon="search"
               />
             </div>
-            <div className="space-y-2">
-              <Text
-                variant="caption"
-                className="text-xs font-bold uppercase tracking-wider text-primary"
-              >
-                Trạng thái
-              </Text>
-              <CustomSelect
-                name="status"
-                value={filters.status}
-                onChange={handleFilterChange}
-                options={MOVIE_LIST_STATUS_OPTIONS}
-                placeholder="Chọn trạng thái"
-              />
-            </div>
+            {isCustomer ? (
+              <div className="space-y-2">
+                <Text
+                  variant="caption"
+                  className="text-xs font-bold uppercase tracking-wider text-primary"
+                >
+                  Rạp chiếu
+                </Text>
+                <CustomSelect
+                  name="cinemaFilter"
+                  value={cinemaFilter}
+                  onChange={(e) => setCinemaFilter(e.target.value)}
+                  options={cinemaOptions}
+                  placeholder="Chọn rạp"
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Text
+                  variant="caption"
+                  className="text-xs font-bold uppercase tracking-wider text-primary"
+                >
+                  Trạng thái
+                </Text>
+                <CustomSelect
+                  name="status"
+                  value={filters.status}
+                  onChange={handleFilterChange}
+                  options={MOVIE_LIST_STATUS_OPTIONS}
+                  placeholder="Chọn trạng thái"
+                />
+              </div>
+            )}
           </div>
         </section>
 

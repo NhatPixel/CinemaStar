@@ -292,7 +292,8 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
     if (!form.openTime || !form.closeTime) {
       return toast.error('Vui lòng nhập giờ mở và đóng cửa')
     }
-    if (!form.managerId) return toast.error('Vui lòng chọn quản lý phụ trách')
+
+    const managerId = String(form.managerId || '').trim() || null
 
     const basePayload = {
       name,
@@ -302,7 +303,7 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
       phone,
       openTime: ensureTimeWithSeconds(form.openTime),
       closeTime: ensureTimeWithSeconds(form.closeTime),
-      managerId: form.managerId,
+      managerId,
     }
 
     try {
@@ -348,7 +349,7 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
     ? 'Thông tin chi tiết rạp từ hệ thống.'
       : isEdit
       ? 'Cập nhật thông tin rạp, quản lý phụ trách, nhân viên hoặc vị trí trên bản đồ.'
-      : 'Nhập thông tin rạp, chọn quản lý phụ trách, nhân viên và vị trí trên bản đồ.'
+      : 'Nhập thông tin rạp, quản lý phụ trách, nhân viên và vị trí trên bản đồ.'
 
   if (!isOpen || typeof document === 'undefined') return null
 

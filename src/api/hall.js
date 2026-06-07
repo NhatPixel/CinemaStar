@@ -94,6 +94,27 @@ export function buildHallsSearchBody({
   }
 }
 
+const MAX_HALL_SEARCH_PAGES = 50
+
+/** Lấy toàn bộ ID phòng ACTIVE của một rạp (phân trang). */
+export async function getAllActiveHallIdsByCinema(cinemaId, { signal, status = 'ACTIVE' } = {}) {
+  const id = String(cinemaId || '').trim()
+  if (!id) return []
+
+  const hallIds = []
+  for (let page = 1; page <= MAX_HALL_SEARCH_PAGES; page += 1) {
+    const data = await searchHalls(
+      buildHallsSearchBody({ page, size: 50, cinemaId: id, status }),
+      { signal },
+    )
+    for (const hall of data?.data || []) {
+      if (hall?.id) hallIds.push(hall.id)
+    }
+    if (!data?.hasNext) break
+  }
+  return hallIds
+}
+
 /** POST /halls/search */
 export async function searchHalls(body, { signal } = {}) {
   const { url, options } = buildPost(HALLS_SEARCH_URL, body)

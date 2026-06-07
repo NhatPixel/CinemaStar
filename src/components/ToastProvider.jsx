@@ -9,6 +9,7 @@ import {
 import { createPortal } from 'react-dom'
 import Toast from './Toast'
 import { ToastContext } from './toastContext'
+import { isAuthSessionRedirecting } from '../utils/authSession'
 
 let toastId = 0
 function nextId() {
@@ -32,6 +33,8 @@ export function ToastProvider({ children }) {
 
   const showToast = useCallback(
     (message, options = {}) => {
+      if (isAuthSessionRedirecting()) return null
+
       const { variant = 'info', duration = 4500 } = options
 
       const id = `${baseId}-${nextId()}`

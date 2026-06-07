@@ -11,11 +11,16 @@ import {
   CustomLink,
 } from '../../components'
 import { login, redirectToGoogleLogin } from '../../api/auth'
+import { resetAuthSessionRedirecting } from '../../utils/authSession'
 
 function Login() {
   const toast = useToast()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    resetAuthSessionRedirecting()
+  }, [])
   const [formData, setFormData] = useState({
     email: '',
     password: ''
