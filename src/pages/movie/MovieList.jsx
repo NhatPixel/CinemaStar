@@ -8,9 +8,9 @@ import {
   AppFooter,
   CustomSelect,
   Input,
+  SearchableSelect,
   useToast,
 } from '../../components'
-import { searchAllCinemas } from '../../api/cinema'
 import {
   buildFilmsCustomerSearchBody,
   buildFilmsSearchBody,
@@ -23,6 +23,7 @@ import {
   MOVIE_LIST_STATUS_OPTIONS,
 } from '../../constants/movieStatusOptions'
 import { isCustomerRole } from '../../constants/userRoleLabels'
+import { usePublicCinemaOptions } from '../../hooks/usePublicCinemaOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
 
 const PAGE_SIZE = 12
@@ -71,9 +72,14 @@ function MovieList() {
     status: 'NOW_SHOWING',
   })
   const [cinemaFilter, setCinemaFilter] = useState('')
-  const [cinemaOptions, setCinemaOptions] = useState([
-    { value: '', label: 'Tất cả rạp' },
-  ])
+  const {
+    options: cinemaOptions,
+    loading: cinemaOptionsLoading,
+    loadingMore: cinemaOptionsLoadingMore,
+    hasMore: cinemaOptionsHasMore,
+    onSearchChange: onCinemaSearchChange,
+    onLoadMore: onCinemaLoadMore,
+  } = usePublicCinemaOptions({ enabled: isCustomer, status: 'ACTIVE', includeAll: true })
   const [items, setItems] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [hasNext, setHasNext] = useState(false)
@@ -87,32 +93,6 @@ function MovieList() {
     const t = setTimeout(() => setDebouncedTitle(titleSearch), 400)
     return () => clearTimeout(t)
   }, [titleSearch])
-
-  useEffect(() => {
-    if (!isCustomer) return undefined
-
-    let cancelled = false
-    ;(async () => {
-      try {
-        const cinemas = await searchAllCinemas({ status: 'ACTIVE', size: 50 })
-        if (cancelled) return
-        setCinemaOptions([
-          { value: '', label: 'Tất cả rạp' },
-          ...cinemas.map((cinema) => ({
-            value: cinema.id,
-            label: cinema.name || cinema.code || String(cinema.id),
-          })),
-        ])
-      } catch (e) {
-        if (cancelled) return
-        toast.error(e?.message || 'Không tải được danh sách rạp')
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [isCustomer, toast])
 
   const buildSearchBody = useCallback(
     (extra = {}) => {
@@ -251,21 +231,22 @@ function MovieList() {
               />
             </div>
             {isCustomer ? (
-              <div className="space-y-2">
-                <Text
-                  variant="caption"
-                  className="text-xs font-bold uppercase tracking-wider text-primary"
-                >
-                  Rạp chiếu
-                </Text>
-                <CustomSelect
-                  name="cinemaFilter"
-                  value={cinemaFilter}
-                  onChange={(e) => setCinemaFilter(e.target.value)}
-                  options={cinemaOptions}
-                  placeholder="Chọn rạp"
-                />
-              </div>
+              <SearchableSelect
+                label="Rạp chiếu"
+                name="cinemaFilter"
+                value={cinemaFilter}
+                onChange={(e) => setCinemaFilter(e.target.value)}
+                options={cinemaOptions}
+                placeholder={cinemaOptionsLoading ? 'Đang tải rạp...' : 'Chọn rạp'}
+                searchPlaceholder="Tìm tên rạp..."
+                icon="location_on"
+                serverSearch
+                onSearchChange={onCinemaSearchChange}
+                onLoadMore={onCinemaLoadMore}
+                hasMore={cinemaOptionsHasMore}
+                loading={cinemaOptionsLoading}
+                loadingMore={cinemaOptionsLoadingMore}
+              />
             ) : (
               <div className="space-y-2">
                 <Text
