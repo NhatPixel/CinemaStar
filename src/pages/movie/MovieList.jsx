@@ -25,6 +25,7 @@ import {
 import { isCustomerRole } from '../../constants/userRoleLabels'
 import { usePublicCinemaOptions } from '../../hooks/usePublicCinemaOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 
 const PAGE_SIZE = 12
 
@@ -58,7 +59,7 @@ function mapFilmToCardProps(film) {
     statusColorClass: meta.color,
     overlayVariant,
     muted,
-    posterSrc: film.poster || '/assets/movie-sample.jpg',
+    posterSrc: resolveMediaUrl(film.poster) || '/assets/movie-sample.jpg',
     posterAlt: film.title || 'Poster',
   }
 }

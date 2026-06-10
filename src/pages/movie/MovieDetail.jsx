@@ -5,6 +5,12 @@ import { getFilmById } from '../../api/film'
 import { AGE_RATING_META } from '../../constants/ageRatingMeta'
 import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
+import {
+  getYoutubeEmbedUrl,
+  isDirectVideoUrl,
+  isYoutubeTrailerUrl,
+  resolveMediaUrl,
+} from '../../utils/mediaUrl'
 
 const STATUS_LABELS = Object.fromEntries(MOVIE_STATUS_OPTIONS.map((option) => [option.value, option.label]))
 
@@ -24,21 +30,6 @@ function parseActors(actorValue) {
     .split(',')
     .map((name) => name.trim())
     .filter(Boolean)
-}
-
-function getTrailerEmbedUrl(trailerUrl) {
-  if (!trailerUrl) return ''
-  const raw = String(trailerUrl).trim()
-
-  const short = raw.match(/youtu\.be\/([^?&]+)/i)?.[1]
-  const full = raw.match(/[?&]v=([^?&]+)/i)?.[1]
-  const embed = raw.match(/youtube\.com\/embed\/([^?&]+)/i)?.[1]
-  const id = short || full || embed
-  if (id) {
-    return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`
-  }
-
-  return raw
 }
 
 function MovieDetail() {
@@ -79,8 +70,10 @@ function MovieDetail() {
   const actorList = useMemo(() => parseActors(movie?.actor || movie?.cast), [movie?.actor, movie?.cast])
   const ageMeta = AGE_RATING_META[movie?.ageRating] || { short: '—', text: 'Không xác định' }
   const statusLabel = STATUS_LABELS[movie?.status] || movie?.status || '—'
-  const poster = movie?.poster || '/assets/movie-sample.jpg'
-  const trailerEmbedUrl = getTrailerEmbedUrl(movie?.trailer)
+  const poster = resolveMediaUrl(movie?.poster) || '/assets/movie-sample.jpg'
+  const trailerUrl = movie?.trailer || ''
+  const trailerEmbedUrl = isYoutubeTrailerUrl(trailerUrl) ? getYoutubeEmbedUrl(trailerUrl) : ''
+  const trailerVideoUrl = isDirectVideoUrl(trailerUrl) ? resolveMediaUrl(trailerUrl) : ''
 
   return (
     <div className={PAGE_SHELL}>
@@ -133,7 +126,15 @@ function MovieDetail() {
 
               {/* Trailer Player */}
               <div className="relative aspect-video rounded-xl overflow-hidden bg-black shadow-xl">
-                {trailerEmbedUrl ? (
+                {trailerVideoUrl ? (
+                  <video
+                    key={trailerVideoUrl}
+                    src={trailerVideoUrl}
+                    controls
+                    className="h-full w-full object-contain"
+                    preload="metadata"
+                  />
+                ) : trailerEmbedUrl ? (
                   <iframe
                     src={trailerEmbedUrl}
                     title={`Trailer ${movie?.title || ''}`}

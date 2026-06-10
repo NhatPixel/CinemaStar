@@ -5,6 +5,8 @@ import Icon from '../Icon'
 import Input from '../Input'
 import Text from '../Text'
 import TextArea from '../TextArea'
+import ImageUploadField from '../upload/ImageUploadField'
+import VideoUploadField from '../upload/VideoUploadField'
 import { useToast } from '../useToast'
 import { createFilm, getFilmById, updateFilm } from '../../api/film'
 import { AGE_RATING_OPTIONS } from '../../constants/ageRatingMeta'
@@ -359,14 +361,14 @@ function MovieUpsertForm({ mode = 'create', filmId, onCancel, onSubmitted }) {
                     )}
                   </div>
                   <div className="md:col-span-2">
-                    <Input
-                      label="URL Trailer"
-                      name="trailerUrl"
-                      type="url"
+                    <VideoUploadField
+                      label="Trailer video"
                       value={formData.trailerUrl}
-                      onChange={handleChange}
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      {...fieldProps}
+                      onChange={(url) =>
+                        setFormData((prev) => ({ ...prev, trailerUrl: url || '' }))
+                      }
+                      disabled={submitting || loadingDetail}
+                      readOnly={readOnly}
                     />
                   </div>
                 </div>
@@ -465,49 +467,15 @@ function MovieUpsertForm({ mode = 'create', filmId, onCancel, onSubmitted }) {
                   <Icon name="image" className="text-primary" />
                   Poster Preview
                 </h3>
-                <div className="flex flex-col gap-6">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      URL Poster
-                    </label>
-                    <Input
-                      name="posterUrl"
-                      type="url"
-                      value={formData.posterUrl}
-                      onChange={handleChange}
-                      placeholder="https://..."
-                      {...fieldProps}
-                    />
-                  </div>
-                  <div className="aspect-[2/3] w-full rounded-xl border-2 border-dashed border-slate-200 dark:border-primary/30 bg-slate-50 dark:bg-background-dark/50 flex flex-col items-center justify-center text-slate-400 overflow-hidden group relative">
-                    {formData.posterUrl ? (
-                      <>
-                        <img
-                          alt="Poster Preview"
-                          className="absolute inset-0 w-full h-full object-cover"
-                          src={formData.posterUrl}
-                        />
-                        {!readOnly ? (
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
-                            <span className="text-white font-bold bg-primary px-4 py-2 rounded-lg">
-                              Preview Mode
-                            </span>
-                          </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-8 text-center gap-3">
-                        <Icon name="add_photo_alternate" className="text-5xl" />
-                        <p className="text-sm">
-                          Vui lòng nhập URL hợp lệ để xem trước poster
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center italic">
-                    Kích thước khuyến nghị: 600x900px (Tỷ lệ 2:3)
-                  </p>
-                </div>
+                <ImageUploadField
+                  label="Poster phim"
+                  value={formData.posterUrl}
+                  onChange={(url) =>
+                    setFormData((prev) => ({ ...prev, posterUrl: url || '' }))
+                  }
+                  disabled={submitting || loadingDetail}
+                  readOnly={readOnly}
+                />
               </section>
             </div>
           </div>

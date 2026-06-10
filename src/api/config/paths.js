@@ -14,6 +14,11 @@ export const SHOWTIMES_PREFIX = '/showtimes'
 export const PAYMENTS_PREFIX = '/payments'
 export const PROMOTIONS_PREFIX = '/promotions'
 export const BOOKINGS_PREFIX = '/bookings'
+export const UPLOADS_PREFIX = '/uploads'
+
+export function uploadPath(segment) {
+  return pathUnderPrefix(UPLOADS_PREFIX, segment)
+}
 
 export function authPath(segment) {
   return pathUnderPrefix(AUTH_PREFIX, segment)

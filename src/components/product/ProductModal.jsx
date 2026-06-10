@@ -11,10 +11,7 @@ import {
   PRODUCT_STATUS_OPTIONS,
   PRODUCT_TYPE_OPTIONS,
 } from '../../constants/productOptions'
-import {
-  resolveProductImageUrl,
-  suggestProductImageUrl,
-} from '../../constants/productImages'
+import ImageUploadField from '../upload/ImageUploadField'
 
 const EMPTY_FORM = {
   cinemaId: '',
@@ -62,13 +59,6 @@ function ProductModal({
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [submitting, setSubmitting] = useState(false)
-  const [imagePreviewError, setImagePreviewError] = useState(false)
-
-  const imagePreviewUrl = resolveProductImageUrl({
-    imageUrl: form.imageUrl,
-    type: form.type,
-    name: form.name,
-  })
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -112,24 +102,10 @@ function ProductModal({
     setForm((prev) => (prev.cinemaId ? prev : { ...prev, cinemaId: fallbackId }))
   }, [isOpen, isCreate, readOnly, cinemaOptions])
 
-  useEffect(() => {
-    setImagePreviewError(false)
-  }, [imagePreviewUrl])
-
   const handleChange = (e) => {
     if (readOnly) return
     const { name, value } = e.target
-    setForm((prev) => {
-      const next = { ...prev, [name]: value }
-      if (
-        isCreate &&
-        !String(prev.imageUrl || '').trim() &&
-        (name === 'type' || name === 'name')
-      ) {
-        next.imageUrl = suggestProductImageUrl(next.type, next.name)
-      }
-      return next
-    })
+    setForm((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e) => {
@@ -145,15 +121,16 @@ function ProductModal({
     const price = Number(priceRaw)
     if (!Number.isFinite(price)) return toast.error('Giá không hợp lệ')
 
+    const imageUrl = form.imageUrl?.trim()
+    if (!imageUrl) return toast.error('Vui lòng tải ảnh sản phẩm')
+
     const payload = {
       cinemaId: form.cinemaId,
       name,
       type: form.type,
       price,
       description: form.description?.trim() || '',
-      imageUrl:
-        form.imageUrl?.trim() ||
-        suggestProductImageUrl(form.type, form.name),
+      imageUrl,
       status: form.status,
     }
 
@@ -289,32 +266,16 @@ function ProductModal({
               readOnly={readOnly}
             />
 
-            <Input
-              label="Ảnh (URL)"
-              name="imageUrl"
+            <ImageUploadField
+              label="Ảnh sản phẩm"
               value={form.imageUrl}
-              onChange={handleChange}
-              placeholder="https://..."
-              icon="image"
-              disabled={readOnly}
+              onChange={(url) => setForm((prev) => ({ ...prev, imageUrl: url || '' }))}
+              disabled={submitting || loadingDetail}
               readOnly={readOnly}
+              aspectClass="aspect-[4/3]"
+              objectFit="contain"
+              hint=""
             />
-
-            <div className="rounded-xl border border-slate-200 dark:border-primary/20 bg-slate-50 dark:bg-slate-900/40 p-3">
-              {!imagePreviewError ? (
-                <img
-                  src={imagePreviewUrl}
-                  alt={form.name?.trim() || 'Xem trước ảnh sản phẩm'}
-                  className="mx-auto max-h-52 w-full rounded-lg object-contain"
-                  onLoad={() => setImagePreviewError(false)}
-                  onError={() => setImagePreviewError(true)}
-                />
-              ) : (
-                <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-6">
-                  Không tải được ảnh từ URL này
-                </p>
-              )}
-            </div>
 
             {readOnly ? (
               <Input

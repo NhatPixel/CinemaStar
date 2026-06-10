@@ -29,6 +29,11 @@ export default defineConfig({
           proxy.on('proxyRes', rewriteSetCookieForLocalhost)
         },
       },
+      '/media': {
+        target: CINEMA_API_TARGET,
+        changeOrigin: true,
+        secure: true,
+      },
       '/chatbot': {
         target: CHATBOT_TARGET,
         changeOrigin: true,

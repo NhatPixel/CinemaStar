@@ -1,4 +1,5 @@
 import { formatSeatLabel, seatsToLayoutDefinition } from '../../components/hall/hallLayoutUtils'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 import { AGE_RATING_META } from '../../constants/ageRatingMeta'
 import { SEAT_TYPE } from '../../constants/hallStatusOptions'
 
@@ -28,7 +29,8 @@ export function getFilmRecordTitle(film) {
 }
 
 export function getFilmRecordPoster(film) {
-  return String(film?.poster || MOVIE_FALLBACK.poster).trim()
+  const raw = String(film?.poster || MOVIE_FALLBACK.poster).trim()
+  return resolveMediaUrl(raw) || MOVIE_FALLBACK.poster
 }
 
 export function formatFilmAgeRatingShort(film) {

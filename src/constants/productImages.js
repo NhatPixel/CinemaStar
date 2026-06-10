@@ -1,3 +1,5 @@
+import { resolveMediaUrl } from '../utils/mediaUrl'
+
 /**
  * Ảnh mặc định theo loại / tên (URL công khai, dùng khi sản phẩm chưa có imageUrl).
  */
@@ -39,7 +41,7 @@ const NAME_IMAGE_RULES = [
  */
 export function resolveProductImageUrl({ imageUrl, type, name } = {}) {
   const direct = String(imageUrl || '').trim()
-  if (direct) return direct
+  if (direct) return resolveMediaUrl(direct) || direct
 
   const n = String(name || '').toLowerCase()
   for (const rule of NAME_IMAGE_RULES) {
