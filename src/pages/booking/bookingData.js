@@ -29,8 +29,7 @@ export function getFilmRecordTitle(film) {
 }
 
 export function getFilmRecordPoster(film) {
-  const raw = String(film?.poster || MOVIE_FALLBACK.poster).trim()
-  return resolveMediaUrl(raw) || MOVIE_FALLBACK.poster
+  return String(film?.poster || MOVIE_FALLBACK.poster).trim()
 }
 
 export function formatFilmAgeRatingShort(film) {
