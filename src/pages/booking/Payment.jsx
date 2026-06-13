@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { createBooking } from '../../api/booking'
+import { createBookingAndResolve } from '../../api/booking'
 import { createPaymentSession, previewPromotion } from '../../api/payment'
+import StaffCustomerSection from '../../components/booking/StaffCustomerSection'
 import { Button, Icon, Input, Text, useToast } from '../../components'
 import BookingLayout from './BookingLayout'
 import {
@@ -9,10 +10,13 @@ import {
   BOOKING_RESULT_STORAGE_KEY,
   MOMO_PAYMENT_METHOD,
   MOVIE_FALLBACK,
+  appendStaffSellQuery,
   formatCurrency,
   formatShowtimeTime,
   getFilmPoster,
   getFilmTitle,
+  isOperatorRole,
+  isStaffSellMode,
   readAuthRole,
   enrichBookingWithPaymentSession,
   readJsonStorage,
@@ -44,9 +48,9 @@ function validateCustomerInfo(customerInfo) {
   return null
 }
 
-function buildCreateBookingPayload(draft, customerInfo) {
+function buildCreateBookingPayload(draft, customerInfo, customerId = null) {
   const cinemaId = draft.cinema?.id || draft.showtime?.cinemaId || draft.hall?.cinemaId
-  return {
+  const payload = {
     showtimeId: draft.showtime.id,
     cinemaId,
     customerInfo: {
@@ -57,6 +61,10 @@ function buildCreateBookingPayload(draft, customerInfo) {
     seatItems: draft.seatItems,
     productItems: draft.productItems || [],
   }
+  if (customerId) {
+    payload.customerId = customerId
+  }
+  return payload
 }
 
 function computePayTotals(draft, appliedPromotion) {
@@ -114,8 +122,12 @@ function Payment() {
   const [searchParams] = useSearchParams()
   const toast = useToast()
   const filmId = searchParams.get('filmId')
+  const staffSellMode = isStaffSellMode(searchParams) && isOperatorRole()
   const [draft, setDraft] = useState(() => readJsonStorage(BOOKING_DRAFT_STORAGE_KEY))
-  const [customerInfo, setCustomerInfo] = useState(() => getCurrentUserDefaults())
+  const [customerInfo, setCustomerInfo] = useState(() =>
+    staffSellMode ? { fullName: '', email: '', phone: '' } : getCurrentUserDefaults(),
+  )
+  const [customerId, setCustomerId] = useState(null)
   const [promotionInput, setPromotionInput] = useState(() => {
     const stored = readJsonStorage(BOOKING_DRAFT_STORAGE_KEY)
     return String(stored?.promotionCode || '').trim()
@@ -126,8 +138,15 @@ function Payment() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    document.title = 'Thanh Toán - CinemaStar'
-  }, [])
+    document.title = staffSellMode ? 'Bán Vé Tại Quầy - CinemaStar' : 'Thanh Toán - CinemaStar'
+  }, [staffSellMode])
+
+  useEffect(() => {
+    if (isStaffSellMode(searchParams) && !isOperatorRole()) {
+      toast.error('Chỉ nhân viên/manager/admin mới dùng được bán vé tại quầy')
+      navigate('/login', { state: { from: '/booking/showtimes?staffSell=1' } })
+    }
+  }, [navigate, searchParams, toast])
 
   useEffect(() => {
     setDraft(readJsonStorage(BOOKING_DRAFT_STORAGE_KEY))
@@ -145,6 +164,7 @@ function Payment() {
   const filmTitle = showtime ? getFilmTitle(showtime) : MOVIE_FALLBACK.title
   const poster = showtime ? getFilmPoster(showtime) : MOVIE_FALLBACK.poster
   const showtimeTime = formatShowtimeTime(showtime?.startDateTime)
+  const cinemaId = draft?.cinema?.id || draft?.showtime?.cinemaId || draft?.hall?.cinemaId
 
   const persistDraft = useCallback(
     (nextApplied, code, previewAfterClear) => {
@@ -167,10 +187,24 @@ function Payment() {
     [draft, promotionInput],
   )
 
-  const updateCustomerInfo = (field, value) => {
-    setCustomerInfo((prev) => ({ ...prev, [field]: value }))
+  const resetPendingState = useCallback(() => {
     setPendingBooking(null)
     setAppliedPromotion(null)
+  }, [])
+
+  const updateCustomerInfo = (field, value) => {
+    setCustomerInfo((prev) => ({ ...prev, [field]: value }))
+    resetPendingState()
+  }
+
+  const handleStaffCustomerInfoChange = (nextInfo) => {
+    setCustomerInfo(nextInfo)
+    resetPendingState()
+  }
+
+  const handleStaffCustomerIdChange = (nextCustomerId) => {
+    setCustomerId(nextCustomerId)
+    resetPendingState()
   }
 
   const ensurePendingBooking = useCallback(async () => {
@@ -179,10 +213,18 @@ function Payment() {
     if (customerError) {
       throw { message: customerError }
     }
-    const booking = await createBooking(buildCreateBookingPayload(draft, customerInfo))
+    const payload = buildCreateBookingPayload(draft, customerInfo, staffSellMode ? customerId : null)
+    const booking = await createBookingAndResolve(payload, {
+      isOperator: staffSellMode,
+      showtimeId: draft?.showtime?.id,
+      cinemaId,
+      phone: customerInfo.phone,
+    })
     setPendingBooking(booking)
     return booking
-  }, [customerInfo, draft, pendingBooking])
+  }, [cinemaId, customerId, customerInfo, draft, pendingBooking, staffSellMode])
+
+  const canUseBookingFlow = staffSellMode || readAuthRole() === 'CUSTOMER'
 
   const handleApplyPromotion = async () => {
     const code = promotionInput.trim()
@@ -190,7 +232,7 @@ function Payment() {
       toast.error('Vui lòng nhập mã khuyến mãi')
       return
     }
-    if (readAuthRole() !== 'CUSTOMER') {
+    if (!canUseBookingFlow) {
       toast.error('Vui lòng đăng nhập tài khoản khách hàng để dùng mã khuyến mãi')
       navigate('/login', { state: { from: '/booking/payment' } })
       return
@@ -256,19 +298,24 @@ function Payment() {
   }
 
   const handleConfirmPayment = async () => {
-    if (readAuthRole() !== 'CUSTOMER') {
+    if (!canUseBookingFlow) {
       toast.error('Vui lòng đăng nhập tài khoản khách hàng để đặt vé')
       navigate('/login', { state: { from: '/booking/payment' } })
       return
     }
     if (!draft?.showtime?.id) {
       toast.error('Vui lòng chọn suất chiếu trước khi thanh toán')
-      navigate('/booking/showtimes')
+      navigate(staffSellMode ? '/booking/showtimes?staffSell=1' : '/booking/showtimes')
       return
     }
     if (!draft?.seatItems?.length) {
       toast.error('Vui lòng chọn ghế trước khi thanh toán')
-      navigate(`/booking/seats?showtimeId=${draft.showtime.id}`)
+      navigate(
+        appendStaffSellQuery(
+          `/booking/seats?showtimeId=${draft.showtime.id}${filmId ? `&filmId=${filmId}` : ''}`,
+          searchParams,
+        ),
+      )
       return
     }
     const customerError = validateCustomerInfo(customerInfo)
@@ -300,9 +347,10 @@ function Payment() {
           appliedPromotion,
         }),
         paymentMethod: MOMO_PAYMENT_METHOD.code,
+        staffSellMode,
       })
       removeJsonStorage(BOOKING_DRAFT_STORAGE_KEY)
-      toast.success('Đặt vé thành công')
+      toast.success(staffSellMode ? 'Đã tạo đơn cho khách' : 'Đặt vé thành công')
       navigate(`/booking/result?bookingId=${booking.id}`)
     } catch (e) {
       toast.error(e?.message || 'Đặt vé thất bại')
@@ -310,6 +358,13 @@ function Payment() {
       setSubmitting(false)
     }
   }
+
+  const backToSeatsUrl = appendStaffSellQuery(
+    showtime?.id
+      ? `/booking/seats?showtimeId=${showtime.id}${filmId ? `&filmId=${filmId}` : ''}`
+      : '/booking/seats',
+    searchParams,
+  )
 
   const aside = (
     <div className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 shadow-xl shadow-primary/10">
@@ -356,55 +411,74 @@ function Payment() {
 
   return (
     <BookingLayout
-      eyebrow="Bước 03"
-      title="Thanh Toán"
-      subtitle="Hoàn tất giao dịch trong thời gian giữ ghế. Sau khi thanh toán thành công, vé điện tử sẽ được gửi về tài khoản của bạn."
+      eyebrow={staffSellMode ? 'Bán vé tại quầy' : 'Bước 03'}
+      title={staffSellMode ? 'Thanh toán cho khách' : 'Thanh Toán'}
+      subtitle={
+        staffSellMode
+          ? 'Nhập hoặc tra cứu thông tin khách, tạo đơn giữ ghế và tạo phiên thanh toán MoMo nếu khách thanh toán online.'
+          : 'Hoàn tất giao dịch trong thời gian giữ ghế. Sau khi thanh toán thành công, vé điện tử sẽ được gửi về tài khoản của bạn.'
+      }
       aside={aside}
     >
       <div className="space-y-8">
         {!draft ? (
           <section className="rounded-3xl border border-red-500/20 bg-red-500/10 p-5 text-red-200 md:p-8">
             Chưa có thông tin đặt vé.{' '}
-            <Link to="/booking/showtimes" className="font-bold text-primary hover:underline">
+            <Link
+              to={staffSellMode ? '/booking/showtimes?staffSell=1' : '/booking/showtimes'}
+              className="font-bold text-primary hover:underline"
+            >
               Chọn suất chiếu
             </Link>
           </section>
         ) : null}
 
-        <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
-          <div className="mb-8">
-            <Text variant="h2" className="text-2xl font-black text-white">
-              Thông tin khách hàng
-            </Text>
-            <p className="mt-2 text-sm text-slate-400">
-              Hệ thống yêu cầu họ tên, email và số điện thoại để giữ ghế.
-            </p>
-          </div>
-          <div className="mb-8 grid gap-4 md:grid-cols-3">
-            <Input
-              label="Họ và tên"
-              value={customerInfo.fullName}
-              onChange={(e) => updateCustomerInfo('fullName', e.target.value)}
-              placeholder="Nguyen Van A"
-              icon="person"
-            />
-            <Input
-              label="Email"
-              type="email"
-              value={customerInfo.email}
-              onChange={(e) => updateCustomerInfo('email', e.target.value)}
-              placeholder="email@example.com"
-              icon="mail"
-            />
-            <Input
-              label="Số điện thoại"
-              value={customerInfo.phone}
-              onChange={(e) => updateCustomerInfo('phone', e.target.value)}
-              placeholder="0900000000"
-              icon="phone"
-            />
-          </div>
+        {staffSellMode ? (
+          <StaffCustomerSection
+            customerInfo={customerInfo}
+            customerId={customerId}
+            onCustomerInfoChange={handleStaffCustomerInfoChange}
+            onCustomerIdChange={handleStaffCustomerIdChange}
+            disabled={submitting || applyingPromotion}
+          />
+        ) : (
+          <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
+            <div className="mb-8">
+              <Text variant="h2" className="text-2xl font-black text-white">
+                Thông tin khách hàng
+              </Text>
+              <p className="mt-2 text-sm text-slate-400">
+                Hệ thống yêu cầu họ tên, email và số điện thoại để giữ ghế.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Input
+                label="Họ và tên"
+                value={customerInfo.fullName}
+                onChange={(e) => updateCustomerInfo('fullName', e.target.value)}
+                placeholder="Nguyen Van A"
+                icon="person"
+              />
+              <Input
+                label="Email"
+                type="email"
+                value={customerInfo.email}
+                onChange={(e) => updateCustomerInfo('email', e.target.value)}
+                placeholder="email@example.com"
+                icon="mail"
+              />
+              <Input
+                label="Số điện thoại"
+                value={customerInfo.phone}
+                onChange={(e) => updateCustomerInfo('phone', e.target.value)}
+                placeholder="0900000000"
+                icon="phone"
+              />
+            </div>
+          </section>
+        )}
 
+        <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <Text variant="h2" className="text-2xl font-black text-white">
@@ -520,13 +594,7 @@ function Payment() {
         </section>
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-          <Link
-            to={
-              showtime?.id
-                ? `/booking/seats?showtimeId=${showtime.id}${filmId ? `&filmId=${filmId}` : ''}`
-                : '/booking/seats'
-            }
-          >
+          <Link to={backToSeatsUrl}>
             <Button variant="secondary" className="w-full rounded-full px-8 sm:w-auto">
               <Icon name="arrow_back" />
               Quay lại
@@ -537,7 +605,13 @@ function Payment() {
             disabled={submitting || !draft}
             onClick={handleConfirmPayment}
           >
-            {submitting ? 'Đang đặt vé...' : 'Xác nhận thanh toán'}
+            {submitting
+              ? staffSellMode
+                ? 'Đang tạo đơn...'
+                : 'Đang đặt vé...'
+              : staffSellMode
+                ? 'Tạo đơn & thanh toán'
+                : 'Xác nhận thanh toán'}
             <Icon name="lock" />
           </Button>
         </div>

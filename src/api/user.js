@@ -101,6 +101,28 @@ export function searchCustomers(params, opts) {
   return searchUsersByRole(CUSTOMERS_SEARCH_URL, params, opts)
 }
 
+/** GET /users/customers/lookup?phone=... — tra khách theo SĐT (staff bán vé) */
+export async function getCustomerByPhone(phone, { signal } = {}) {
+  const normalized = String(phone || '').trim()
+  if (!normalized) {
+    throw { status: 400, message: 'Vui lòng nhập số điện thoại' }
+  }
+  const params = new URLSearchParams({ phone: normalized })
+  const { url, options } = buildGet(`${userPath('customers/lookup')}?${params.toString()}`)
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không tìm thấy khách hàng',
+    raw: resp,
+  }
+}
+
 /** GET /users/{id} */
 export async function getUserById(userId, { signal } = {}) {
   const id = String(userId || '').trim()

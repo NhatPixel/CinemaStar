@@ -262,6 +262,26 @@ export function readAuthRole() {
     .toUpperCase()
 }
 
+export const STAFF_SELL_QUERY = 'staffSell'
+
+export function isOperatorRole(role = readAuthRole()) {
+  const normalized = String(role || '')
+    .trim()
+    .toUpperCase()
+  return normalized === 'ADMIN' || normalized === 'MANAGER' || normalized === 'STAFF'
+}
+
+export function isStaffSellMode(searchParams) {
+  const value = searchParams?.get(STAFF_SELL_QUERY)
+  return value === '1' || value === 'true'
+}
+
+export function appendStaffSellQuery(path, searchParams) {
+  if (!isStaffSellMode(searchParams)) return path
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}${STAFF_SELL_QUERY}=1`
+}
+
 export function readJsonStorage(key) {
   try {
     const raw = sessionStorage.getItem(key)

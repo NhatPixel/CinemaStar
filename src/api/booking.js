@@ -110,6 +110,63 @@ export async function createBooking(payload) {
   }
 }
 
+/** POST /bookings/staff-sell — staff/manager/admin đặt vé cho khách */
+export async function createStaffBooking(payload) {
+  const { url, options } = buildPost(bookingPath('staff-sell'), payload)
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không thể đặt vé cho khách',
+    raw: resp,
+  }
+}
+
+/**
+ * BE create trả ActionMessageResponse (không có booking id) — tra đơn vừa tạo theo suất/SĐT.
+ */
+export async function resolveRecentUnpaidBooking(
+  { showtimeId, cinemaId, phone, isOperator } = {},
+  options = {},
+) {
+  const filterBy = []
+  if (showtimeId) {
+    filterBy.push({ field: 'SHOWTIME_ID', operator: 'EQ', value: showtimeId })
+  }
+  if (cinemaId) {
+    filterBy.push({ field: 'CINEMA_ID', operator: 'EQ', value: cinemaId })
+  }
+  const body = {
+    page: 1,
+    size: 3,
+    keyword: String(phone || '').trim(),
+    filterBy,
+    sortBy: [{ field: 'TIME_CREATED', direction: 'DESC' }],
+  }
+  const page = isOperator
+    ? await searchUnpaidOperatorBookings(body, options)
+    : await searchMyActiveBookings(body, options)
+  const booking = page?.data?.[0]
+  if (!booking?.id) {
+    throw {
+      status: 404,
+      message: 'Đã tạo đơn nhưng không lấy được mã đặt vé. Vui lòng thử lại.',
+    }
+  }
+  return booking
+}
+
+export async function createBookingAndResolve(payload, { isOperator, showtimeId, cinemaId, phone } = {}) {
+  if (isOperator) {
+    await createStaffBooking(payload)
+  } else {
+    await createBooking(payload)
+  }
+  return resolveRecentUnpaidBooking({ showtimeId, cinemaId, phone, isOperator })
+}
+
 export async function getBookingById(id, { signal } = {}) {
   const { url, options } = buildGet(bookingDetailUrl(id))
   const resp = await callApi({

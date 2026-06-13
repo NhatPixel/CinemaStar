@@ -38,6 +38,9 @@ function AdminSidebar() {
   const isPricingPoliciesActive = location.pathname.startsWith('/management/pricing-policies')
   const isPromotionsActive = location.pathname.startsWith('/management/promotions')
   const isBookingsActive = location.pathname.startsWith('/management/bookings')
+  const isCounterSellActive =
+    location.pathname.startsWith('/booking/showtimes') &&
+    new URLSearchParams(location.search).get('staffSell') === '1'
   const isProductsActive = location.pathname.startsWith('/management/products')
   const isUsersActive = location.pathname.startsWith('/management/users')
   const isStatisticsActive = location.pathname.startsWith('/management/statistics')
@@ -192,6 +195,21 @@ function AdminSidebar() {
             <Icon name="bar_chart" />
             <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
               Thống kê doanh thu
+            </span>
+          </Link>
+        ) : null}
+        {showOperations ? (
+          <Link
+            to="/booking/showtimes?staffSell=1"
+            className={`flex items-center justify-center group-hover:justify-start gap-0 group-hover:gap-3 px-3 group-hover:px-4 py-3 rounded-lg transition-all duration-300 ${
+              isCounterSellActive
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-slate-600 hover:bg-primary/5 hover:text-primary dark:text-slate-300'
+            }`}
+          >
+            <Icon name="point_of_sale" />
+            <span className="opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[140px] transition-all duration-300 whitespace-nowrap overflow-hidden">
+              Bán vé tại quầy
             </span>
           </Link>
         ) : null}

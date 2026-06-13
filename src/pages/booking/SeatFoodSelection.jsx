@@ -22,6 +22,7 @@ import {
   getShowtimeHall,
   normalizeProductToCombo,
   resolveSeatPriceFromSeatMap,
+  appendStaffSellQuery,
   writeJsonStorage,
 } from './bookingData'
 
@@ -171,7 +172,12 @@ function SeatFoodSelection() {
       },
     }
     writeJsonStorage(BOOKING_DRAFT_STORAGE_KEY, draft)
-    navigate(`/booking/payment?showtimeId=${showtime.id}${filmId ? `&filmId=${filmId}` : ''}`)
+    navigate(
+      appendStaffSellQuery(
+        `/booking/payment?showtimeId=${showtime.id}${filmId ? `&filmId=${filmId}` : ''}`,
+        searchParams,
+      ),
+    )
   }
 
   const filmTitle = showtime ? getFilmTitle(showtime) : MOVIE_FALLBACK.title

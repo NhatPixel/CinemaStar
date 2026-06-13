@@ -19,6 +19,8 @@ import {
   formatShowtimeTime,
   getFilmTitle,
   getShowtimeHall,
+  appendStaffSellQuery,
+  isStaffSellMode,
   readJsonStorage,
   writeJsonStorage,
 } from './bookingData'
@@ -30,6 +32,7 @@ function ShowtimeSelection() {
   const navigate = useNavigate()
   const toast = useToast()
   const filmIdFromQuery = searchParams.get('filmId')
+  const staffSellMode = isStaffSellMode(searchParams)
   const storedMovie = readJsonStorage(BOOKING_MOVIE_STORAGE_KEY)
   const selectedFilmId = filmIdFromQuery || storedMovie?.id || ''
 
@@ -196,7 +199,12 @@ function ShowtimeSelection() {
       toast.error('Vui lòng chọn suất chiếu')
       return
     }
-    navigate(`/booking/seats?showtimeId=${selectedShowtimeId}&filmId=${selectedFilmId}`)
+    navigate(
+      appendStaffSellQuery(
+        `/booking/seats?showtimeId=${selectedShowtimeId}&filmId=${selectedFilmId}`,
+        searchParams,
+      ),
+    )
   }
 
   const pageLoading = filmLoading
@@ -205,15 +213,22 @@ function ShowtimeSelection() {
 
   return (
     <BookingLayout
-      eyebrow="Bước 01"
-      title="Chọn Suất Chiếu"
+      eyebrow={staffSellMode ? 'Bán vé tại quầy' : 'Bước 01'}
+      title={staffSellMode ? 'Chọn suất cho khách' : 'Chọn Suất Chiếu'}
       subtitle={
-        filmTitle
-          ? `${filmTitle} — chọn ngày chiếu, rạp và khung giờ.`
-          : 'Chọn ngày chiếu, rạp và khung giờ phù hợp để bắt đầu đặt vé.'
+        staffSellMode
+          ? 'Chọn phim, ngày, rạp và suất chiếu để đặt vé cho khách tại quầy.'
+          : filmTitle
+            ? `${filmTitle} — chọn ngày chiếu, rạp và khung giờ.`
+            : 'Chọn ngày chiếu, rạp và khung giờ phù hợp để bắt đầu đặt vé.'
       }
     >
       <div className="space-y-6">
+          {staffSellMode ? (
+            <div className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+              Luồng bán vé tại quầy — bạn sẽ nhập thông tin khách ở bước thanh toán.
+            </div>
+          ) : null}
           {!selectedFilmId ? (
             <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center text-red-200">
               Vui lòng chọn phim từ{' '}

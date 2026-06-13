@@ -12,8 +12,6 @@ import OpenStreetMapForm from '../openStreetMap/OpenStreetMapForm'
 import {
   createCinema,
   getCinemaById,
-  resolveCinemaIdByCode,
-  syncCinemaStaffAssignments,
   updateCinema,
 } from '../../api/cinema'
 import { searchManagers, searchStaffs } from '../../api/user'
@@ -117,7 +115,6 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [submitting, setSubmitting] = useState(false)
-  const [initialStaffIds, setInitialStaffIds] = useState([])
 
   const userOptionsEnabled = isOpen && !isView
   const {
@@ -153,7 +150,6 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
     if (isCreate) {
       setDetail(null)
       setForm({ ...EMPTY_FORM })
-      setInitialStaffIds([])
       setSubmitting(false)
       return undefined
     }
@@ -167,8 +163,6 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
         const data = await getCinemaById(cinemaId, { signal: controller.signal })
         if (cancelled) return
         setDetail(data)
-        const staffIds = normalizeStaffIds(data?.staffIds)
-        setInitialStaffIds(staffIds)
         setForm(formToInitial(data))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
@@ -304,6 +298,7 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
       openTime: ensureTimeWithSeconds(form.openTime),
       closeTime: ensureTimeWithSeconds(form.closeTime),
       managerId,
+      staffIds: normalizeStaffIds(form.staffIds),
     }
 
     try {
@@ -311,7 +306,6 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
       let data
       if (isEdit) {
         data = await updateCinema(cinemaId, basePayload)
-        await syncCinemaStaffAssignments(cinemaId, initialStaffIds, form.staffIds)
         toast.success(
           typeof data?.message === 'string'
             ? data.message
@@ -323,13 +317,6 @@ function CinemaModal({ isOpen, mode = 'create', cinemaId, onCancel, onSubmitted 
           code,
           status: form.status,
         })
-        if (form.staffIds.length > 0) {
-          const newCinemaId = await resolveCinemaIdByCode(code)
-          if (!newCinemaId) {
-            throw { message: 'Tạo rạp thành công nhưng không thể gán nhân viên (không tìm thấy mã rạp)' }
-          }
-          await syncCinemaStaffAssignments(newCinemaId, [], form.staffIds)
-        }
         toast.success(
           typeof data?.message === 'string' ? data.message : 'Tạo rạp thành công',
         )
