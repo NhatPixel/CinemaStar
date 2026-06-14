@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buildFilmsSearchBody, searchFilms } from '../api/film'
+import {
+  buildFilmsCustomerSearchBody,
+  buildFilmsSearchBody,
+  searchFilms,
+  searchFilmsForCustomer,
+} from '../api/film'
 
 const PAGE_SIZE = 12
 
@@ -25,6 +30,9 @@ export function useCursorFilmOptions({
   enabled = true,
   status,
   statusIn,
+  /** Staff bán vé: POST /films/customer/search (BE scope theo rạp). */
+  customerSearch = false,
+  cinemaId,
 } = {}) {
   const [options, setOptions] = useState([])
   const [cursor, setCursor] = useState(null)
@@ -35,10 +43,14 @@ export function useCursorFilmOptions({
   const abortRef = useRef(null)
   const statusRef = useRef(status)
   const statusInRef = useRef(statusIn)
+  const customerSearchRef = useRef(customerSearch)
+  const cinemaIdRef = useRef(cinemaId)
 
   useEffect(() => {
     statusRef.current = status
     statusInRef.current = statusIn
+    customerSearchRef.current = customerSearch
+    cinemaIdRef.current = cinemaId
   })
 
   const fetchFilms = useCallback(
@@ -52,16 +64,22 @@ export function useCursorFilmOptions({
       else setLoading(true)
 
       try {
-        const data = await searchFilms(
-          buildFilmsSearchBody({
-            size: PAGE_SIZE,
-            cursor: next || undefined,
-            title,
-            status: statusRef.current,
-            statusIn: statusInRef.current,
-          }),
-          { signal: ac.signal },
-        )
+        const body = customerSearchRef.current
+          ? buildFilmsCustomerSearchBody({
+              size: PAGE_SIZE,
+              cursor: next || undefined,
+              title,
+              cinemaId: cinemaIdRef.current || undefined,
+            })
+          : buildFilmsSearchBody({
+              size: PAGE_SIZE,
+              cursor: next || undefined,
+              title,
+              status: statusRef.current,
+              statusIn: statusInRef.current,
+            })
+        const searchFn = customerSearchRef.current ? searchFilmsForCustomer : searchFilms
+        const data = await searchFn(body, { signal: ac.signal })
         const mapped = mapFilmOptions(data?.data)
         setOptions((prev) => (append ? [...prev, ...mapped] : mapped))
         setCursor(data?.nextCursor ?? null)
@@ -80,7 +98,7 @@ export function useCursorFilmOptions({
     [enabled],
   )
 
-  const filterKey = `${status ?? ''}|${statusInKey(statusIn)}`
+  const filterKey = `${customerSearch ? 'customer' : 'admin'}|${cinemaId ?? ''}|${status ?? ''}|${statusInKey(statusIn)}`
 
   useEffect(() => {
     if (!enabled) {

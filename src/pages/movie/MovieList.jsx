@@ -17,17 +17,31 @@ import {
   searchFilms,
   searchFilmsForCustomer,
 } from '../../api/film'
-import { AGE_RATING_META } from '../../constants/ageRatingMeta'
+import { AGE_RATING_META, AGE_RATING_OPTIONS } from '../../constants/ageRatingMeta'
 import {
   MOVIE_LIST_PUBLIC_STATUSES,
   MOVIE_LIST_STATUS_OPTIONS,
 } from '../../constants/movieStatusOptions'
 import { isCustomerRole } from '../../constants/userRoleLabels'
 import { usePublicCinemaOptions } from '../../hooks/usePublicCinemaOptions'
+import { buildBookingDateOptions } from '../booking/bookingData'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
 import { resolveMediaUrl } from '../../utils/mediaUrl'
 
 const PAGE_SIZE = 12
+
+const SHOWTIME_DATE_OPTIONS = [
+  { value: '', label: 'Tất cả ngày chiếu' },
+  ...buildBookingDateOptions(7).map((opt) => ({
+    value: opt.value,
+    label: opt.isToday ? `Hôm nay · ${opt.dayLabel}` : `${opt.weekday} · ${opt.dayLabel}`,
+  })),
+]
+
+const AGE_FILTER_OPTIONS = [
+  { value: '', label: 'Tất cả độ tuổi' },
+  ...AGE_RATING_OPTIONS,
+]
 
 const STATUS_META = {
   COMING_SOON: { label: 'Sắp chiếu', color: 'bg-slate-600' },
@@ -73,6 +87,8 @@ function MovieList() {
     status: 'NOW_SHOWING',
   })
   const [cinemaFilter, setCinemaFilter] = useState('')
+  const [showtimeDateFilter, setShowtimeDateFilter] = useState('')
+  const [ageRatingFilter, setAgeRatingFilter] = useState('')
   const {
     options: cinemaOptions,
     loading: cinemaOptionsLoading,
@@ -102,6 +118,8 @@ function MovieList() {
           size: PAGE_SIZE,
           title: debouncedTitle,
           cinemaId: cinemaFilter || undefined,
+          showtimeDate: showtimeDateFilter || undefined,
+          ageRating: ageRatingFilter || undefined,
           ...extra,
         })
       }
@@ -115,7 +133,7 @@ function MovieList() {
         ...extra,
       })
     },
-    [isCustomer, debouncedTitle, cinemaFilter, filters.status],
+    [isCustomer, debouncedTitle, cinemaFilter, showtimeDateFilter, ageRatingFilter, filters.status],
   )
 
   useEffect(() => {
@@ -152,7 +170,7 @@ function MovieList() {
       cancelled = true
       ac.abort()
     }
-  }, [debouncedTitle, filters.status, cinemaFilter, isCustomer, buildSearchBody, toast])
+  }, [debouncedTitle, filters.status, cinemaFilter, showtimeDateFilter, ageRatingFilter, isCustomer, buildSearchBody, toast])
 
   const loadMore = useCallback(async () => {
     if (!nextCursor || !hasNext || loadingMore || loading) return
@@ -215,7 +233,7 @@ function MovieList() {
         </div>
 
         <section className="glass rounded-xl mb-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Text
                 variant="caption"
@@ -232,22 +250,42 @@ function MovieList() {
               />
             </div>
             {isCustomer ? (
-              <SearchableSelect
-                label="Rạp chiếu"
-                name="cinemaFilter"
-                value={cinemaFilter}
-                onChange={(e) => setCinemaFilter(e.target.value)}
-                options={cinemaOptions}
-                placeholder={cinemaOptionsLoading ? 'Đang tải rạp...' : 'Chọn rạp'}
-                searchPlaceholder="Tìm tên rạp..."
-                icon="location_on"
-                serverSearch
-                onSearchChange={onCinemaSearchChange}
-                onLoadMore={onCinemaLoadMore}
-                hasMore={cinemaOptionsHasMore}
-                loading={cinemaOptionsLoading}
-                loadingMore={cinemaOptionsLoadingMore}
-              />
+              <>
+                <SearchableSelect
+                  label="Rạp chiếu"
+                  name="cinemaFilter"
+                  value={cinemaFilter}
+                  onChange={(e) => setCinemaFilter(e.target.value)}
+                  options={cinemaOptions}
+                  placeholder={cinemaOptionsLoading ? 'Đang tải rạp...' : 'Tất cả rạp'}
+                  searchPlaceholder="Tìm tên rạp..."
+                  icon="location_on"
+                  serverSearch
+                  onSearchChange={onCinemaSearchChange}
+                  onLoadMore={onCinemaLoadMore}
+                  hasMore={cinemaOptionsHasMore}
+                  loading={cinemaOptionsLoading}
+                  loadingMore={cinemaOptionsLoadingMore}
+                />
+                <CustomSelect
+                  label="Ngày chiếu"
+                  name="showtimeDateFilter"
+                  value={showtimeDateFilter}
+                  onChange={(e) => setShowtimeDateFilter(e.target.value)}
+                  options={SHOWTIME_DATE_OPTIONS}
+                  placeholder="Chọn ngày chiếu"
+                  icon="calendar_month"
+                />
+                <CustomSelect
+                  label="Độ tuổi"
+                  name="ageRatingFilter"
+                  value={ageRatingFilter}
+                  onChange={(e) => setAgeRatingFilter(e.target.value)}
+                  options={AGE_FILTER_OPTIONS}
+                  placeholder="Chọn độ tuổi"
+                  icon="family_restroom"
+                />
+              </>
             ) : (
               <div className="space-y-2">
                 <Text

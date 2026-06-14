@@ -53,8 +53,10 @@ function labelsToKeySet(labels) {
  *   value?: object,
  *   onChange?: (layout) => void,
  *   selectedSeats?: string[],
+ *   suggestedSeats?: string[],
  *   reservedSeats?: string[],
  *   onSelectedSeatsChange?: (labels: string[]) => void,
+ *   hideGridMeta?: boolean,
  *   className?: string,
  * }} props
  */
@@ -64,8 +66,10 @@ function HallLayoutForm({
   value,
   onChange,
   selectedSeats = [],
+  suggestedSeats = [],
   reservedSeats = [],
   onSelectedSeatsChange,
+  hideGridMeta = false,
   className = '',
 }) {
   const isEditor = mode === 'editor'
@@ -86,6 +90,7 @@ function HallLayoutForm({
   const isPaintingRef = useRef(false)
 
   const selectedKeySet = useMemo(() => labelsToKeySet(selectedSeats), [selectedSeats])
+  const suggestedKeySet = useMemo(() => labelsToKeySet(suggestedSeats), [suggestedSeats])
   const reservedKeySet = useMemo(() => labelsToKeySet(reservedSeats), [reservedSeats])
 
   useEffect(() => {
@@ -304,12 +309,10 @@ function HallLayoutForm({
             icon="view_column"
           />
         </div>
-      ) : (
+      ) : hideGridMeta ? null : (
         <Text variant="small" className="text-sm text-slate-500 dark:text-slate-400">
           Lưới {totalRows}×{totalCols} · {seatCount} ghế
-          {isPicker && selectedSeats.length > 0
-            ? ` · Đã chọn: ${selectedSeats.join(', ')}`
-            : null}
+          {isPicker && selectedSeats.length > 0 ? ` · Đã chọn: ${selectedSeats.join(', ')}` : null}
         </Text>
       )}
 
@@ -372,7 +375,8 @@ function HallLayoutForm({
                 ? COUPLE_CELL_JOIN_CLASS[coupleSide] || ''
                 : ''
               const isReserved = isPicker && reservedKeySet.has(key)
-              const isSelected = isPicker && selectedKeySet.has(key)
+              const isManuallySelected = isPicker && selectedKeySet.has(key)
+              const isSuggested = isPicker && suggestedKeySet.has(key) && !isManuallySelected
               const seatLabel = formatSeatLabel(row, col)
               const hoverMergeSide =
                 hoverMergeCouple?.leftKey === key
@@ -412,9 +416,11 @@ function HallLayoutForm({
                     isPicker && painted
                       ? isReserved
                         ? 'cursor-not-allowed border-slate-700 bg-slate-800 text-slate-600'
-                        : isSelected
-                          ? 'border-primary bg-primary text-white shadow-lg shadow-primary/25 z-10'
-                          : `${paintedClass} cursor-pointer hover:border-primary hover:ring-2 hover:ring-primary/40`
+                        : isSuggested
+                          ? `${paintedClass} border-2 border-dashed border-sky-400 bg-sky-500/20 text-white ring-2 ring-sky-400/40 shadow-md shadow-sky-500/20 z-10`
+                          : isManuallySelected
+                            ? 'border-primary bg-primary text-white shadow-lg shadow-primary/25 z-10'
+                            : `${paintedClass} cursor-pointer hover:border-primary hover:ring-2 hover:ring-primary/40`
                       : painted
                         ? paintedClass
                         : isEditor
@@ -468,9 +474,15 @@ function HallLayoutForm({
               <span className="size-4 rounded border border-emerald-500/50 bg-emerald-500/20" />
               Còn trống
             </span>
+            {isBooking ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="size-4 rounded border-2 border-dashed border-sky-400 bg-sky-500/20" />
+                Gợi ý
+              </span>
+            ) : null}
             <span className="inline-flex items-center gap-2">
               <span className="size-4 rounded bg-primary" />
-              Đang chọn
+              Đã chọn
             </span>
             <span className="inline-flex items-center gap-2">
               <span className="size-4 rounded bg-slate-800" />

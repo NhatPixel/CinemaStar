@@ -59,12 +59,6 @@ function StaffCustomerSection({
     }
   }
 
-  const handleResetCustomer = () => {
-    onCustomerIdChange?.(null)
-    onCustomerInfoChange?.(EMPTY_CUSTOMER)
-    setLookupPhone('')
-  }
-
   const updateField = (field, value) => {
     onCustomerIdChange?.(null)
     onCustomerInfoChange?.({
@@ -74,7 +68,7 @@ function StaffCustomerSection({
   }
 
   return (
-    <section className="rounded-3xl border border-amber-500/30 bg-amber-500/5 p-5 md:p-8">
+    <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <Text variant="h2" className="text-2xl font-black text-white">
@@ -84,13 +78,13 @@ function StaffCustomerSection({
             Tra cứu theo số điện thoại hoặc nhập thông tin khách mới để đặt vé.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-200">
+        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-bold text-primary">
           <Icon name="point_of_sale" className="text-lg" />
           Bán vé tại quầy
         </div>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
         <label
           htmlFor="staffLookupPhone"
           className="ml-1 block text-sm font-medium text-slate-300"
@@ -118,23 +112,6 @@ function StaffCustomerSection({
           </Button>
         </div>
       </div>
-
-      {customerId ? (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-          <span className="inline-flex items-center gap-2">
-            <Icon name="verified_user" className="text-lg" />
-            Khách đã có tài khoản — vé sẽ gắn với hồ sơ này
-          </span>
-          <button
-            type="button"
-            className="font-bold text-emerald-200 underline-offset-2 hover:underline"
-            onClick={handleResetCustomer}
-            disabled={disabled}
-          >
-            Đặt cho khách mới
-          </button>
-        </div>
-      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Input

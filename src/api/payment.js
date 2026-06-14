@@ -23,6 +23,24 @@ export async function createPaymentSession({ bookingId, promotionCode } = {}) {
   }
 }
 
+/** POST /payments/sessions/{bookingId}/complete — staff/manager/admin đánh dấu đã thanh toán tại quầy */
+export async function completePaymentSession(bookingId) {
+  const id = String(bookingId || '').trim()
+  if (!id) {
+    throw { status: 400, message: 'Thiếu mã đơn đặt vé' }
+  }
+  const { url, options } = buildPost(paymentPath(`sessions/${id}/complete`), {})
+  const resp = await callApi({ url, options })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không xác nhận được thanh toán',
+    raw: resp,
+  }
+}
+
 /** GET /payments/sessions/{bookingId} */
 export async function getPaymentSession(bookingId, { signal } = {}) {
   const id = String(bookingId || '').trim()

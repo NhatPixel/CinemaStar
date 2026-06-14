@@ -6,6 +6,7 @@ import {
   searchAllShowtimesByFilmId,
 } from '../../api/showtime'
 import { Button, Icon, SearchableSelect, Text, useToast } from '../../components'
+import { useCursorFilmOptions } from '../../hooks/useCursorFilmOptions'
 import { mapCinemasToSelectOptions } from '../../api/hall'
 import BookingFilmSummary from './BookingFilmSummary'
 import BookingLayout from './BookingLayout'
@@ -18,6 +19,7 @@ import {
   formatCurrency,
   formatShowtimeTime,
   getFilmTitle,
+  getFilmRecordTitle,
   getShowtimeHall,
   appendStaffSellQuery,
   isStaffSellMode,
@@ -28,13 +30,26 @@ import {
 const DATE_OPTIONS = buildBookingDateOptions(7)
 
 function ShowtimeSelection() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const toast = useToast()
   const filmIdFromQuery = searchParams.get('filmId')
   const staffSellMode = isStaffSellMode(searchParams)
   const storedMovie = readJsonStorage(BOOKING_MOVIE_STORAGE_KEY)
-  const selectedFilmId = filmIdFromQuery || storedMovie?.id || ''
+  const selectedFilmId = filmIdFromQuery || (staffSellMode ? '' : storedMovie?.id || '')
+
+  const {
+    options: filmOptions,
+    loading: filmOptionsLoading,
+    loadingMore: filmOptionsLoadingMore,
+    hasMore: filmOptionsHasMore,
+    onSearchChange: onFilmSearchChange,
+    onLoadMore: onFilmLoadMore,
+    mergeOption: mergeFilmOption,
+  } = useCursorFilmOptions({
+    enabled: staffSellMode,
+    customerSearch: staffSellMode,
+  })
 
   const [selectedMovie, setSelectedMovie] = useState(() =>
     selectedFilmId && storedMovie?.id === selectedFilmId ? storedMovie : null,
@@ -89,7 +104,15 @@ function ShowtimeSelection() {
       cancelled = true
       ac.abort()
     }
-  }, [selectedFilmId])
+  }, [selectedFilmId, toast])
+
+  useEffect(() => {
+    if (!staffSellMode || !selectedMovie?.id) return
+    mergeFilmOption(
+      selectedMovie.id,
+      getFilmRecordTitle(selectedMovie) || getFilmTitle(selectedMovie),
+    )
+  }, [staffSellMode, selectedMovie, mergeFilmOption])
 
   useEffect(() => {
     if (!selectedFilmId || !selectedDate) {
@@ -185,10 +208,19 @@ function ShowtimeSelection() {
     [cinemas, selectedCinemaId],
   )
 
+  const handleStaffFilmChange = (event) => {
+    const nextFilmId = String(event.target.value || '').trim()
+    if (!nextFilmId) {
+      setSearchParams({ staffSell: '1' }, { replace: true })
+      return
+    }
+    setSearchParams({ staffSell: '1', filmId: nextFilmId }, { replace: true })
+  }
+
   const handleContinue = () => {
     if (!selectedFilmId) {
-      toast.error('Vui lòng chọn phim trước')
-      navigate('/movies')
+      toast.error(staffSellMode ? 'Vui lòng chọn phim' : 'Vui lòng chọn phim trước')
+      if (!staffSellMode) navigate('/movies')
       return
     }
     if (!selectedDate || !selectedCinemaId) {
@@ -225,11 +257,39 @@ function ShowtimeSelection() {
     >
       <div className="space-y-6">
           {staffSellMode ? (
-            <div className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-              Luồng bán vé tại quầy — bạn sẽ nhập thông tin khách ở bước thanh toán.
+            <div className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
+              <div className="mb-6 flex items-end justify-between gap-4">
+                <div>
+                  <Text variant="h2" className="text-2xl font-black text-white">
+                    Chọn phim
+                  </Text>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Tìm và chọn phim đang chiếu, sau đó chọn ngày, rạp và suất.
+                  </p>
+                </div>
+                <Icon name="movie" className="text-4xl text-primary" />
+              </div>
+              <SearchableSelect
+                label="Phim"
+                name="staffSellFilmId"
+                value={selectedFilmId}
+                onChange={handleStaffFilmChange}
+                options={filmOptions}
+                placeholder={filmOptionsLoading ? 'Đang tải phim...' : 'Tìm tên phim...'}
+                searchPlaceholder="Nhập tên phim..."
+                icon="movie"
+                serverSearch
+                onSearchChange={onFilmSearchChange}
+                onLoadMore={onFilmLoadMore}
+                hasMore={filmOptionsHasMore}
+                loading={filmOptionsLoading}
+                loadingMore={filmOptionsLoadingMore}
+                className="dark:border-primary/20 dark:bg-[#120a1a]/80 dark:text-white"
+              />
             </div>
           ) : null}
-          {!selectedFilmId ? (
+
+          {!staffSellMode && !selectedFilmId ? (
             <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center text-red-200">
               Vui lòng chọn phim từ{' '}
               <Link to="/movies" className="font-bold text-primary hover:underline">
@@ -363,12 +423,24 @@ function ShowtimeSelection() {
 
               <div className="flex justify-end">
                 <div className="flex flex-col-reverse gap-3 sm:flex-row">
-                  <Link to={`/movies/${selectedFilmId}`}>
-                    <Button variant="secondary" className="w-full rounded-full px-8 sm:w-auto">
-                      <Icon name="arrow_back" />
-                      Quay lại
+                  {staffSellMode ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full rounded-full px-8 sm:w-auto"
+                      onClick={() => setSearchParams({ staffSell: '1' }, { replace: true })}
+                    >
+                      <Icon name="movie" />
+                      Đổi phim
                     </Button>
-                  </Link>
+                  ) : (
+                    <Link to={`/movies/${selectedFilmId}`}>
+                      <Button variant="secondary" className="w-full rounded-full px-8 sm:w-auto">
+                        <Icon name="arrow_back" />
+                        Quay lại
+                      </Button>
+                    </Link>
+                  )}
                   <Button
                     className="w-full rounded-full px-8 sm:w-auto"
                     disabled={

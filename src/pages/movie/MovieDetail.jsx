@@ -5,6 +5,7 @@ import { getFilmById } from '../../api/film'
 import { AGE_RATING_META } from '../../constants/ageRatingMeta'
 import { MOVIE_STATUS_OPTIONS } from '../../constants/movieStatusOptions'
 import { PAGE_MAIN, PAGE_SHELL } from '../../constants/pageLayout'
+import { isCustomerRole, readCurrentUserRole } from '../../constants/userRoleLabels'
 import {
   getYoutubeEmbedUrl,
   isDirectVideoUrl,
@@ -74,6 +75,8 @@ function MovieDetail() {
   const trailerUrl = movie?.trailer || ''
   const trailerEmbedUrl = isYoutubeTrailerUrl(trailerUrl) ? getYoutubeEmbedUrl(trailerUrl) : ''
   const trailerVideoUrl = isDirectVideoUrl(trailerUrl) ? resolveMediaUrl(trailerUrl) : ''
+  const role = readCurrentUserRole()
+  const showBookButton = !role || isCustomerRole(role)
 
   return (
     <div className={PAGE_SHELL}>
@@ -154,14 +157,16 @@ function MovieDetail() {
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-4 mt-2">
-                <Link to={`/booking/showtimes?filmId=${id}`} className="flex-1 sm:flex-none">
-                  <Button className="w-full min-w-[200px] py-4 px-8 rounded-xl flex items-center justify-center gap-2">
-                    <Icon name="confirmation_number" />
-                    Đặt vé ngay
-                  </Button>
-                </Link>
-              </div>
+              {showBookButton ? (
+                <div className="flex flex-wrap gap-4 mt-2">
+                  <Link to={`/booking/showtimes?filmId=${id}`} className="flex-1 sm:flex-none">
+                    <Button className="w-full min-w-[200px] py-4 px-8 rounded-xl flex items-center justify-center gap-2">
+                      <Icon name="confirmation_number" />
+                      Đặt vé ngay
+                    </Button>
+                  </Link>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

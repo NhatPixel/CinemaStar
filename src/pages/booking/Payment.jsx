@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createBookingAndResolve } from '../../api/booking'
-import { createPaymentSession, previewPromotion } from '../../api/payment'
+import { createPaymentSession, getPaymentSession, previewPromotion } from '../../api/payment'
 import StaffCustomerSection from '../../components/booking/StaffCustomerSection'
 import { Button, Icon, Input, Text, useToast } from '../../components'
 import BookingLayout from './BookingLayout'
@@ -225,6 +225,7 @@ function Payment() {
   }, [cinemaId, customerId, customerInfo, draft, pendingBooking, staffSellMode])
 
   const canUseBookingFlow = staffSellMode || readAuthRole() === 'CUSTOMER'
+  const canApplyPromotion = !staffSellMode && readAuthRole() === 'CUSTOMER'
 
   const handleApplyPromotion = async () => {
     const code = promotionInput.trim()
@@ -232,9 +233,8 @@ function Payment() {
       toast.error('Vui lòng nhập mã khuyến mãi')
       return
     }
-    if (!canUseBookingFlow) {
-      toast.error('Vui lòng đăng nhập tài khoản khách hàng để dùng mã khuyến mãi')
-      navigate('/login', { state: { from: '/booking/payment' } })
+    if (!canApplyPromotion) {
+      toast.error('Mã khuyến mãi chỉ áp dụng khi khách tự đặt vé online')
       return
     }
     const customerError = validateCustomerInfo(customerInfo)
@@ -324,7 +324,7 @@ function Payment() {
       return
     }
     const code = promotionInput.trim()
-    if (code && !appliedPromotionCode) {
+    if (code && !appliedPromotionCode && !staffSellMode) {
       toast.error('Vui lòng bấm «Áp dụng» mã khuyến mãi (cần tạo đơn giữ ghế trước)')
       return
     }
@@ -332,10 +332,11 @@ function Payment() {
     setSubmitting(true)
     try {
       const booking = await ensurePendingBooking()
-      const paymentSession = await createPaymentSession({
+      await createPaymentSession({
         bookingId: booking.id,
         promotionCode: appliedPromotionCode || undefined,
       })
+      const paymentSession = await getPaymentSession(booking.id).catch(() => null)
       const bookingForResult = enrichBookingWithPaymentSession(booking, paymentSession, {
         promotionCode: appliedPromotionCode || code,
       })
@@ -415,7 +416,7 @@ function Payment() {
       title={staffSellMode ? 'Thanh toán cho khách' : 'Thanh Toán'}
       subtitle={
         staffSellMode
-          ? 'Nhập hoặc tra cứu thông tin khách, tạo đơn giữ ghế và tạo phiên thanh toán MoMo nếu khách thanh toán online.'
+          ? 'Nhập hoặc tra cứu khách, tạo đơn giữ ghế. Khách có thể quét MoMo QR hoặc staff xác nhận thanh toán tại quầy.'
           : 'Hoàn tất giao dịch trong thời gian giữ ghế. Sau khi thanh toán thành công, vé điện tử sẽ được gửi về tài khoản của bạn.'
       }
       aside={aside}
@@ -478,80 +479,87 @@ function Payment() {
           </section>
         )}
 
-        <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <Text variant="h2" className="text-2xl font-black text-white">
+        {!staffSellMode ? (
+          <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
+            <div className="mb-6 flex items-end justify-between gap-4">
+              <div>
+                <Text variant="h2" className="text-2xl font-black text-white">
+                  Mã khuyến mãi
+                </Text>
+                <p className="mt-2 text-sm text-slate-400">
+                  Nhập thông tin khách hàng, bấm «Áp dụng» để tạo đơn giữ ghế và kiểm tra mã theo rạp/phim.
+                </p>
+              </div>
+              <Icon name="sell" className="text-4xl text-primary" />
+            </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="paymentPromotionCode"
+                className="ml-1 block text-sm font-medium text-slate-300"
+              >
                 Mã khuyến mãi
-              </Text>
-              <p className="mt-2 text-sm text-slate-400">
-                Nhập thông tin khách hàng, bấm «Áp dụng» để tạo đơn giữ ghế và kiểm tra mã theo rạp/phim.
-              </p>
-            </div>
-            <Icon name="sell" className="text-4xl text-primary" />
-          </div>
-          <div className="space-y-2">
-            <label
-              htmlFor="paymentPromotionCode"
-              className="ml-1 block text-sm font-medium text-slate-300"
-            >
-              Mã khuyến mãi
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-              <div className="relative min-w-0 flex-1">
-                <Icon
-                  name="sell"
-                  className="pointer-events-none absolute left-4 top-1/2 z-[1] -translate-y-1/2 text-xl text-slate-500"
-                />
-                <input
-                  id="paymentPromotionCode"
-                  name="paymentPromotionCode"
-                  type="text"
-                  value={promotionInput}
-                  onChange={(e) => {
-                    setPromotionInput(e.target.value.toUpperCase())
-                    setAppliedPromotion(null)
-                  }}
-                  placeholder="VD: SUMMER20"
-                  disabled={applyingPromotion || submitting}
-                  className="h-[50px] w-full rounded-lg border border-primary/20 bg-[rgba(25,16,34,0.5)] py-3.5 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-[50px] min-w-[7.5rem] shrink-0 rounded-lg px-5 py-0 text-sm"
-                  disabled={applyingPromotion || submitting || !promotionInput.trim()}
-                  onClick={handleApplyPromotion}
-                >
-                  <Icon name="check_circle" />
-                  {applyingPromotion ? 'Đang kiểm tra...' : 'Áp dụng'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-[50px] min-w-[7.5rem] shrink-0 rounded-lg px-5 py-0 text-sm"
-                  disabled={
-                    applyingPromotion ||
-                    submitting ||
-                    (!promotionInput.trim() && !appliedPromotionCode)
-                  }
-                  onClick={handleClearPromotion}
-                >
-                  <Icon name="close" />
-                  {applyingPromotion ? 'Đang xử lý...' : 'Bỏ mã'}
-                </Button>
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                <div className="relative min-w-0 flex-1">
+                  <Icon
+                    name="sell"
+                    className="pointer-events-none absolute left-4 top-1/2 z-[1] -translate-y-1/2 text-xl text-slate-500"
+                  />
+                  <input
+                    id="paymentPromotionCode"
+                    name="paymentPromotionCode"
+                    type="text"
+                    value={promotionInput}
+                    onChange={(e) => {
+                      setPromotionInput(e.target.value.toUpperCase())
+                      setAppliedPromotion(null)
+                    }}
+                    placeholder="VD: SUMMER20"
+                    disabled={applyingPromotion || submitting}
+                    className="h-[50px] w-full rounded-lg border border-primary/20 bg-[rgba(25,16,34,0.5)] py-3.5 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-[50px] min-w-[7.5rem] shrink-0 rounded-lg px-5 py-0 text-sm"
+                    disabled={applyingPromotion || submitting || !promotionInput.trim()}
+                    onClick={handleApplyPromotion}
+                  >
+                    <Icon name="check_circle" />
+                    {applyingPromotion ? 'Đang kiểm tra...' : 'Áp dụng'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-[50px] min-w-[7.5rem] shrink-0 rounded-lg px-5 py-0 text-sm"
+                    disabled={
+                      applyingPromotion ||
+                      submitting ||
+                      (!promotionInput.trim() && !appliedPromotionCode)
+                    }
+                    onClick={handleClearPromotion}
+                  >
+                    <Icon name="close" />
+                    {applyingPromotion ? 'Đang xử lý...' : 'Bỏ mã'}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="mb-6 mt-10 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          </section>
+        ) : null}
+
+        <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
+          <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <Text variant="h2" className="text-2xl font-black text-white">
                 Phương thức thanh toán
               </Text>
               <p className="mt-2 text-sm text-slate-400">
-                Thanh toán qua {MOMO_PAYMENT_METHOD.label}.
+                {staffSellMode
+                  ? 'Khách quét MoMo QR hoặc staff xác nhận tiền mặt/chuyển khoản tại quầy trên trang kết quả.'
+                  : `Thanh toán qua ${MOMO_PAYMENT_METHOD.label}.`}
               </p>
             </div>
             <div className="inline-flex w-fit items-center gap-2 rounded-full bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300">

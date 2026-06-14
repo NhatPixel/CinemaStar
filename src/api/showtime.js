@@ -134,6 +134,38 @@ export async function getShowtimeSeatMap(id, { signal } = {}) {
   }
 }
 
+/** POST /showtimes/{id}/seat-suggestions — gợi ý ghế liền nhau, ưu tiên trung tâm / couple */
+export async function getSeatSuggestions(
+  showtimeId,
+  { seatCount = 1, preferCoupleSeat = false } = {},
+  { signal } = {},
+) {
+  const id = String(showtimeId || '').trim()
+  if (!id) {
+    throw { status: 400, message: 'Thiếu mã suất chiếu' }
+  }
+  const count = Number(seatCount)
+  if (!Number.isFinite(count) || count < 1 || count > 5) {
+    throw { status: 400, message: 'Số ghế gợi ý phải từ 1 đến 5' }
+  }
+  const { url, options } = buildPost(`${showtimeDetailUrl(id)}/seat-suggestions`, {
+    seatCount: count,
+    preferCoupleSeat: Boolean(preferCoupleSeat),
+  })
+  const resp = await callApi({
+    url,
+    options: { ...options, ...(signal ? { signal } : {}) },
+  })
+  if (resp?.success) {
+    return resp.data
+  }
+  throw {
+    status: resp?.code || 400,
+    message: resp?.message || 'Không gợi ý được ghế',
+    raw: resp,
+  }
+}
+
 /** Body POST /showtimes/films/{filmId}/search — date bắt buộc (yyyy-MM-dd), cinemaId tùy chọn */
 export function buildShowtimesByFilmSearchBody({ page = 1, size = 12, date, cinemaId } = {}) {
   const body = {

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ReservationCountdown from './ReservationCountdown'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getBookingById, getCheckoutContext } from '../../api/booking'
-import { getPaymentSession } from '../../api/payment'
-import { Button, Icon, Text } from '../../components'
+import { completePaymentSession, getPaymentSession } from '../../api/payment'
+import { Button, Icon, Text, useToast } from '../../components'
 import BookingLayout from './BookingLayout'
 import {
   BOOKING_RESULT_STORAGE_KEY,
@@ -13,6 +13,8 @@ import {
   formatShowtimeTime,
   formatPaymentMethodLabel,
   getPaymentPayUrl,
+  getPaymentQrCodeUrl,
+  isOperatorRole,
   resolveCheckoutPricing,
   mergePaymentSession,
   readJsonStorage,
@@ -34,14 +36,17 @@ function formatReservedUntil(value) {
 
 function BookingResult() {
   const [searchParams] = useSearchParams()
+  const toast = useToast()
   const bookingId = searchParams.get('bookingId')
   const cachedResultRef = useRef(readJsonStorage(BOOKING_RESULT_STORAGE_KEY))
   const cachedResult = cachedResultRef.current
+  const staffSellMode = Boolean(cachedResult?.staffSellMode)
   const [booking, setBooking] = useState(() => cachedResultRef.current?.booking || null)
   const [paymentSession, setPaymentSession] = useState(
     () => cachedResultRef.current?.paymentSession || null,
   )
   const [loading, setLoading] = useState(Boolean(bookingId))
+  const [completing, setCompleting] = useState(false)
   const [error, setError] = useState('')
   const [checkoutContext, setCheckoutContext] = useState(() => cachedResultRef.current?.context || null)
   const [reservationDeadlineMs, setReservationDeadlineMs] = useState(null)
@@ -73,6 +78,16 @@ function BookingResult() {
         setCheckoutContext(cached.context || null)
       }
 
+      const applyOperatorCheckout = (data, session) => {
+        const mergedSession = mergePaymentSession(session, cached?.paymentSession) || session
+        setBooking(data)
+        setPaymentSession(mergedSession)
+        setCheckoutContext(null)
+        setReservationDeadlineMs(
+          resolveReservationDeadlineMs({ booking: data, paymentSession: mergedSession }),
+        )
+      }
+
       const applyCheckout = (context, sessionFallback) => {
         const nextBooking = context?.booking || cached?.booking
         const nextSession = mergePaymentSession(
@@ -91,24 +106,28 @@ function BookingResult() {
         )
       }
 
+      const loadOperatorCheckout = async () => {
+        const [data, session] = await Promise.all([
+          getBookingById(bookingId, { signal: ac.signal }),
+          getPaymentSession(bookingId, { signal: ac.signal }).catch(() => null),
+        ])
+        if (cancelled) return
+        applyOperatorCheckout(data, session)
+      }
+
       try {
+        if (staffSellMode) {
+          await loadOperatorCheckout()
+          return
+        }
+
         const context = await getCheckoutContext(bookingId, { signal: ac.signal })
         if (cancelled) return
         applyCheckout(context, null)
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         try {
-          const [data, session] = await Promise.all([
-            getBookingById(bookingId, { signal: ac.signal }),
-            getPaymentSession(bookingId, { signal: ac.signal }).catch(() => null),
-          ])
-          if (cancelled) return
-          const mergedSession = mergePaymentSession(session, cached?.paymentSession) || session
-          setBooking(data)
-          setPaymentSession(mergedSession)
-          setReservationDeadlineMs(
-            resolveReservationDeadlineMs({ booking: data, paymentSession: mergedSession }),
-          )
+          await loadOperatorCheckout()
         } catch (fallbackError) {
           if (cancelled || fallbackError?.name === 'AbortError') return
           if (cachedMatches) {
@@ -131,7 +150,7 @@ function BookingResult() {
       cancelled = true
       ac.abort()
     }
-  }, [bookingId])
+  }, [bookingId, staffSellMode])
 
   const seats = booking?.seatItems?.map((item) => item.seatCode).filter(Boolean) || []
   const filmTitle = booking?.filmTitle || MOVIE_FALLBACK.title
@@ -144,11 +163,14 @@ function BookingResult() {
   const showtimeDate = formatShowtimeDate(booking?.showtimeStartDateTime)
   const showtimeTime = formatShowtimeTime(booking?.showtimeStartDateTime)
   const payUrl = getPaymentPayUrl(paymentSession)
-  const canPayOnline = booking?.paymentStatus !== 'PAID' && Boolean(payUrl)
+  const qrCodeUrl = getPaymentQrCodeUrl(paymentSession)
+  const isUnpaid = booking?.paymentStatus !== 'PAID'
+  const canPayOnline = isUnpaid && Boolean(payUrl)
+  const canShowQr = isUnpaid && Boolean(qrCodeUrl)
   const reservedUntilLabel = formatReservedUntil(booking?.reservedUntil)
 
   const showReservationTimer =
-    booking?.paymentStatus !== 'PAID' && (canPayOnline || checkoutContext?.canPay)
+    isUnpaid && (staffSellMode || canPayOnline || canShowQr || checkoutContext?.canPay)
 
   const [holdExpired, setHoldExpired] = useState(false)
 
@@ -164,12 +186,33 @@ function BookingResult() {
   }, [reservationDeadlineMs])
 
   const canShowPayButton = canPayOnline && !holdExpired
+  const canCompleteAtCounter =
+    staffSellMode && isOperatorRole() && isUnpaid && !holdExpired && Boolean(bookingId)
+
+  const handleCompleteAtCounter = async () => {
+    if (!bookingId || !canCompleteAtCounter) return
+    setCompleting(true)
+    try {
+      await completePaymentSession(bookingId)
+      const data = await getBookingById(bookingId)
+      setBooking(data)
+      toast.success('Đã xác nhận thanh toán tại quầy')
+    } catch (e) {
+      toast.error(e?.message || 'Không xác nhận được thanh toán')
+    } finally {
+      setCompleting(false)
+    }
+  }
 
   return (
     <BookingLayout
-      eyebrow="Hoàn tất"
-      title="Kết Quả Đặt Vé"
-      subtitle="Đặt vé thành công. Hoàn tất thanh toán trong thời gian giữ ghế để xác nhận vé."
+      eyebrow={staffSellMode ? 'Bán vé tại quầy' : 'Hoàn tất'}
+      title={staffSellMode ? 'Đơn bán tại quầy' : 'Kết Quả Đặt Vé'}
+      subtitle={
+        staffSellMode
+          ? 'Đơn đã tạo. Khách quét MoMo hoặc staff xác nhận thanh toán tại quầy trong thời gian giữ ghế.'
+          : 'Đặt vé thành công. Hoàn tất thanh toán trong thời gian giữ ghế để xác nhận vé.'
+      }
     >
       <div className="mx-auto max-w-5xl">
         {loading ? (
@@ -258,12 +301,22 @@ function BookingResult() {
             </div>
 
             <aside className="flex flex-col justify-center rounded-3xl border border-white/10 bg-white/5 p-5">
-              {canPayOnline || showReservationTimer ? (
+              {isUnpaid && (canShowPayButton || canShowQr || showReservationTimer || canCompleteAtCounter) ? (
                 <>
+                  {canShowQr ? (
+                    <div className="text-center">
+                      <p className="text-sm text-slate-300">Quét MoMo để thanh toán</p>
+                      <img
+                        src={qrCodeUrl}
+                        alt="MoMo QR"
+                        className="mx-auto mt-4 max-h-52 rounded-xl bg-white p-2"
+                      />
+                    </div>
+                  ) : null}
                   {canShowPayButton ? (
                     <>
-                      <p className="text-sm text-slate-300">
-                        Thanh toán MoMo trong thời gian giữ ghế.
+                      <p className={`text-sm text-slate-300 ${canShowQr ? 'mt-5' : ''}`}>
+                        Hoặc mở liên kết MoMo trong thời gian giữ ghế.
                       </p>
                       <a
                         href={payUrl}
@@ -280,6 +333,18 @@ function BookingResult() {
                         </Button>
                       </a>
                     </>
+                  ) : null}
+                  {canCompleteAtCounter ? (
+                    <Button
+                      fullWidth
+                      variant="secondary"
+                      className="mt-4 rounded-full"
+                      disabled={completing}
+                      onClick={handleCompleteAtCounter}
+                    >
+                      <Icon name="point_of_sale" />
+                      {completing ? 'Đang xác nhận...' : 'Xác nhận thanh toán tại quầy'}
+                    </Button>
                   ) : null}
                   {showReservationTimer && reservationDeadlineMs ? (
                     <ReservationCountdown deadlineMs={reservationDeadlineMs} />
@@ -307,12 +372,21 @@ function BookingResult() {
         </section>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Link to="/movies">
-            <Button variant="secondary" className="w-full rounded-full px-8 sm:w-auto">
-              <Icon name="movie" />
-              Xem phim khác
-            </Button>
-          </Link>
+          {staffSellMode ? (
+            <Link to="/booking/showtimes?staffSell=1">
+              <Button variant="secondary" className="w-full rounded-full px-8 sm:w-auto">
+                <Icon name="point_of_sale" />
+                Bán vé khác
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/movies">
+              <Button variant="secondary" className="w-full rounded-full px-8 sm:w-auto">
+                <Icon name="movie" />
+                Xem phim khác
+              </Button>
+            </Link>
+          )}
           {booking?.id ? (
             <Link to={`/bookings/${booking.id}`}>
               <Button className="w-full rounded-full px-8 sm:w-auto">

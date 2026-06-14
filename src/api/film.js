@@ -15,6 +15,7 @@ export function buildFilmsSearchBody({
   statusIn,
   country,
   language,
+  ageRating,
 }) {
   const filterBy = []
   const t = title?.trim()
@@ -25,6 +26,10 @@ export function buildFilmsSearchBody({
     filterBy.push({ field: 'STATUS', operator: 'IN', value: statusIn })
   } else if (status && status !== 'all') {
     filterBy.push({ field: 'STATUS', operator: 'EQ', value: status })
+  }
+  const rating = String(ageRating || '').trim()
+  if (rating && rating !== 'all') {
+    filterBy.push({ field: 'AGE_RATING', operator: 'EQ', value: rating })
   }
   const c = country?.trim()
   if (c && c !== 'all') {
@@ -45,17 +50,23 @@ export function buildFilmsSearchBody({
   return body
 }
 
-/** Body POST /films/customer/search — cinemaId top-level, không lọc STATUS (BE tự scope). */
+/** Body POST /films/customer/search — cinemaId, showtimeDate, filterBy (AGE_RATING...). */
 export function buildFilmsCustomerSearchBody({
   cursor,
   size = 12,
   title,
   cinemaId,
+  showtimeDate,
+  ageRating,
 }) {
-  const body = buildFilmsSearchBody({ cursor, size, title })
+  const body = buildFilmsSearchBody({ cursor, size, title, ageRating })
   const id = cinemaId?.trim()
   if (id) {
     body.cinemaId = id
+  }
+  const date = String(showtimeDate || '').trim()
+  if (date) {
+    body.showtimeDate = date
   }
   return body
 }

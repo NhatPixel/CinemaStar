@@ -25,7 +25,7 @@ function Checkbox({ checked, onChange, label, children, id, name, className = ''
       <button
         type="button"
         onClick={handleToggle}
-        className="mt-1 h-5 w-5 rounded border flex items-center justify-center transition-all"
+        className="mt-1 h-5 w-5 shrink-0 rounded-none border flex items-center justify-center transition-all"
         style={
           checked
             ? {

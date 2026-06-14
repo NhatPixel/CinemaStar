@@ -79,13 +79,18 @@ export function getPaymentPayUrl(session) {
   return String(session?.payUrl || '').trim()
 }
 
-/** Giữ payUrl từ phiên tạo khi checkout-context không trả lại field này. */
+export function getPaymentQrCodeUrl(session) {
+  return String(session?.qrCodeUrl || '').trim()
+}
+
+/** Giữ payUrl/qrCodeUrl từ phiên tạo khi checkout-context không trả lại các field này. */
 export function mergePaymentSession(next, prev) {
   if (!next) return prev || null
   if (!prev) return next
   return {
     ...next,
     payUrl: getPaymentPayUrl(next) || getPaymentPayUrl(prev),
+    qrCodeUrl: getPaymentQrCodeUrl(next) || getPaymentQrCodeUrl(prev),
   }
 }
 

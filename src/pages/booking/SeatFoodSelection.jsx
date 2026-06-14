@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, HallLayoutForm, Icon, Text, useToast } from '../../components'
+import { Button, Checkbox, CustomSelect, HallLayoutForm, Icon, Text, useToast } from '../../components'
 import ProductThumbnail from '../../components/product/ProductThumbnail'
 import { buildProductsSearchBody, searchProductsByCinema } from '../../api/product'
-import { getShowtimeById, getShowtimeSeatMap } from '../../api/showtime'
+import { getSeatSuggestions, getShowtimeById, getShowtimeSeatMap } from '../../api/showtime'
 import BookingLayout from './BookingLayout'
 import {
   BOOKING_DRAFT_STORAGE_KEY,
@@ -17,14 +17,32 @@ import {
   getFilmPoster,
   getFilmTitle,
   getReservedSeatLabelsFromSeatMap,
+  getSeatsFromSeatMap,
   getShowtimeCinema,
   getShowtimeCinemaId,
   getShowtimeHall,
   normalizeProductToCombo,
   resolveSeatPriceFromSeatMap,
+  seatLabelFromSeat,
   appendStaffSellQuery,
+  isStaffSellMode,
   writeJsonStorage,
 } from './bookingData'
+
+const SEAT_COUNT_SELECT_OPTIONS = [1, 2, 3, 4, 5].map((count) => ({
+  value: String(count),
+  label: `${count} ghế`,
+}))
+
+function resolveSuggestionSeatLabels(seatMap, seatCodes) {
+  const labels = []
+  for (const code of seatCodes || []) {
+    const seat = findSeatInSeatMap(seatMap, code)
+    if (!seat) continue
+    labels.push(seatLabelFromSeat(seat) || String(code).trim().toUpperCase())
+  }
+  return labels
+}
 
 function SeatFoodSelection() {
   const [searchParams] = useSearchParams()
@@ -32,12 +50,22 @@ function SeatFoodSelection() {
   const toast = useToast()
   const showtimeId = searchParams.get('showtimeId')
   const filmId = searchParams.get('filmId')
+  const showtimesBackUrl = appendStaffSellQuery(
+    filmId ? `/booking/showtimes?filmId=${filmId}` : '/booking/showtimes?staffSell=1',
+    searchParams,
+  )
   const [showtime, setShowtime] = useState(null)
   const [seatMap, setSeatMap] = useState(null)
   const [selectedSeats, setSelectedSeats] = useState([])
+  const [suggestedSeats, setSuggestedSeats] = useState([])
   const [combos, setCombos] = useState([])
   const [loading, setLoading] = useState(Boolean(showtimeId))
   const [error, setError] = useState('')
+  const [suggestSeatCount, setSuggestSeatCount] = useState(1)
+  const [preferCoupleSeat, setPreferCoupleSeat] = useState(false)
+  const [suggestLoading, setSuggestLoading] = useState(false)
+
+  const staffSellMode = isStaffSellMode(searchParams)
 
   useEffect(() => {
     document.title = 'Chọn Ghế và Đồ Ăn - CinemaStar'
@@ -55,6 +83,9 @@ function SeatFoodSelection() {
     setLoading(true)
     setError('')
     setSelectedSeats([])
+    setSuggestedSeats([])
+    setSuggestSeatCount(1)
+    setPreferCoupleSeat(false)
 
     ;(async () => {
       try {
@@ -95,6 +126,13 @@ function SeatFoodSelection() {
   const pricingPolicy = showtime?.pricingPolicy || {}
   const layout = useMemo(() => buildLayoutFromSeatMap(seatMap), [seatMap])
   const reservedSeats = useMemo(() => getReservedSeatLabelsFromSeatMap(seatMap), [seatMap])
+  const hallGridLabel = useMemo(() => {
+    if (!seatMap && !layout) return ''
+    const rows = layout?.totalRows ?? seatMap?.totalRows ?? 0
+    const cols = layout?.totalCols ?? seatMap?.totalCols ?? 0
+    const seatCount = getSeatsFromSeatMap(seatMap).length
+    return `Lưới ${rows}×${cols} · ${seatCount} ghế`
+  }, [layout, seatMap])
   const selectedSeatDetails = useMemo(
     () =>
       selectedSeats.map((label) => {
@@ -133,6 +171,55 @@ function SeatFoodSelection() {
     }
     setSelectedSeats(labels)
   }
+
+  const showSuggestionCandidate = useCallback(
+    (candidate) => {
+      const labels = resolveSuggestionSeatLabels(seatMap, candidate?.seatCodes)
+      if (labels.length === 0 || labels.length > MAX_BOOKING_SEATS) {
+        setSuggestedSeats([])
+        return false
+      }
+      setSuggestedSeats(labels)
+      return true
+    },
+    [seatMap],
+  )
+
+  const fetchSeatSuggestions = useCallback(
+    async ({ autoApplyBest = false, silent = false } = {}) => {
+      if (!showtimeId || !seatMap) return
+      setSuggestLoading(true)
+      try {
+        const data = await getSeatSuggestions(showtimeId, {
+          seatCount: suggestSeatCount,
+          preferCoupleSeat,
+        })
+        const list = Array.isArray(data?.candidates) ? data.candidates : []
+        if (list.length === 0) {
+          setSuggestedSeats([])
+          if (!silent) toast.info('Không tìm thấy phương án ghế phù hợp')
+          return
+        }
+        if (autoApplyBest) {
+          showSuggestionCandidate(list[0])
+        }
+      } catch (e) {
+        setSuggestedSeats([])
+        if (!silent) toast.error(e?.message || 'Không gợi ý được ghế')
+      } finally {
+        setSuggestLoading(false)
+      }
+    },
+    [showSuggestionCandidate, preferCoupleSeat, seatMap, showtimeId, suggestSeatCount, toast],
+  )
+
+  useEffect(() => {
+    if (!showtimeId || !seatMap || loading) return undefined
+    const timer = setTimeout(() => {
+      fetchSeatSuggestions({ autoApplyBest: true, silent: true })
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [fetchSeatSuggestions, loading, seatMap, showtimeId])
 
   const handleContinueToPayment = () => {
     if (!showtime || selectedSeats.length === 0) {
@@ -236,9 +323,9 @@ function SeatFoodSelection() {
 
   return (
     <BookingLayout
-      eyebrow="Bước 02"
+      eyebrow={staffSellMode ? 'Bán vé tại quầy' : 'Bước 02'}
       title="Chọn Ghế và Đồ Ăn"
-      subtitle="Chọn vị trí ngồi yêu thích, thêm combo bắp nước và kiểm tra tổng tiền trước khi thanh toán."
+      subtitle="Chọn ghế trên sơ đồ; gợi ý hiển thị viền xanh, ghế đặt highlight tím."
       aside={aside}
     >
       <div className="space-y-8">
@@ -251,21 +338,52 @@ function SeatFoodSelection() {
         {!loading && error ? (
           <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center text-red-200">
             {error}{' '}
-            <Link
-              to={filmId ? `/booking/showtimes?filmId=${filmId}` : '/booking/showtimes'}
-              className="font-bold text-primary hover:underline"
-            >
+            <Link to={showtimesBackUrl} className="font-bold text-primary hover:underline">
               Chọn suất khác
             </Link>
           </div>
         ) : null}
 
         <section className="rounded-3xl border border-primary/20 bg-[#120a1a] p-5 md:p-8">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+              <CustomSelect
+                name="suggestSeatCount"
+                value={String(suggestSeatCount)}
+                onChange={(e) => setSuggestSeatCount(Number(e.target.value) || 1)}
+                options={SEAT_COUNT_SELECT_OPTIONS}
+                placeholder="Chọn số ghế"
+                icon="event_seat"
+                disabled={loading || suggestLoading}
+                className="w-full sm:w-[220px] dark:border-primary/20 dark:bg-[#120a1a]/80 dark:text-white"
+              />
+
+              <Checkbox
+                checked={preferCoupleSeat}
+                onChange={(e) => setPreferCoupleSeat(Boolean(e.target.checked))}
+                name="preferCoupleSeat"
+                id="preferCoupleSeat"
+                label="Ưu tiên ghế đôi (couple)"
+                className="items-center"
+              >
+                Ưu tiên ghế đôi (couple)
+              </Checkbox>
+            </div>
+
+            {hallGridLabel ? (
+              <Text variant="small" className="shrink-0 text-sm text-slate-500 dark:text-slate-400">
+                {hallGridLabel}
+              </Text>
+            ) : null}
+          </div>
+
           <HallLayoutForm
             mode="booking"
             value={layout}
             selectedSeats={selectedSeats}
+            suggestedSeats={suggestedSeats}
             reservedSeats={reservedSeats}
+            hideGridMeta
             onSelectedSeatsChange={handleSelectedSeatsChange}
           />
         </section>
@@ -331,7 +449,7 @@ function SeatFoodSelection() {
         </section>
 
         <div className="flex justify-between">
-          <Link to={filmId ? `/booking/showtimes?filmId=${filmId}` : '/booking/showtimes'}>
+          <Link to={showtimesBackUrl}>
             <Button variant="secondary" className="rounded-full px-8">
               <Icon name="arrow_back" />
               Quay lại
