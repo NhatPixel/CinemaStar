@@ -24,7 +24,9 @@ import { isCustomerRole } from '../../constants/userRoleLabels'
 import {
   formatCurrency,
   getBookingCinemaName,
+  getBookingHallName,
   getBookingPayableAmount,
+  getBookingPromotionLabel,
   isBookingUnpaid,
 } from './bookingData'
 
@@ -64,7 +66,7 @@ function seatsText(booking) {
 function BookingHistory() {
   const toast = useToast()
   const navigate = useNavigate()
-  const [listType, setListType] = useState('active')
+  const [listType, setListType] = useState('history')
   const [rows, setRows] = useState([])
   const [keyword, setKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
@@ -77,7 +79,7 @@ function BookingHistory() {
 
   const isActiveList = listType === 'active'
   const listMeta = CUSTOMER_BOOKING_LIST_META[listType] || CUSTOMER_BOOKING_LIST_META.active
-  const tableColSpan = 8
+  const tableColSpan = 10
 
   useEffect(() => {
     document.title = 'Vé của tôi - CinemaStar'
@@ -188,14 +190,16 @@ function BookingHistory() {
 
         <section className="overflow-hidden rounded-3xl border border-white/10 bg-[#120a1a]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left">
+            <table className="w-full min-w-[1100px] text-left">
               <thead className="border-b border-white/10 bg-white/5 text-sm text-slate-300">
                 <tr>
                   <th className="px-5 py-4">Mã</th>
                   <th className="px-5 py-4">Rạp</th>
                   <th className="px-5 py-4">Phim</th>
+                  <th className="px-5 py-4">Phòng chiếu</th>
                   <th className="px-5 py-4">Suất chiếu</th>
                   <th className="px-5 py-4">Ghế</th>
+                  <th className="px-5 py-4">Mã giảm giá</th>
                   <th className="px-5 py-4">Tổng tiền</th>
                   <th className="px-5 py-4">Thanh toán</th>
                   <th className="px-5 py-4">Ngày tạo</th>
@@ -239,10 +243,16 @@ function BookingHistory() {
                         <td className="px-5 py-4 font-semibold text-white">
                           {booking.filmTitle || '—'}
                         </td>
+                        <td className="px-5 py-4 font-medium text-white">
+                          {getBookingHallName(booking)}
+                        </td>
                         <td className="px-5 py-4 text-xs text-slate-400">
                           {formatShowtimeRange(booking)}
                         </td>
                         <td className="px-5 py-4">{seatsText(booking)}</td>
+                        <td className="px-5 py-4 text-xs text-slate-400">
+                          {getBookingPromotionLabel(booking) || '—'}
+                        </td>
                         <td className="px-5 py-4 font-bold text-primary">
                           {formatCurrency(getBookingPayableAmount(booking))}
                         </td>

@@ -5,23 +5,21 @@ import {
   redirectToLoginOnAuthFailure,
 } from '../utils/authSession'
 
-const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV
 const explicitChatbotBase =
   typeof import.meta !== 'undefined' && import.meta.env?.VITE_CHATBOT_BASE_URL
 
+const DEFAULT_CHATBOT_URL = 'http://cinema-api.duckdns.org:8000/chat'
+
 /**
- * Dev (không set VITE_CHATBOT_BASE_URL): /chatbot/chat qua Vite proxy — browser gửi Cookie HttpOnly.
- * Prod / explicit URL: gửi auth_cookie trong body (header Cookie bị browser chặn cross-origin).
+ * Mặc định: cinema-api chatbot. Override bằng VITE_CHATBOT_BASE_URL (không có /chat).
+ * Gửi auth_cookie trong body (header Cookie bị browser chặn cross-origin).
  */
 function resolveChatConfig() {
   if (explicitChatbotBase) {
     const base = explicitChatbotBase.replace(/\/$/, '')
     return { url: `${base}/chat`, useProxy: false }
   }
-  if (isDev) {
-    return { url: '/chatbot/chat', useProxy: true }
-  }
-  return { url: 'http://localhost:8000/chat', useProxy: false }
+  return { url: DEFAULT_CHATBOT_URL, useProxy: false }
 }
 
 function isUnauthorized(status, payload) {
@@ -71,9 +69,8 @@ async function postChat(question, { signal, history } = {}) {
 }
 
 /**
- * Gửi câu hỏi tới chatbot.
- * Dev: /chatbot/chat + credentials (proxy chuyển cookie sang chatbot).
- * Prod: auth_cookie trong body nếu có trong localStorage.
+ * Gửi câu hỏi tới chatbot (mặc định cinema-api:8000/chat).
+ * auth_cookie trong body nếu có trong localStorage.
  */
 export async function sendChatMessage(question, { signal, history } = {}) {
   const q = String(question || '').trim()

@@ -246,6 +246,11 @@ export function getBookingCinemaName(booking) {
   return name || '—'
 }
 
+export function getBookingHallName(booking) {
+  const name = String(booking?.hallName || booking?.hall?.name || '').trim()
+  return name || '—'
+}
+
 export function canCancelBooking(booking) {
   if (!booking) return false
   if (booking.bookingStatus === 'CONFIRMED' && booking.paymentStatus === 'PAID') return false

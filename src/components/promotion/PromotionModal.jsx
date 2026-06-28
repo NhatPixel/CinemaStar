@@ -176,10 +176,7 @@ function PromotionModal({
     if (isCreate) {
       setDetail(null)
       setSubmitting(false)
-      setForm((prev) => {
-        if (prev.cinemaIds?.length) return prev
-        return { ...EMPTY_FORM, cinemaIds: defaultCinemaIds(cinemaMultiOptions) }
-      })
+      setForm({ ...EMPTY_FORM })
       return undefined
     }
     if (!promotionId) return undefined
@@ -194,6 +191,7 @@ function PromotionModal({
         if (cancelled) return
         setDetail(data)
         setForm(promotionToForm(data))
+        ;(data?.cinemaIds || []).forEach((id) => mergeCinemaOption(id))
       } catch (e) {
         if (cancelled || e?.name === 'AbortError') return
         toast.error(e?.message || 'Không tải được mã giảm giá')
@@ -207,7 +205,17 @@ function PromotionModal({
       cancelled = true
       controller.abort()
     }
-  }, [isOpen, isCreate, promotionId, cinemaMultiOptions, toast, onCancel])
+  }, [isOpen, isCreate, promotionId, toast, onCancel, mergeCinemaOption])
+
+  useEffect(() => {
+    if (!isOpen || !isCreate) return
+    setForm((prev) => {
+      if (prev.cinemaIds?.length) return prev
+      const defaults = defaultCinemaIds(cinemaMultiOptions)
+      if (!defaults.length) return prev
+      return { ...prev, cinemaIds: defaults }
+    })
+  }, [isOpen, isCreate, cinemaMultiOptions])
 
   const handleChange = (e) => {
     if (readOnly) return

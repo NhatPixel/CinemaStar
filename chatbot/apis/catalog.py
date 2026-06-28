@@ -176,6 +176,29 @@ _IN_SEARCH_FILMS = (
         False,
         '{"from":"2026-01-01T00:00:00","to":"2026-12-31T23:59:59"}',
     ),
+    ApiInputSpec(
+        "showtimeDate",
+        "body",
+        "Lọc phim có suất chiếu trong ngày (yyyy-MM-dd, tùy chọn). Dùng khi khách hỏi phim chiếu hôm nay/ngày X.",
+        False,
+        "2026-05-31",
+    ),
+)
+
+_IN_SEARCH_FILMS_CUSTOMER_EXTRA = (
+    ApiInputSpec(
+        "cinemaId",
+        "body",
+        "UUID rạp (tùy chọn) — chỉ phim có suất tại rạp đó. Lấy từ search_cinemas/search_my_managed_cinemas.",
+        False,
+        "",
+    ),
+)
+
+_BOOKING_SEARCH_FIELDS = (
+    "CINEMA_ID, SHOWTIME_ID, FILM_TITLE, SHOWTIME_START_DATE_TIME, USER_ID (operator). "
+    "keyword tìm theo mã/tên. "
+    "★ me/active, me/history, cinemas/me/purchased|unpaid: KHÔNG gửi BOOKING_STATUS / PAYMENT_STATUS — BE tự lọc."
 )
 
 _STAFF_ROLES: tuple[UserRole, ...] = ("ADMIN", "MANAGER", "STAFF")
@@ -413,6 +436,7 @@ API_CATALOG: dict[str, ApiDefinition] = {
             "Body gồm: size, cursor, keyword, filterBy, sortBy, dateRange. "
             "★ Tìm theo tên phim/diễn viên/đạo diễn: dùng keyword (vd: 'Venom') hoặc filterBy TITLE LIKE — KHÔNG cần film_id. "
             "★ Phim đang chiếu / sắp chiếu: filterBy STATUS=NOW_SHOWING|COMING_SOON. "
+            "★ Phim có suất ngày X: showtimeDate='yyyy-MM-dd'. "
             "Response trả danh sách phim (title, genre, status, description, ...) để trả lời khách."
         ),
         allowed_roles=ALL_USER_ROLES,
@@ -472,28 +496,44 @@ API_CATALOG: dict[str, ApiDefinition] = {
             "thể loại, độ tuổi, gợi ý xem phim gì, hoặc tìm thông tin chi tiết phim theo từ khóa."
         ),
     ),
-    "search_films_customer": _make_cursor_search(
-        "search_films_customer",
-        "/films/customer/search",
-        allowed_roles=_CUSTOMER_ROLES,
+    "search_films_customer": ApiDefinition(
+        api_id="search_films_customer",
+        method="POST",
+        path="/films/customer/search",
         description=(
-            "Tìm phim dành cho khách (CUSTOMER) — cursor pagination, body giống search_films. "
-            "Backend chỉ trả phim đang/sắp chiếu và có suất. Dùng khi khách đã đăng nhập hỏi về phim."
+            "Tìm phim theo phạm vi khách/rạp (cursor pagination). Body giống search_films "
+            "+ cinemaId, showtimeDate tùy chọn. BE lọc phim đang/sắp chiếu có suất; "
+            "CUSTOMER toàn hệ thống, STAFF/MANAGER theo rạp được phân quyền."
         ),
+        allowed_roles=ALL_USER_ROLES,
+        path_params=(),
+        query_params=(),
+        sample_request={
+            "by_cinema_date": {
+                "size": MAX_API_LIST_SIZE,
+                "cinemaId": "uuid-rạp",
+                "showtimeDate": "2026-05-31",
+                "filterBy": [{"field": "STATUS", "operator": "EQ", "value": "NOW_SHOWING"}],
+                "sortBy": [{"field": "TIME_CREATED", "direction": "ASC"}],
+            },
+        },
+        sample_response=_CURSOR_RESPONSE_SAMPLE,
+        inputs=_IN_SEARCH_FILMS + _IN_SEARCH_FILMS_CUSTOMER_EXTRA,
         use_cases=(
-            "• Khách CUSTOMER hỏi phim, lịch chiếu, gợi ý xem → ưu tiên API này thay search_films.\n"
-            "• Body: keyword hoặc filterBy STATUS=NOW_SHOWING."
+            "• Khách hỏi phim, gợi ý xem → keyword hoặc filterBy STATUS=NOW_SHOWING.\n"
+            "• Phim chiếu tại rạp/ngày cụ thể → cinemaId + showtimeDate.\n"
+            "• CUSTOMER ưu tiên API này thay search_films khi đã đăng nhập."
         ),
-        purpose="Tìm phim cho tài khoản khách (CUSTOMER), có lọc phạm vi phim khách được xem.",
+        purpose="Tìm phim công khai / theo rạp và ngày chiếu (mọi role, BE scope theo quyền).",
     ),
     "search_cinemas": _make_page_search(
         "search_cinemas",
         "/cinemas/search",
-        allowed_roles=ALL_USER_ROLES,
+        allowed_roles=_ADMIN_ROLES,
         fields_hint="ID, CODE, NAME, ADDRESS, PHONE, STATUS (ACTIVE|INACTIVE|MAINTENANCE), MANAGER_ID",
-        purpose="Tìm danh sách rạp chiếu phim (tên, địa chỉ, trạng thái).",
+        purpose="Tìm toàn bộ rạp chiếu phim (ADMIN).",
         use_cases=(
-            "• Hỏi rạp ở đâu, rạp gần, danh sách rạp → keyword tên/địa chỉ.\n"
+            "• Admin tra cứu rạp theo tên/địa chỉ → keyword.\n"
             "• Lọc rạp đang hoạt động → filterBy STATUS=ACTIVE."
         ),
         sample_request={
@@ -501,6 +541,17 @@ API_CATALOG: dict[str, ApiDefinition] = {
                 filter_by=[{"field": "STATUS", "operator": "EQ", "value": "ACTIVE"}]
             )
         },
+    ),
+    "search_my_managed_cinemas": _make_page_search(
+        "search_my_managed_cinemas",
+        "/cinemas/me/search",
+        allowed_roles=_OPERATOR_ROLES,
+        fields_hint="ID, CODE, NAME, ADDRESS, PHONE, STATUS (ACTIVE|INACTIVE|MAINTENANCE)",
+        purpose="Tìm rạp do manager/staff được phân quyền quản lý.",
+        use_cases=(
+            "• Manager/Staff xem rạp mình phụ trách → keyword hoặc filterBy STATUS.\n"
+            "• Dùng cinemaId từ đây cho search_films_customer / search_showtimes_by_film."
+        ),
     ),
     "search_halls": _make_page_search(
         "search_halls",
@@ -615,27 +666,57 @@ API_CATALOG: dict[str, ApiDefinition] = {
             "• KM đang chạy → filterBy STATUS=ACTIVE."
         ),
     ),
-    "search_my_bookings": _make_page_search(
-        "search_my_bookings",
-        "/bookings/me/search",
+    "search_my_active_bookings": _make_page_search(
+        "search_my_active_bookings",
+        "/bookings/me/active/search",
         allowed_roles=_CUSTOMER_ROLES,
-        fields_hint=(
-            "BOOKING_STATUS (PENDING|RESERVED|CONFIRMED|CANCELLED|EXPIRED), "
-            "PAYMENT_STATUS, SHOWTIME_ID, CINEMA_ID, FILM_TITLE"
-        ),
-        purpose="Tìm đơn đặt vé của chính khách (cần đăng nhập CUSTOMER).",
+        fields_hint=_BOOKING_SEARCH_FIELDS,
+        purpose="Đơn đặt vé đang xử lý của khách (PENDING/RESERVED, chưa thanh toán xong, còn hạn giữ ghế).",
         use_cases=(
-            "• Khách hỏi vé đã đặt, lịch sử đặt vé → filterBy BOOKING_STATUS.\n"
-            "• Vé chưa thanh toán → PAYMENT_STATUS hoặc BOOKING_STATUS=PENDING."
+            "• Khách hỏi vé đang giữ, chưa thanh toán, đơn đang chờ → API này.\n"
+            "• Body: page, size, keyword — KHÔNG filter BOOKING_STATUS/PAYMENT_STATUS."
+        ),
+    ),
+    "search_my_booking_history": _make_page_search(
+        "search_my_booking_history",
+        "/bookings/me/history/search",
+        allowed_roles=_CUSTOMER_ROLES,
+        fields_hint=_BOOKING_SEARCH_FIELDS,
+        purpose="Lịch sử đơn đã thanh toán thành công (CONFIRMED + PAID) của khách.",
+        use_cases=(
+            "• Khách hỏi vé đã mua, lịch sử đặt vé, vé đã thanh toán → API này.\n"
+            "• Body: page, size, keyword — KHÔNG filter BOOKING_STATUS/PAYMENT_STATUS."
         ),
     ),
     "search_operator_bookings": _make_page_search(
         "search_operator_bookings",
         "/bookings/cinemas/me/search",
         allowed_roles=_OPERATOR_ROLES,
-        fields_hint="BOOKING_STATUS, PAYMENT_STATUS, CINEMA_ID, SHOWTIME_ID, FILM_TITLE, USER_ID",
-        purpose="Tìm đơn đặt vé tại rạp do nhân viên/quản lý phụ trách.",
-        use_cases="• Staff/Manager tra cứu booking theo trạng thái, suất, rạp.",
+        fields_hint=_BOOKING_SEARCH_FIELDS,
+        purpose="Tìm mọi đơn đặt vé tại rạp do nhân viên/quản lý phụ trách (tổng quát).",
+        use_cases="• Staff/Manager tra cứu booking theo keyword, rạp, suất, tên phim.",
+    ),
+    "search_operator_purchased_bookings": _make_page_search(
+        "search_operator_purchased_bookings",
+        "/bookings/cinemas/me/purchased/search",
+        allowed_roles=_OPERATOR_ROLES,
+        fields_hint=_BOOKING_SEARCH_FIELDS,
+        purpose="Đơn đã thanh toán tại rạp operator (BE tự lọc CONFIRMED+PAID).",
+        use_cases=(
+            "• Staff/Manager xem vé đã bán / đã thanh toán.\n"
+            "• Có thể lọc cinemaId, filmTitle, showDate qua filterBy — không gửi BOOKING_STATUS."
+        ),
+    ),
+    "search_operator_unpaid_bookings": _make_page_search(
+        "search_operator_unpaid_bookings",
+        "/bookings/cinemas/me/unpaid/search",
+        allowed_roles=_OPERATOR_ROLES,
+        fields_hint=_BOOKING_SEARCH_FIELDS,
+        purpose="Đơn chưa thanh toán / đang giữ tại rạp operator (BE tự lọc trạng thái unpaid).",
+        use_cases=(
+            "• Staff/Manager xem đơn chờ thanh toán, giữ ghế.\n"
+            "• Body giống purchased — không gửi BOOKING_STATUS/PAYMENT_STATUS."
+        ),
     ),
     "search_my_payment_sessions": _make_page_search(
         "search_my_payment_sessions",
@@ -845,6 +926,11 @@ def format_api_detail_for_prompt(api_id: str, user_role: str | None = None) -> s
         detail += f"\n\npath_params (bắt buộc — lấy UUID từ API search trước, không hỏi khách):\n{path_lines}"
     if api_id in {"search_films", "search_films_customer"}:
         detail += f"\n\n{_format_film_search_reference()}"
+        detail += (
+            "\n\nBody bổ sung (FilmCursorPageRequest):\n"
+            "    • showtimeDate (yyyy-MM-dd): lọc phim có suất trong ngày\n"
+            "    • cinemaId (UUID): chỉ /films/customer/search — lọc theo rạp"
+        )
     return detail
 
 

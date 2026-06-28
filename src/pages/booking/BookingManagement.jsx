@@ -20,7 +20,12 @@ import {
 } from '../../constants/bookingStatusOptions'
 import { isManagementOperationsReadOnly } from '../../constants/managementAccess'
 import { OPERATOR_BOOKING_LIST_OPTIONS } from '../../constants/operatorBookingListOptions'
-import { formatCurrency, getBookingPayableAmount } from './bookingData'
+import {
+  formatCurrency,
+  getBookingHallName,
+  getBookingPayableAmount,
+  getBookingPromotionLabel,
+} from './bookingData'
 
 const PAGE_SIZE = 12
 
@@ -180,7 +185,7 @@ function BookingManagement() {
     toast,
   ])
 
-  const colSpan = 13
+  const colSpan = 15
 
   return (
     <main className="min-w-0 flex-1 p-6 md:p-8">
@@ -263,16 +268,18 @@ function BookingManagement() {
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-primary/20 dark:bg-primary/5">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px] border-collapse text-left">
+          <table className="w-full min-w-[1320px] border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 dark:border-primary/20 dark:bg-background-dark/30">
                 <th className="px-4 py-3 text-sm font-semibold">Mã đơn</th>
                 <th className="px-4 py-3 text-sm font-semibold">Rạp</th>
                 <th className="px-4 py-3 text-sm font-semibold">Phim</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[160px]">Suất chiếu</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[100px]">Phòng chiếu</th>
                 <th className="px-4 py-3 text-sm font-semibold">Khách hàng</th>
                 <th className="px-4 py-3 text-sm font-semibold">Ghế</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[120px]">Đồ ăn / combo</th>
+                <th className="px-4 py-3 text-sm font-semibold min-w-[120px]">Mã giảm giá</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[100px]">Giảm giá</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[120px]">Số tiền</th>
                 <th className="px-4 py-3 text-sm font-semibold min-w-[140px]">Đặt vé</th>
@@ -311,6 +318,9 @@ function BookingManagement() {
                       <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
                         {formatShowtimeRange(booking)}
                       </td>
+                      <td className="px-4 py-3 text-sm font-medium">
+                        {getBookingHallName(booking)}
+                      </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <p className="text-sm font-semibold">
                           {booking.customerInfo?.fullName || '—'}
@@ -323,6 +333,9 @@ function BookingManagement() {
                       <td className="px-4 py-3 text-sm">{seatsText(booking)}</td>
                       <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
                         {productsText(booking)}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                        {getBookingPromotionLabel(booking) || '—'}
                       </td>
                       <td className="px-4 py-3 text-xs">
                         {Number(booking.promotionDiscountAmount || 0) > 0 ? (
