@@ -10,7 +10,7 @@ const explicitChatbotBase =
 const DEFAULT_CHATBOT_BASE =
   typeof import.meta !== 'undefined' && import.meta.env?.DEV
     ? '/chatbot'
-    : 'http://cinema-api.duckdns.org:8000'
+    : 'https://cinema-api.duckdns.org'
 
 /**
  * Mặc định:
