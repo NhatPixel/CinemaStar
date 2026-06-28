@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const CINEMA_API_TARGET = 'https://cinema-api.duckdns.org'
-const CHATBOT_TARGET = process.env.VITE_CHATBOT_PROXY_TARGET || 'http://cinema-api.duckdns.org:8000'
+const CHATBOT_TARGET = process.env.VITE_CHATBOT_PROXY_TARGET || 'https://cinema-api.duckdns.org'
 
 /** Set-Cookie từ BE → lưu trên localhost để browser gửi kèm /chatbot (dev). */
 function rewriteSetCookieForLocalhost(proxyRes) {

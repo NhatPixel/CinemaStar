@@ -28,6 +28,11 @@ services:
         max-size: "10m"
         max-file: "5"
     mem_limit: 512m
+    networks:
+      default: {}
+      cinema-shared:
+        aliases:
+          - chatbot
 
   # Monitor: tự restart container chatbot khi healthcheck fail (endless).
   autoheal:
@@ -40,3 +45,7 @@ services:
       AUTOHEAL_START_PERIOD: 60
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  cinema-shared:
+    name: cinema-shared
