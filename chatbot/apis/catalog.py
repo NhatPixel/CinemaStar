@@ -203,6 +203,7 @@ _BOOKING_SEARCH_FIELDS = (
 
 _STAFF_ROLES: tuple[UserRole, ...] = ("ADMIN", "MANAGER", "STAFF")
 _OPERATOR_ROLES: tuple[UserRole, ...] = ("ADMIN", "MANAGER", "STAFF")
+_MANAGER_STAFF: tuple[UserRole, ...] = ("MANAGER", "STAFF")
 _ADMIN_ROLES: tuple[UserRole, ...] = ("ADMIN",)
 _MANAGER_ROLES: tuple[UserRole, ...] = ("MANAGER",)
 _CUSTOMER_ROLES: tuple[UserRole, ...] = ("CUSTOMER",)
@@ -491,9 +492,9 @@ API_CATALOG: dict[str, ApiDefinition] = {
             "• Khách hỏi chung về phim → filterBy STATUS=NOW_SHOWING hoặc keyword rỗng + filterBy."
         ),
         purpose=(
-            "Tìm kiếm và lọc danh sách phim trong hệ thống. "
-            "Dùng khi khách hỏi về phim (tên phim, diễn viên, đạo diễn), phim đang chiếu / sắp chiếu / đã hết, "
-            "thể loại, độ tuổi, gợi ý xem phim gì, hoặc tìm thông tin chi tiết phim theo từ khóa."
+            "Tìm kiếm phim công khai (không bắt buộc đăng nhập). "
+            "ADMIN/MANAGER/STAFF: tra cứu toàn bộ catalog (kể cả ENDED/ARCHIVED). "
+            "CUSTOMER chưa đăng nhập: dùng API này. CUSTOMER đã đăng nhập → ưu tiên search_films_customer."
         ),
     ),
     "search_films_customer": ApiDefinition(
@@ -524,17 +525,25 @@ API_CATALOG: dict[str, ApiDefinition] = {
             "• Phim chiếu tại rạp/ngày cụ thể → cinemaId + showtimeDate.\n"
             "• CUSTOMER ưu tiên API này thay search_films khi đã đăng nhập."
         ),
-        purpose="Tìm phim công khai / theo rạp và ngày chiếu (mọi role, BE scope theo quyền).",
+        purpose=(
+            "Tìm phim theo phạm vi khách (bắt buộc đăng nhập). "
+            "CUSTOMER: phim đang/sắp chiếu; MANAGER/STAFF: theo rạp được phân quyền; ADMIN: toàn hệ thống."
+        ),
     ),
     "search_cinemas": _make_page_search(
         "search_cinemas",
         "/cinemas/search",
-        allowed_roles=_ADMIN_ROLES,
+        allowed_roles=ALL_USER_ROLES,
         fields_hint="ID, CODE, NAME, ADDRESS, PHONE, STATUS (ACTIVE|INACTIVE|MAINTENANCE), MANAGER_ID",
-        purpose="Tìm toàn bộ rạp chiếu phim (ADMIN).",
+        purpose=(
+            "Tìm rạp chiếu phim (công khai hoặc scope theo role). "
+            "CUSTOMER/khách chưa đăng nhập: chỉ rạp ACTIVE. "
+            "ADMIN: toàn bộ. MANAGER/STAFF: rạp trong phạm vi quản lý."
+        ),
         use_cases=(
-            "• Admin tra cứu rạp theo tên/địa chỉ → keyword.\n"
-            "• Lọc rạp đang hoạt động → filterBy STATUS=ACTIVE."
+            "• Khách hỏi rạp gần đây, danh sách rạp → keyword hoặc filterBy STATUS=ACTIVE.\n"
+            "• Admin tra cứu mọi trạng thái rạp.\n"
+            "• Lấy cinemaId cho search_films_customer / search_showtimes_by_film / search_products_by_cinema."
         ),
         sample_request={
             "active": _page_sample(
@@ -545,9 +554,9 @@ API_CATALOG: dict[str, ApiDefinition] = {
     "search_my_managed_cinemas": _make_page_search(
         "search_my_managed_cinemas",
         "/cinemas/me/search",
-        allowed_roles=_OPERATOR_ROLES,
+        allowed_roles=_MANAGER_STAFF,
         fields_hint="ID, CODE, NAME, ADDRESS, PHONE, STATUS (ACTIVE|INACTIVE|MAINTENANCE)",
-        purpose="Tìm rạp do manager/staff được phân quyền quản lý.",
+        purpose="Tìm rạp ACTIVE do MANAGER/STAFF được phân quyền (không dùng cho ADMIN/CUSTOMER).",
         use_cases=(
             "• Manager/Staff xem rạp mình phụ trách → keyword hoặc filterBy STATUS.\n"
             "• Dùng cinemaId từ đây cho search_films_customer / search_showtimes_by_film."
@@ -558,7 +567,7 @@ API_CATALOG: dict[str, ApiDefinition] = {
         "/halls/search",
         allowed_roles=_STAFF_ROLES,
         fields_hint="ID, CINEMA_ID, NAME, STATUS (ACTIVE|MAINTENANCE)",
-        purpose="Tìm phòng chiếu theo rạp, tên phòng, trạng thái (nhân viên/quản lý).",
+        purpose="Tìm phòng chiếu (ADMIN/MANAGER/STAFF; BE scope theo rạp quản lý).",
         use_cases=(
             "• Quản lý phòng chiếu theo rạp → filterBy CINEMA_ID EQ.\n"
             "• Tìm phòng theo tên → keyword hoặc filterBy NAME LIKE."
@@ -567,16 +576,16 @@ API_CATALOG: dict[str, ApiDefinition] = {
     "search_showtimes": _make_page_search(
         "search_showtimes",
         "/showtimes/search",
-        allowed_roles=ALL_USER_ROLES,
+        allowed_roles=_STAFF_ROLES,
         fields_hint=(
             "ID, START_DATE_TIME, END_DATE_TIME, HALL_ID, FILM_ID, PRICING_POLICY_ID, "
             "STATUS (SCHEDULED|ONGOING|FINISHED|CANCELLED)"
         ),
-        purpose="Tìm suất chiếu theo phim, phòng, thời gian, trạng thái.",
+        purpose="Tìm suất chiếu nội bộ (ADMIN/MANAGER/STAFF — CUSTOMER không được gọi).",
         use_cases=(
-            "• Hỏi suất chiếu hôm nay / tuần này → filterBy START_DATE_TIME GTE/LTE hoặc BETWEEN.\n"
-            "• Suất của một phim → filterBy FILM_ID EQ (UUID từ kết quả search_films).\n"
-            "• Lọc theo phòng/rạp → filterBy HALL_ID (hoặc IN danh sách hallIds)."
+            "• Operator hỏi suất hôm nay / tuần này → filterBy START_DATE_TIME GTE/LTE hoặc BETWEEN.\n"
+            "• Suất của một phim → filterBy FILM_ID EQ (UUID từ search_films).\n"
+            "• CUSTOMER hỏi suất để đặt vé → dùng search_showtimes_by_film, KHÔNG dùng API này."
         ),
     ),
     "search_showtimes_by_film": _make_page_search(
@@ -584,10 +593,11 @@ API_CATALOG: dict[str, ApiDefinition] = {
         "/showtimes/films/{filmId}/search",
         allowed_roles=ALL_USER_ROLES,
         fields_hint="(path filmId) + body: date (bắt buộc yyyy-MM-dd), cinemaId tùy chọn",
-        purpose="Tìm suất chiếu của MỘT phim trong ngày (đặt vé) — cần filmId và date.",
+        purpose="Tìm suất chiếu công khai của MỘT phim trong ngày (đặt vé) — cần filmId và date.",
         use_cases=(
-            "• Khách chọn phim + ngày xem → path filmId từ search_films, body date='yyyy-MM-dd'.\n"
-            "• Lọc suất tại một rạp → thêm cinemaId (UUID rạp)."
+            "• CUSTOMER/khách chọn phim + ngày xem → path filmId từ search_films/search_films_customer, body date.\n"
+            "• Lọc suất tại một rạp → thêm cinemaId (UUID từ search_cinemas).\n"
+            "• Không cần đăng nhập."
         ),
         path_params=("filmId",),
         path_inputs=(
@@ -660,7 +670,7 @@ API_CATALOG: dict[str, ApiDefinition] = {
         "/promotions/search",
         allowed_roles=_STAFF_ROLES,
         fields_hint="CODE, NAME, STATUS (ACTIVE|INACTIVE), DISCOUNT_TYPE, START_AT, END_AT",
-        purpose="Tìm mã khuyến mãi, chương trình giảm giá.",
+        purpose="Tìm mã khuyến mãi (ADMIN/MANAGER/STAFF — CUSTOMER không được gọi).",
         use_cases=(
             "• Tìm mã KM theo tên/mã → keyword hoặc filterBy CODE LIKE.\n"
             "• KM đang chạy → filterBy STATUS=ACTIVE."
@@ -723,8 +733,8 @@ API_CATALOG: dict[str, ApiDefinition] = {
         "/payments/me/sessions/search",
         allowed_roles=ALL_USER_ROLES,
         fields_hint="BOOKING_ID, CINEMA_ID, STATUS (trạng thái giao dịch), TIME_CREATED",
-        purpose="Tìm phiên thanh toán của người dùng đang đăng nhập.",
-        use_cases="• Khách hỏi trạng thái thanh toán, giao dịch gần đây.",
+        purpose="Tìm phiên thanh toán của tài khoản đang đăng nhập (mọi role, bắt buộc auth).",
+        use_cases="• Khách hỏi trạng thái thanh toán, giao dịch gần đây (cần đăng nhập).",
     ),
     "search_payment_revenues_cinemas": _make_report_search(
         "search_payment_revenues_cinemas",
@@ -793,7 +803,7 @@ API_CATALOG: dict[str, ApiDefinition] = {
         fields_hint="ID, NAME, TYPE, PRICE, STATUS",
         purpose="Tìm sản phẩm bắp nước tại một rạp (đặt kèm vé).",
         use_cases=(
-            "• Khách đặt combo tại rạp → path cinemaId từ search_cinemas.\n"
+            "• Khách đặt combo tại rạp → path cinemaId từ search_cinemas (công khai, không cần đăng nhập).\n"
             "• keyword tìm tên sản phẩm."
         ),
         path_params=("cinemaId",),
