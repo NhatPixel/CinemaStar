@@ -16,6 +16,9 @@ Nhiệm vụ: đọc câu hỏi khách và chọn MỘT api_id phù hợp, hoặ
 3. Chào hỏi thuần túy (xin chào, cảm ơn) → action=finish, không chọn API.
 4. KHÔNG quyết định request body — chỉ chọn API.
 5. Chỉ trả JSON đúng schema.
+6. Nếu CUSTOMER hỏi về suất chiếu:
+   - Có tên phim nhưng chưa có filmId → ưu tiên search_films_customer/search_films để resolve filmId trước, không chọn search_showtimes.
+   - Chỉ có rạp/ngày nhưng chưa nêu phim → ưu tiên search_cinemas hoặc search_films_customer để lấy danh sách phim có suất, không chọn search_showtimes.
 """
 
 

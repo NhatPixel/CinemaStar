@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..apis.catalog import MAX_API_LIST_SIZE, clamp_request_body_sizes
 
@@ -52,7 +52,7 @@ class PageRequestBody(BaseModel):
 class SearchFilmsRequestBody(BaseModel):
     """Body POST các API /search — schema cho Azure structured output."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     size: Optional[int] = Field(
         default=None,
@@ -66,9 +66,13 @@ class SearchFilmsRequestBody(BaseModel):
     filterBy: Optional[list[FilterByItem]] = None
     sortBy: Optional[list[SortByItem]] = None
     dateRange: Optional[DateRangeBody] = None
+    showtimeDate: Optional[str] = Field(
+        default=None,
+        description="Ngày yyyy-MM-dd — ưu tiên cho luồng phim/suất chiếu của khách (khớp BE film-service).",
+    )
     date: Optional[str] = Field(
         default=None,
-        description="Ngày yyyy-MM-dd — bắt buộc cho search_showtimes_by_film",
+        description="Legacy alias cho showtimeDate / ngày yyyy-MM-dd — vẫn dùng được cho search_showtimes_by_film.",
     )
     cinemaId: Optional[str] = Field(default=None, description="UUID rạp (body)")
     cinemaIds: Optional[list[str]] = None
@@ -76,12 +80,24 @@ class SearchFilmsRequestBody(BaseModel):
     selectedIds: Optional[list[str]] = None
     pageRequest: Optional[PageRequestBody] = None
 
+    @model_validator(mode="after")
+    def _sync_showtime_date_fields(self) -> "SearchFilmsRequestBody":
+        if self.showtimeDate is None and self.date is not None:
+            self.showtimeDate = self.date
+        if self.date is None and self.showtimeDate is not None:
+            self.date = self.showtimeDate
+        return self
+
 
 def request_body_to_dict(body: SearchFilmsRequestBody | RequestBody | None) -> RequestBody | None:
     if body is None:
         return None
     if isinstance(body, SearchFilmsRequestBody):
         raw = body.model_dump(exclude_none=True, by_alias=True)
+        if raw.get("date") and not raw.get("showtimeDate"):
+            raw["showtimeDate"] = raw["date"]
+        if raw.get("showtimeDate") and not raw.get("date"):
+            raw["date"] = raw["showtimeDate"]
         return clamp_request_body_sizes(raw)
     return clamp_request_body_sizes(body)
 

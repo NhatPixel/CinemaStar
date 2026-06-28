@@ -585,7 +585,8 @@ API_CATALOG: dict[str, ApiDefinition] = {
         use_cases=(
             "• Operator hỏi suất hôm nay / tuần này → filterBy START_DATE_TIME GTE/LTE hoặc BETWEEN.\n"
             "• Suất của một phim → filterBy FILM_ID EQ (UUID từ search_films).\n"
-            "• CUSTOMER hỏi suất để đặt vé → dùng search_showtimes_by_film, KHÔNG dùng API này."
+            "• CUSTOMER hỏi suất để đặt vé → dùng search_cinemas để lấy cinemaId rồi search_films_customer; nếu đã có filmId thì mới dùng search_showtimes_by_film.\n"
+            "• KHÔNG yêu cầu khách biết filmId để gọi API này."
         ),
     ),
     "search_showtimes_by_film": _make_page_search(
@@ -938,7 +939,7 @@ def format_api_detail_for_prompt(api_id: str, user_role: str | None = None) -> s
         detail += f"\n\n{_format_film_search_reference()}"
         detail += (
             "\n\nBody bổ sung (FilmCursorPageRequest):\n"
-            "    • showtimeDate (yyyy-MM-dd): lọc phim có suất trong ngày\n"
+            "    • showtimeDate (yyyy-MM-dd): lọc phim có suất trong ngày (ưu tiên; backend cũng chấp nhận date legacy)\n"
             "    • cinemaId (UUID): chỉ /films/customer/search — lọc theo rạp"
         )
     return detail
