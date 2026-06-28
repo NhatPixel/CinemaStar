@@ -1,4 +1,3 @@
-import { getAuthCookieForForward } from '../utils/authCookieStorage'
 import { refreshAccessToken } from './auth'
 import {
   createAuthSessionExpiredError,
@@ -8,18 +7,24 @@ import {
 const explicitChatbotBase =
   typeof import.meta !== 'undefined' && import.meta.env?.VITE_CHATBOT_BASE_URL
 
-const DEFAULT_CHATBOT_URL = 'http://cinema-api.duckdns.org:8000/chat'
+const DEFAULT_CHATBOT_BASE =
+  typeof import.meta !== 'undefined' && import.meta.env?.DEV
+    ? '/chatbot'
+    : 'http://cinema-api.duckdns.org:8000'
 
 /**
- * Mặc định: cinema-api chatbot. Override bằng VITE_CHATBOT_BASE_URL (không có /chat).
- * Gửi auth_cookie trong body (header Cookie bị browser chặn cross-origin).
+ * Mặc định:
+ * - dev: đi qua Vite proxy `/chatbot` để browser gửi cookie same-origin
+ * - prod: gọi trực tiếp chatbot service
+ * Override bằng VITE_CHATBOT_BASE_URL (không có `/chat`).
  */
-function resolveChatConfig() {
-  if (explicitChatbotBase) {
-    const base = explicitChatbotBase.replace(/\/$/, '')
-    return { url: `${base}/chat`, useProxy: false }
-  }
-  return { url: DEFAULT_CHATBOT_URL, useProxy: false }
+function resolveChatUrl() {
+  const base =
+    typeof import.meta !== 'undefined' && import.meta.env?.DEV
+      ? DEFAULT_CHATBOT_BASE
+      : (explicitChatbotBase || DEFAULT_CHATBOT_BASE)
+  const normalizedBase = base.replace(/\/$/, '')
+  return `${normalizedBase}/chat`
 }
 
 function isUnauthorized(status, payload) {
@@ -46,8 +51,7 @@ export function buildChatHistoryPayload(messages) {
 }
 
 async function postChat(question, { signal, history } = {}) {
-  const { url, useProxy } = resolveChatConfig()
-  const authCookie = useProxy ? null : getAuthCookieForForward()
+  const url = resolveChatUrl()
 
   const headers = { 'Content-Type': 'application/json' }
 
@@ -55,14 +59,11 @@ async function postChat(question, { signal, history } = {}) {
   if (Array.isArray(history) && history.length > 0) {
     body.history = history
   }
-  if (!useProxy && authCookie) {
-    body.auth_cookie = authCookie
-  }
 
   return fetch(url, {
     method: 'POST',
     headers,
-    credentials: useProxy ? 'include' : 'omit',
+    credentials: 'include',
     body: JSON.stringify(body),
     signal,
   })
@@ -70,7 +71,7 @@ async function postChat(question, { signal, history } = {}) {
 
 /**
  * Gửi câu hỏi tới chatbot (mặc định cinema-api:8000/chat).
- * auth_cookie trong body nếu có trong localStorage.
+ * Cookie browser được gửi trực tiếp bằng credentials: include.
  */
 export async function sendChatMessage(question, { signal, history } = {}) {
   const q = String(question || '').trim()

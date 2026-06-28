@@ -13,6 +13,21 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from chatbot.api import router
 
+
+def _parse_cors_origins(raw: str | None) -> list[str]:
+    default_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://cinema-star-ten.vercel.app"
+    ]
+    if not raw:
+        return default_origins
+
+    origins = [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+    return origins or default_origins
+
 app = FastAPI(
     title="Chatbot Agent Service",
     description="Agent service: select API → build call body → answer.",
@@ -21,7 +36,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_parse_cors_origins(os.getenv("CHATBOT_CORS_ORIGINS")),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
