@@ -49,6 +49,123 @@ class PageRequestBody(BaseModel):
     sortBy: Optional[list[SortByItem]] = None
 
 
+_PAGE_BODY_API_IDS = {
+    "search_cinemas",
+    "search_my_managed_cinemas",
+    "search_halls",
+    "search_showtimes",
+    "search_pricing_policies",
+    "search_staffs",
+    "search_customers",
+    "search_managers",
+    "search_promotions",
+    "search_my_active_bookings",
+    "search_my_booking_history",
+    "search_operator_bookings",
+    "search_operator_purchased_bookings",
+    "search_operator_unpaid_bookings",
+    "search_my_payment_sessions",
+    "search_operator_products",
+    "search_products_by_cinema",
+}
+
+_FILM_BODY_API_IDS = {"search_films", "search_films_customer"}
+_SHOWTIME_BY_FILM_API_IDS = {"search_showtimes_by_film"}
+_REVENUE_REPORT_API_IDS = {
+    "search_payment_revenues_cinemas",
+    "search_payment_revenues_cinemas_me",
+    "search_booking_revenues_cinemas",
+    "search_booking_revenues_cinemas_me",
+}
+_SHOWTIME_REPORT_API_IDS = {"search_showtime_reports", "search_showtime_reports_me"}
+
+_PAGE_BODY_KEYS = {"page", "size", "keyword", "filterBy", "sortBy"}
+_FILM_BODY_KEYS = _PAGE_BODY_KEYS | {"cursor", "dateRange", "showtimeDate"}
+_FILM_CUSTOMER_BODY_KEYS = _FILM_BODY_KEYS | {"cinemaId"}
+_SHOWTIME_BY_FILM_BODY_KEYS = {"page", "size", "date", "cinemaId"}
+_REVENUE_REPORT_BODY_KEYS = {"dateRange", "cinemaIds", "filmIds", "selectedIds", "pageRequest"}
+_SHOWTIME_REPORT_BODY_KEYS = {"dateRange", "cinemaIds", "filmIds", "pageRequest"}
+
+_SORT_FIELD_ALIASES: dict[str, dict[str, str]] = {
+    "search_cinemas": {"TIME_CREATED": "CREATED_AT"},
+    "search_my_managed_cinemas": {"TIME_CREATED": "CREATED_AT"},
+}
+
+_PAGE_REQUEST_KEYS = {"page", "size", "keyword", "filterBy", "sortBy"}
+
+
+def _prune_to_allowed_keys(raw: dict[str, Any], allowed_keys: set[str]) -> dict[str, Any]:
+    return {key: value for key, value in raw.items() if key in allowed_keys}
+
+
+def _normalize_sort_fields(raw: dict[str, Any], api_id: str) -> dict[str, Any]:
+    alias_map = _SORT_FIELD_ALIASES.get(api_id)
+    if not alias_map:
+        return raw
+
+    sort_by = raw.get("sortBy")
+    if not isinstance(sort_by, list):
+        return raw
+
+    normalized: list[dict[str, Any]] = []
+    for item in sort_by:
+        if not isinstance(item, dict):
+            normalized.append(item)
+            continue
+        normalized_item = dict(item)
+        field = normalized_item.get("field")
+        if isinstance(field, str):
+            normalized_item["field"] = alias_map.get(field, field)
+        normalized.append(normalized_item)
+
+    raw = dict(raw)
+    raw["sortBy"] = normalized
+    return raw
+
+
+def _sanitize_page_request(raw: dict[str, Any]) -> dict[str, Any]:
+    return _prune_to_allowed_keys(raw, _PAGE_REQUEST_KEYS)
+
+
+def _sanitize_request_body_for_api(
+    api_id: str | None,
+    raw: dict[str, Any],
+) -> dict[str, Any]:
+    if not api_id:
+        return clamp_request_body_sizes(raw)
+
+    sanitized = dict(raw)
+
+    if api_id in _FILM_BODY_API_IDS:
+        if "showtimeDate" not in sanitized and "date" in sanitized:
+            sanitized["showtimeDate"] = sanitized["date"]
+        sanitized = _prune_to_allowed_keys(
+            sanitized,
+            _FILM_CUSTOMER_BODY_KEYS if api_id == "search_films_customer" else _FILM_BODY_KEYS,
+        )
+    elif api_id in _SHOWTIME_BY_FILM_API_IDS:
+        if "date" not in sanitized and "showtimeDate" in sanitized:
+            sanitized["date"] = sanitized["showtimeDate"]
+        sanitized = _prune_to_allowed_keys(sanitized, _SHOWTIME_BY_FILM_BODY_KEYS)
+    elif api_id in _PAGE_BODY_API_IDS:
+        sanitized = _prune_to_allowed_keys(sanitized, _PAGE_BODY_KEYS)
+        sanitized = _normalize_sort_fields(sanitized, api_id)
+    elif api_id in _REVENUE_REPORT_API_IDS:
+        sanitized = _prune_to_allowed_keys(sanitized, _REVENUE_REPORT_BODY_KEYS)
+        page_request = sanitized.get("pageRequest")
+        if isinstance(page_request, dict):
+            sanitized["pageRequest"] = _sanitize_page_request(page_request)
+    elif api_id in _SHOWTIME_REPORT_API_IDS:
+        sanitized = _prune_to_allowed_keys(sanitized, _SHOWTIME_REPORT_BODY_KEYS)
+        page_request = sanitized.get("pageRequest")
+        if isinstance(page_request, dict):
+            sanitized["pageRequest"] = _sanitize_page_request(page_request)
+    else:
+        sanitized = clamp_request_body_sizes(sanitized)
+
+    return clamp_request_body_sizes(sanitized)
+
+
 class SearchFilmsRequestBody(BaseModel):
     """Body POST các API /search — schema cho Azure structured output."""
 
@@ -89,16 +206,18 @@ class SearchFilmsRequestBody(BaseModel):
         return self
 
 
-def request_body_to_dict(body: SearchFilmsRequestBody | RequestBody | None) -> RequestBody | None:
+def request_body_to_dict(
+    body: SearchFilmsRequestBody | RequestBody | None,
+    *,
+    api_id: str | None = None,
+) -> RequestBody | None:
     if body is None:
         return None
     if isinstance(body, SearchFilmsRequestBody):
         raw = body.model_dump(exclude_none=True, by_alias=True)
-        if raw.get("date") and not raw.get("showtimeDate"):
-            raw["showtimeDate"] = raw["date"]
-        if raw.get("showtimeDate") and not raw.get("date"):
-            raw["date"] = raw["showtimeDate"]
-        return clamp_request_body_sizes(raw)
+        return _sanitize_request_body_for_api(api_id, raw)
+    if isinstance(body, dict):
+        return _sanitize_request_body_for_api(api_id, body)
     return clamp_request_body_sizes(body)
 
 

@@ -321,17 +321,148 @@ def _page_sample(
     }
 
 
-def _report_sample(fields_hint: str) -> dict[str, Any]:
-    return {
+def _report_sample(fields_hint: str, *, with_selected_ids: bool = True) -> dict[str, Any]:
+    sample = {
         "dateRange": {
             "from": "2026-01-01T00:00:00",
             "to": "2026-01-31T23:59:59",
         },
         "cinemaIds": [],
         "filmIds": [],
-        "selectedIds": [],
         "pageRequest": _page_sample(),
     }
+    if with_selected_ids:
+        sample["selectedIds"] = []
+    return sample
+
+
+_COMMON_BODY_FIELD_POOL = (
+    "page",
+    "size",
+    "keyword",
+    "cursor",
+    "filterBy",
+    "sortBy",
+    "dateRange",
+    "showtimeDate",
+    "date",
+    "cinemaId",
+    "cinemaIds",
+    "filmIds",
+    "selectedIds",
+    "pageRequest",
+)
+
+_API_CONTRACT_NOTES: dict[str, tuple[str, ...]] = {
+    "search_cinemas": (
+        "sortBy.field must use CREATED_AT for cinema search. Do not send TIME_CREATED.",
+        "Use filterBy STATUS=ACTIVE when you want active cinemas only.",
+    ),
+    "search_my_managed_cinemas": (
+        "sortBy.field must use CREATED_AT for manager/staff cinema search. Do not send TIME_CREATED.",
+        "This API is scope-limited and is not for ADMIN or CUSTOMER.",
+    ),
+    "search_films": (
+        "Prefer showtimeDate when the question asks for films with showtimes on a day.",
+        "date is a legacy alias; do not mix dateRange with showtimeDate in the same request.",
+    ),
+    "search_films_customer": (
+        "Prefer showtimeDate when the question asks for films with showtimes on a day.",
+        "cinemaId is optional and should only be used when the cinema scope is already known.",
+        "date is a legacy alias; do not mix dateRange with showtimeDate in the same request.",
+    ),
+    "search_showtimes_by_film": (
+        "filmId must be a UUID in the path. Never pass a film title string into {filmId}.",
+        "Body must contain date (required) and may contain cinemaId. Do not use showtimeDate here.",
+        "If the user only gives a film title, resolve filmId first via a film search API.",
+    ),
+    "search_payment_revenues_cinemas": (
+        "Use nested pageRequest for pagination and filters.",
+        "selectedIds is allowed for revenue APIs that support selected rows.",
+    ),
+    "search_payment_revenues_cinemas_me": (
+        "Use nested pageRequest for pagination and filters.",
+        "selectedIds is allowed for revenue APIs that support selected rows.",
+    ),
+    "search_booking_revenues_cinemas": (
+        "Use nested pageRequest for pagination and filters.",
+        "selectedIds is allowed for revenue APIs that support selected rows.",
+    ),
+    "search_booking_revenues_cinemas_me": (
+        "Use nested pageRequest for pagination and filters.",
+        "selectedIds is allowed for revenue APIs that support selected rows.",
+    ),
+    "search_showtime_reports": (
+        "Use nested pageRequest for pagination and filters.",
+        "Do not send selectedIds to showtime report APIs.",
+    ),
+    "search_showtime_reports_me": (
+        "Use nested pageRequest for pagination and filters.",
+        "Do not send selectedIds to showtime report APIs.",
+    ),
+}
+
+_API_BODY_FIELD_OVERRIDES: dict[str, tuple[str, ...]] = {
+    "search_showtimes_by_film": ("page", "size", "date", "cinemaId"),
+}
+
+
+def _input_names_for_api(api: ApiDefinition, *, location: InputLocation | None = None) -> tuple[str, ...]:
+    names: list[str] = []
+    for spec in api.inputs:
+        if location is not None and spec.location != location:
+            continue
+        names.append(spec.name)
+    return tuple(names)
+
+
+def _format_name_list(names: tuple[str, ...]) -> str:
+    return ", ".join(names) if names else "(none)"
+
+
+def _api_allowed_body_fields(api: ApiDefinition) -> tuple[str, ...]:
+    override = _API_BODY_FIELD_OVERRIDES.get(api.api_id)
+    if override is not None:
+        return override
+    allowed = set(_input_names_for_api(api, location="body"))
+    if api.api_id in {"search_films", "search_films_customer"}:
+        allowed.add("date")
+    return tuple(field for field in _COMMON_BODY_FIELD_POOL if field in allowed)
+
+
+def _api_forbidden_body_fields(api: ApiDefinition) -> tuple[str, ...]:
+    allowed = set(_api_allowed_body_fields(api))
+    return tuple(field for field in _COMMON_BODY_FIELD_POOL if field not in allowed)
+
+
+def _api_contract_notes(api_id: str) -> tuple[str, ...]:
+    return _API_CONTRACT_NOTES.get(api_id, ())
+
+
+def format_api_contract_for_prompt(api_id: str, user_role: str | None = None) -> str:
+    role = normalize_user_role(user_role)
+    catalog = apis_for_role(role)
+    api = catalog.get(api_id) or API_CATALOG.get(api_id)
+    if api is None or not is_role_allowed(api, role):
+        return ""
+
+    path_params = _input_names_for_api(api, location="path")
+    query_params = _input_names_for_api(api, location="query")
+    body_fields = _api_allowed_body_fields(api)
+    forbidden_fields = _api_forbidden_body_fields(api)
+    notes = _api_contract_notes(api_id)
+
+    parts = [
+        "=== REQUEST CONTRACT ===",
+        f"Allowed body fields: {_format_name_list(body_fields)}",
+        f"Forbidden body fields: {_format_name_list(forbidden_fields)}",
+        f"Path params: {_format_name_list(path_params)}",
+        f"Query params: {_format_name_list(query_params)}",
+    ]
+    if notes:
+        parts.append("Important notes:")
+        parts.extend(f"- {note}" for note in notes)
+    return "\n".join(parts)
 
 
 def _make_page_search(
@@ -346,6 +477,7 @@ def _make_page_search(
     path_params: tuple[str, ...] = (),
     path_inputs: tuple[ApiInputSpec, ...] = (),
     extra_inputs: tuple[ApiInputSpec, ...] = (),
+    inputs_override: tuple[ApiInputSpec, ...] | None = None,
     sample_request: dict[str, Any] | None = None,
 ) -> ApiDefinition:
     desc = description or (
@@ -362,7 +494,7 @@ def _make_page_search(
         query_params=(),
         sample_request=sample_request or {"default": _page_sample()},
         sample_response=_PAGE_RESPONSE_SAMPLE,
-        inputs=path_inputs + _page_inputs() + extra_inputs,
+        inputs=inputs_override or (path_inputs + _page_inputs() + extra_inputs),
         use_cases=use_cases,
         purpose=purpose,
     )
@@ -419,7 +551,7 @@ def _make_report_search(
         allowed_roles=allowed_roles,
         path_params=(),
         query_params=(),
-        sample_request={"default": _report_sample(fields_hint)},
+        sample_request={"default": _report_sample(fields_hint, with_selected_ids=with_selected_ids)},
         sample_response={"rows": [], "summary": {}, "page": _PAGE_RESPONSE_SAMPLE},
         inputs=inputs,
         use_cases=use_cases,
@@ -523,6 +655,7 @@ API_CATALOG: dict[str, ApiDefinition] = {
         use_cases=(
             "• Khách hỏi phim, gợi ý xem → keyword hoặc filterBy STATUS=NOW_SHOWING.\n"
             "• Phim chiếu tại rạp/ngày cụ thể → cinemaId + showtimeDate.\n"
+            "• Khách hỏi suất chiếu theo rạp → search_films_customer lấy các phim đang chiếu rồi bot gọi tiếp search_showtimes_by_film cho từng phim.\n"
             "• CUSTOMER ưu tiên API này thay search_films khi đã đăng nhập."
         ),
         purpose=(
@@ -545,9 +678,47 @@ API_CATALOG: dict[str, ApiDefinition] = {
             "• Admin tra cứu mọi trạng thái rạp.\n"
             "• Lấy cinemaId cho search_films_customer / search_showtimes_by_film / search_products_by_cinema."
         ),
+        inputs_override=(
+            ApiInputSpec(
+                "filmId",
+                "path",
+                "UUID phim â€” láº¥y tá»« káº¿t quáº£ search_films/search_films_customer, KHÃ”NG há»i khÃ¡ch.",
+                True,
+                "",
+            ),
+            ApiInputSpec(
+                "page",
+                "body",
+                "Sá»‘ trang (â‰¥1, máº·c Ä‘á»‹nh 1).",
+                False,
+                "1",
+            ),
+            ApiInputSpec(
+                "size",
+                "body",
+                f"Sá»‘ báº£n ghi má»—i trang (1â€“{MAX_API_LIST_SIZE}, máº·c Ä‘á»‹nh {MAX_API_LIST_SIZE}).",
+                False,
+                str(MAX_API_LIST_SIZE),
+            ),
+            ApiInputSpec(
+                "date",
+                "body",
+                "NgÃ y chiáº¿u báº¯t buá»™c (yyyy-MM-dd).",
+                True,
+                "2026-05-31",
+            ),
+            ApiInputSpec(
+                "cinemaId",
+                "body",
+                "UUID ráº¡p (tÃ¹y chá»n) â€” lá»c suáº¥t táº¡i ráº¡p Ä‘Ã³.",
+                False,
+                "",
+            ),
+        ),
         sample_request={
             "active": _page_sample(
-                filter_by=[{"field": "STATUS", "operator": "EQ", "value": "ACTIVE"}]
+                filter_by=[{"field": "STATUS", "operator": "EQ", "value": "ACTIVE"}],
+                sort_by=[{"field": "CREATED_AT", "direction": "ASC"}],
             )
         },
     ),
@@ -561,6 +732,12 @@ API_CATALOG: dict[str, ApiDefinition] = {
             "• Manager/Staff xem rạp mình phụ trách → keyword hoặc filterBy STATUS.\n"
             "• Dùng cinemaId từ đây cho search_films_customer / search_showtimes_by_film."
         ),
+        sample_request={
+            "managed_active": _page_sample(
+                filter_by=[{"field": "STATUS", "operator": "EQ", "value": "ACTIVE"}],
+                sort_by=[{"field": "CREATED_AT", "direction": "ASC"}],
+            )
+        },
     ),
     "search_halls": _make_page_search(
         "search_halls",
@@ -594,10 +771,16 @@ API_CATALOG: dict[str, ApiDefinition] = {
         "/showtimes/films/{filmId}/search",
         allowed_roles=ALL_USER_ROLES,
         fields_hint="(path filmId) + body: date (bắt buộc yyyy-MM-dd), cinemaId tùy chọn",
+        description=(
+            "POST tra cứu suất chiếu của một phim theo filmId trong path. "
+            "Body hợp lệ chỉ gồm page, size, date (bắt buộc yyyy-MM-dd) và cinemaId tùy chọn. "
+            "Không dùng keyword, filterBy, sortBy hay showtimeDate cho API này."
+        ),
         purpose="Tìm suất chiếu công khai của MỘT phim trong ngày (đặt vé) — cần filmId và date.",
         use_cases=(
             "• CUSTOMER/khách chọn phim + ngày xem → path filmId từ search_films/search_films_customer, body date.\n"
             "• Lọc suất tại một rạp → thêm cinemaId (UUID từ search_cinemas).\n"
+            "• Nếu khách chỉ nêu rạp mà không nêu phim, bot phải resolve danh sách phim trước rồi mới gọi API này cho từng filmId.\n"
             "• Không cần đăng nhập."
         ),
         path_params=("filmId",),
@@ -921,6 +1104,8 @@ def format_api_detail_for_prompt(api_id: str, user_role: str | None = None) -> s
         return f"Vai trò {role} không được gọi API {api_id}"
 
     use_cases_block = f"\nKhi nào dùng:\n{api.use_cases}\n" if api.use_cases else ""
+    contract_block = format_api_contract_for_prompt(api_id, role)
+    contract_block = f"\n{contract_block}\n" if contract_block else ""
     detail = (
         f"Giới hạn load: tối đa {MAX_API_LIST_SIZE} bản ghi/lần (field size).\n\n"
         f"api_id: {api.api_id}\n"
@@ -929,6 +1114,7 @@ def format_api_detail_for_prompt(api_id: str, user_role: str | None = None) -> s
         f"mô tả: {api.description}\n"
         f"{use_cases_block}"
         f"{_format_inputs(api.inputs)}\n"
+        f"{contract_block}"
         f"sample_request: {api.sample_request}\n"
         f"sample_response: {api.sample_response}"
     )

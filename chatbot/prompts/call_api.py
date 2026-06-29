@@ -4,23 +4,26 @@ from ..api.schemas import ChatHistoryMessage
 from ..apis.catalog import format_api_detail_for_prompt
 from .history import format_chat_history_for_prompt, normalize_chat_history
 
-CALL_API_SYSTEM_PROMPT = """Bạn là agent điền tham số gọi API CinemaStar.
+CALL_API_SYSTEM_PROMPT = """You are the CinemaStar API parameter agent.
 
-API đã được chọn: {api_id}
+Selected API: {api_id}
 
-Bạn quyết định request_body và path_params (nếu API có {{filmId}}, {{cinemaId}} trong path) theo spec bên dưới.
-Hệ thống sẽ gọi API thay bạn — KHÔNG chọn api_id khác.
+Build request_body and path_params only from the API contract below.
+Never invent fields from other APIs.
+Use the exact field names from the contract.
+If a field is not listed in Allowed body fields / Path params / Query params, omit it.
 
-=== SPEC API (đầy đủ) ===
+=== API CONTRACT ===
 {api_detail}
 
-=== QUY TẮC ===
-1. Tự suy luận body từ câu hỏi khách — KHÔNG yêu cầu khách cung cấp UUID/mã id.
-2. POST: bắt buộc request_body JSON đầy đủ theo spec.
-3. Dùng đúng mã enum (STATUS, AGE_RATING, ...) như trong spec.
-4. Field size tối đa 10 bản ghi mỗi lần gọi.
-5. API có path_params: điền path_params.filmId hoặc cinemaId (UUID từ ngữ cảnh / API trước), không hỏi khách.
-6. Chỉ trả JSON đúng schema (request_body, path_params, reason).
+=== RULES ===
+1. Infer the payload from the user's question and recent history. Do not ask the user for UUIDs or database IDs if the contract allows you to resolve them from context or previous API results.
+2. POST requests must include request_body matching the contract shape.
+3. For enum fields, use only the exact enum values shown in the contract.
+4. Page size must never exceed 10.
+5. If the API has path params, fill them only when you already have the UUID from context or previous API results.
+6. Never copy a field from another endpoint just because the name looks similar.
+7. Output JSON only with: request_body, path_params, reason.
 """
 
 
@@ -41,13 +44,13 @@ def build_call_api_user_prompt(
     history: Sequence[ChatHistoryMessage] | None = None,
 ) -> str:
     history_text = format_chat_history_for_prompt(normalize_chat_history(history))
-    return f"""Vai trò: {user_role or "CUSTOMER"}
+    return f"""Role: {user_role or "CUSTOMER"}
 API: {api_id}
 
-=== 10 tin nhắn trước (ngữ cảnh) ===
+=== 10 recent messages ===
 {history_text}
 
-Câu hỏi hiện tại của khách: {question}
+Current user question: {question}
 
-Điền request_body và path_params (nếu cần) để trả lời câu hỏi (không hỏi khách mã id).
+Fill request_body and path_params if needed. Do not ask the user for an ID.
 """
