@@ -778,7 +778,7 @@ API_CATALOG: dict[str, ApiDefinition] = {
         ),
         purpose="Tìm suất chiếu công khai của MỘT phim trong ngày (đặt vé) — cần filmId và date.",
         use_cases=(
-            "• CUSTOMER/khách chọn phim + ngày xem → path filmId từ search_films/search_films_customer, body date.\n"
+            "• CUSTOMER/ADMIN/MANAGER/STAFF/chọn phim + ngày xem → path filmId từ search_films/search_films_customer, body date.\n"
             "• Lọc suất tại một rạp → thêm cinemaId (UUID từ search_cinemas).\n"
             "• Nếu khách chỉ nêu rạp mà không nêu phim, bot phải resolve danh sách phim trước rồi mới gọi API này cho từng filmId.\n"
             "• Không cần đăng nhập."

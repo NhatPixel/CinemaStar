@@ -16,7 +16,7 @@ Task: read the customer question and choose exactly one api_id, or finish if no 
 3. Pure greetings or thanks -> action=finish, no API.
 4. Do not decide the request body here, only choose the API.
 5. Return valid JSON only.
-6. If CUSTOMER asks about showtimes:
+6. If CUSTOMER, ADMIN, MANAGER, or STAFF asks about showtimes:
    - If a movie title is present but filmId is not yet known, prefer search_films_customer/search_films first. Do not choose search_showtimes.
    - If only cinema/date is present and no movie title is given, prefer search_cinemas or search_films_customer first, then the orchestrator will call search_showtimes_by_film for each matched film.
 """

@@ -418,7 +418,7 @@ def _build_customer_showtime_facts(
     history: list[ChatHistoryMessage] | None = None,
 ) -> list[ApiCallRecord] | None:
     normalized = _normalize_text(question)
-    if user_role != "CUSTOMER":
+    if user_role not in {"CUSTOMER", "ADMIN", "MANAGER", "STAFF"}:
         return None
     if not any(token in normalized for token in ("suat chieu", "lich chieu", "co suat", "chieu", "showtime")):
         return None
@@ -427,7 +427,8 @@ def _build_customer_showtime_facts(
     film_title = _extract_contextual_film_title(question, history)
 
     logger.info(
-        "Customer showtime flow start question={} explicit_date={} cinema_keyword={} film_title={}",
+        "Showtime flow start role={} question={} explicit_date={} cinema_keyword={} film_title={}",
+        user_role,
         question,
         explicit_showtime_date.isoformat() if explicit_showtime_date else "-",
         cinema_keyword or "-",
@@ -455,7 +456,8 @@ def _build_customer_showtime_facts(
             )
             facts.append(cinema_record)
             logger.info(
-                "Customer showtime flow step=search_cinemas api_calls={} request={}",
+                "Showtime flow step=search_cinemas role={} api_calls={} request={}",
+                user_role,
                 len(facts),
                 cinema_record.request_summary,
             )
@@ -487,8 +489,9 @@ def _build_customer_showtime_facts(
         )
         facts.append(film_record)
         logger.info(
-            "Customer showtime flow step={} api_calls={} request={} film_items={}",
+            "Showtime flow step={} role={} api_calls={} request={} film_items={}",
             film_api_id,
+            user_role,
             len(facts),
             film_record.request_summary,
             len(_response_items(film_record)),
@@ -506,15 +509,16 @@ def _build_customer_showtime_facts(
             )
             facts.extend(showtime_records)
             logger.info(
-                "Customer showtime flow step=search_showtimes_by_film api_calls={} returned_records={}",
+                "Showtime flow step=search_showtimes_by_film role={} api_calls={} returned_records={}",
+                user_role,
                 len(facts),
                 len(showtime_records),
             )
 
         if not film_items:
-            logger.info("Customer showtime flow finished early because film search returned no items")
+            logger.info("Showtime flow finished early because film search returned no items role={}", user_role)
             return facts
-        logger.info("Customer showtime flow finished with api_calls={}", len(facts))
+        logger.info("Showtime flow finished with api_calls={} role={}", len(facts), user_role)
         return facts
 
     if not cinema_keyword:
@@ -537,7 +541,8 @@ def _build_customer_showtime_facts(
 
     facts = [cinema_record]
     logger.info(
-        "Customer showtime flow step=search_cinemas api_calls={} request={}",
+        "Showtime flow step=search_cinemas role={} api_calls={} request={}",
+        user_role,
         len(facts),
         cinema_record.request_summary,
     )
@@ -545,7 +550,7 @@ def _build_customer_showtime_facts(
     chosen_cinema = _pick_cinema_item(question, cinema_items)
     cinema_id = chosen_cinema.get("id") if chosen_cinema else None
     if not isinstance(cinema_id, str) or not cinema_id.strip():
-        logger.info("Customer showtime flow stopped because no valid cinema_id was resolved")
+        logger.info("Showtime flow stopped because no valid cinema_id was resolved role={}", user_role)
         return facts
 
     films_request_payload: dict[str, object] = {
@@ -566,7 +571,8 @@ def _build_customer_showtime_facts(
     )
     facts.append(films_record)
     logger.info(
-        "Customer showtime flow step=search_films_customer api_calls={} request={} film_items={}",
+        "Showtime flow step=search_films_customer role={} api_calls={} request={} film_items={}",
+        user_role,
         len(facts),
         films_record.request_summary,
         len(_response_items(films_record)),
@@ -583,12 +589,13 @@ def _build_customer_showtime_facts(
         )
         facts.extend(showtime_records)
         logger.info(
-            "Customer showtime flow step=search_showtimes_by_film api_calls={} returned_records={}",
+            "Showtime flow step=search_showtimes_by_film role={} api_calls={} returned_records={}",
+            user_role,
             len(facts),
             len(showtime_records),
         )
 
-    logger.info("Customer showtime flow finished with api_calls={}", len(facts))
+    logger.info("Showtime flow finished with api_calls={} role={}", len(facts), user_role)
     return facts
 
 
@@ -696,8 +703,9 @@ def run_chat(
         facts = special_facts
         finish_reason = "api_executed"
         logger.info(
-            "Special-case customer showtime flow executed with {} API call(s) api_ids={}",
+            "Special-case showtime flow executed with {} API call(s) role={} api_ids={}",
             len(facts),
+            role,
             [fact.api_id for fact in facts],
         )
     else:
